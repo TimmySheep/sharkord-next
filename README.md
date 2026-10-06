@@ -40,6 +40,24 @@ One unified Apple project, Swift + SwiftUI, sharing the Swift core that macOS wi
 APNs notifications, background behaviour. Doing macOS first makes this cheaper rather than later.
 Design and evidence: [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
 
+### 4. Apple Watch — native (declared, gated on a spike)
+
+A wrist-first push-to-talk client, and nothing more: **join** one voice channel, **tap to talk**, **hear the
+channel**, **leave**. No text, one channel at a time — the point is the form factor, because push-to-talk is
+the one kind of conversation where a watch beats a phone.
+
+**Declared as intent, not as a promise.** watchOS lets a third-party app use low-level networking only under
+narrow exceptions ([TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)),
+and the audio-streaming exception this design depends on carries an Apple-tracked defect
+(**FB24377808**, reported 2026-08): the network path is revoked about 36 seconds after an audio-session
+activation and does not restore itself, so the session has to be renewed on a timer. A community workaround
+exists — re-activate before the deadline and the revocation is rescheduled, in the reporter's measurements
+without disturbing the path or the open connection — but it has **not** been validated with real audio and
+has **not** been retested since watchOS 27 shipped. Whether a persistent voice session is defensible on
+watchOS is the first thing this project measures, **on real hardware, before any UI is written**. If the
+answer is no, this README will say so instead of shipping something that stutters every half minute.
+Design, primary-source evidence and the spike plan: [`docs/APPLE_WATCH.md`](docs/APPLE_WATCH.md)
+
 ### Not doing: Android
 
 A native Android client already exists — [`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android)
@@ -51,18 +69,19 @@ would duplicate a year of work, not advance anything.
 The three gaps in the web client (no service worker, no `viewport-fit=cover`, no iOS standalone meta) are
 **generic improvements to upstream's client**, and fixing them upstream benefits every self-hosted instance
 and every third-party client. So they are proposed in the original project instead of being carried here:
-see [Track 5](ROADMAP.md#track-5-upstream-collaboration).
+see [Track 6](ROADMAP.md#track-6-upstream-collaboration).
 
 ### Also on the list: direct (P2P) voice
 
 All media is server-relayed today, so a self-hoster's uplink is the ceiling. A direct path for 1:1 calls,
-with the relayed path as the fallback, is [Track 4](ROADMAP.md#track-4-direct-p2p-voice).
+with the relayed path as the fallback, is [Track 5](ROADMAP.md#track-5-direct-p2p-voice).
 
 | Platform | Decision | Why |
 | --- | --- | --- |
 | **macOS** (native, Swift) | **Build** — priority 1 | Unclaimed; existing desktop clients are Electron wrappers |
 | **Windows** (native, WinUI 3) | **Build** — priority 2 | Unclaimed; text first, voice gated on a spike |
 | **iPhone + iPad** (native, Swift) | **Build** — priority 3 | Unclaimed; shares the Swift core macOS needs anyway |
+| **Apple Watch** (native, Swift) | **Declared** — gated on a spike | Wrist push-to-talk is where a voice channel becomes a walkie-talkie; watchOS networking limits are unresolved |
 | **Android** | **Do not build** | A native Kotlin/Compose client already exists |
 | **PWA / mobile web** | **Propose upstream** | Generic improvement; upstream serves every instance |
 | **Web client** | Keep as the reference client | It is the compatibility baseline for every client here |
@@ -71,14 +90,15 @@ with the relayed path as the fallback, is [Track 4](ROADMAP.md#track-4-direct-p2
 
 **Foundation stage.** This repository is currently a faithful fork of upstream `Sharkord/sharkord`
 at commit `c611bb4` (6 commits past `v0.0.25`), with the full upstream history preserved. No
-behavioural changes have been made yet — what you see on the `development` branch is upstream code.
-Like upstream, it is **alpha**: expect bugs, incomplete features and breaking changes.
+behavioural changes have been made on the server or the reference web client — that code is upstream's.
+The native clients under [`apps/`](apps/) are this project's own additions. Like upstream, everything is
+**alpha**: expect bugs, incomplete features and breaking changes.
 
 | Area | State |
 | --- | --- |
 | Server (`apps/server`) | Upstream code, unmodified. Builds and runs; **1458 server tests pass**. |
 | Reference web client (`apps/client`) | Upstream code, unmodified. Builds and runs (Vite 7.3.1). |
-| Native clients | **Not started.** Designs are written; see the plan above. |
+| Native clients | **Started.** macOS and Windows client sources are in [`apps/`](apps/) (state per client in its README); Apple Watch is declared and gated on a spike — see above. |
 | Documentation | Architecture, RTC, ecosystem and native-strategy research live in [`docs/`](docs/). |
 
 ## What the server already does
@@ -213,6 +233,7 @@ English is the primary language; Chinese translations sit next to each document 
 | [`docs/RTC_ARCHITECTURE.md`](docs/RTC_ARCHITECTURE.md) | How media actually flows, mediasoup lifecycle, and where a P2P path would plug in | [中文](docs/RTC_ARCHITECTURE.zh-CN.md) |
 | [`docs/ECOSYSTEM_RESEARCH.md`](docs/ECOSYSTEM_RESEARCH.md) | Which clients already exist, what upstream ships, PWA/mobile-web audit | [中文](docs/ECOSYSTEM_RESEARCH.zh-CN.md) |
 | [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) | Shared-core decision and the macOS / Windows / iOS designs | [中文](docs/NATIVE_STRATEGY.zh-CN.md) |
+| [`docs/APPLE_WATCH.md`](docs/APPLE_WATCH.md) | Why an Apple Watch client, what watchOS allows, the open Apple defect that gates it, and the spike plan | [中文](docs/APPLE_WATCH.zh-CN.md) |
 
 Upstream's own documentation (still accurate for this codebase) is at
 <https://sharkord.com/docs>, and its local developer notes remain in [`DEVELOPMENT.md`](DEVELOPMENT.md).

@@ -31,36 +31,44 @@ C# + WinUI 3，原生。先做文字。**语音要先过可行性验证**，因�
 统一的一个 Apple 工程，Swift + SwiftUI，复用 macOS 那边本来就要写的 Swift 核心。语音、APNs 通知、后台行为。**先做 macOS 会让这一步更省而不是更晚。**
 设计与依据：[`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
 
+### 4. Apple Watch 原生（已声明，需先过可行性验证）
+
+一个只做**腕上对讲机**的客户端：**进入**一个语音频道、**按住说话**、**听到频道**、**退出**。不做文字，一次只在一个频道 —— 重点就是形态本身，因为按键说话（push-to-talk）是唯一一种"手表比手机更顺手"的通话方式。
+
+**这是"已声明的意图"，不是承诺。** watchOS 只允许第三方 App 在极窄的例外条件下使用低层网络（[TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)），而本设计依赖的"音频流例外"目前带着一个 Apple 已登记在案的缺陷（**FB24377808**，报告于 2026-08）：音频会话激活后约 36 秒网络路径被收回、不会自行恢复，所以必须**定时续期**才能把连接握着。社区里已经有一个绕过办法 —— 在到期前重新激活，收回就会被重新排程（据报告者实测，且不打断路径与已建立的连接）—— 但它**没有在真实音频下验证过**，也**没有在 watchOS 27 发布后复测过**。因此在 watchOS 上能否维持一个持续的语音会话，是本项目要**先在真机上量出来的第一件事 —— 在任何 UI 动手之前**。如果答案是"不行"，我们会直接写在这个 README 里，而不是发布一个每半分钟卡一次的东西。
+设计与一手证据、验证计划：[`docs/APPLE_WATCH.zh-CN.md`](docs/APPLE_WATCH.zh-CN.md)
+
 ### 不做：Android
 
 Kotlin 原生客户端**已经存在** —— [`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android)（Kotlin + Jetpack Compose，MIT，已实现文字、私信、语音、视频、屏幕共享）。再写一个等于重复别人一年的工作，不推进任何事。
 
 ### 不做：本仓库不做 PWA / 移动端网页
 
-网页客户端的三处缺口（没有 service worker、没有 `viewport-fit=cover`、没有 iOS standalone meta）是**上游客户端的通用改进**。改在上游，**所有自建实例和所有第三方客户端都受益**；改在这里，只有我们受益。所以我们把它**向上游提议**，不在这里自己做：见 [Track 5](ROADMAP.zh-CN.md)。
+网页客户端的三处缺口（没有 service worker、没有 `viewport-fit=cover`、没有 iOS standalone meta）是**上游客户端的通用改进**。改在上游，**所有自建实例和所有第三方客户端都受益**；改在这里，只有我们受益。所以我们把它**向上游提议**，不在这里自己做：见 [Track 6](ROADMAP.zh-CN.md)。
 
 ### 另外还有：P2P 直连语音
 
-目前**所有媒体都经服务器转发**，所以自建者的上行带宽就是天花板。为 1:1 通话提供直连路径（服务器转发作为兜底）属于 [Track 4](ROADMAP.zh-CN.md)。
+目前**所有媒体都经服务器转发**，所以自建者的上行带宽就是天花板。为 1:1 通话提供直连路径（服务器转发作为兜底）属于 [Track 5](ROADMAP.zh-CN.md)。
 
 | 平台 | 决定 | 理由 |
 | --- | --- | --- |
 | **macOS**（原生，Swift） | **做** —— 第一优先 | 无人占位；现有桌面端全是 Electron 套壳 |
 | **Windows**（原生，WinUI 3） | **做** —— 第二 | 无人占位；先文字，语音过验证 |
 | **iPhone + iPad**（原生，Swift） | **做** —— 第三 | 无人占位；复用 macOS 本来就要写的 Swift 核心 |
+| **Apple Watch**（原生，Swift） | **已声明** —— 需先过验证 | 腕上按键说话是"语音频道变成对讲机"的形态；watchOS 的网络限制尚未解决 |
 | **Android** | **不做** | 已有 Kotlin/Compose 原生客户端 |
 | **PWA / 移动端网页** | **向上游提议** | 通用改进，改在上游才能惠及所有实例 |
 | **网页客户端** | 保留，作为参考客户端 | 它是所有客户端的兼容基线 |
 
 ## 当前状态
 
-**地基阶段。** 本仓库目前是上游 `Sharkord/sharkord` 的忠实副本，基线提交 `c611bb4`（`v0.0.25` 之后 6 个提交），**完整保留了上游的 git 历史**。目前**还没有做任何行为改动** —— `development` 分支上的内容就是上游代码。和上游一样处于 **alpha**：会有 bug、未完成功能和破坏性变更。
+**地基阶段。** 本仓库目前是上游 `Sharkord/sharkord` 的忠实副本，基线提交 `c611bb4`（`v0.0.25` 之后 6 个提交），**完整保留了上游的 git 历史**。服务端与参考网页客户端**没有做任何行为改动** —— 那部分就是上游代码；[`apps/`](apps/) 下的原生客户端是本项目自己的新增内容。和上游一样，整体处于 **alpha**：会有 bug、未完成功能和破坏性变更。
 
 | 部分 | 状态 |
 | --- | --- |
 | 服务端（`apps/server`） | 上游代码，未改动。可构建、可运行；**1458 个服务端测试通过** |
 | 参考网页客户端（`apps/client`） | 上游代码，未改动。可构建、可运行（Vite 7.3.1） |
-| 原生客户端 | **尚未开始**，设计文档已写好，见上面的计划 |
+| 原生客户端 | **已开始** —— macOS 与 Windows 的客户端源码已在 [`apps/`](apps/) 下（状态见各自的 README）；Apple Watch 已声明，需先过可行性验证（见上） |
 | 文档 | 架构、RTC、生态调研、原生策略四份都在 [`docs/`](docs/) |
 
 ## 服务端已经具备的能力
@@ -168,6 +176,7 @@ bun run test
 | [`docs/RTC_ARCHITECTURE.zh-CN.md`](docs/RTC_ARCHITECTURE.zh-CN.md) | 媒体实际怎么流动、mediasoup 生命周期、P2P 该从哪里切入 | [English](docs/RTC_ARCHITECTURE.md) |
 | [`docs/ECOSYSTEM_RESEARCH.zh-CN.md`](docs/ECOSYSTEM_RESEARCH.zh-CN.md) | 已有客户端现状、上游动态、PWA / 移动端网页审计 | [English](docs/ECOSYSTEM_RESEARCH.md) |
 | [`docs/NATIVE_STRATEGY.zh-CN.md`](docs/NATIVE_STRATEGY.zh-CN.md) | 共享核心的选型，以及 macOS / Windows / iOS 的工程设计 | [English](docs/NATIVE_STRATEGY.md) |
+| [`docs/APPLE_WATCH.zh-CN.md`](docs/APPLE_WATCH.zh-CN.md) | 为什么要做 Apple Watch 客户端、watchOS 允许什么、卡住它的 Apple 缺陷、以及验证计划 | [English](docs/APPLE_WATCH.md) |
 
 上游自己的文档（对本代码库仍然适用）在 <https://sharkord.com/docs>；上游的本地开发笔记保留在 [`DEVELOPMENT.md`](DEVELOPMENT.md)。写代码时的代码规约以 [`AGENTS.md`](AGENTS.md) 为准。
 

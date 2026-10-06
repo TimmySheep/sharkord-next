@@ -11,7 +11,8 @@ was written against the actual source at `c611bb4`.
 1. **macOS, native** — Swift + SwiftUI, no Electron.
 2. **Windows, native** — C# + WinUI 3, text first, voice gated on a spike.
 3. **iPhone + iPad, native** — one Apple project, sharing the Swift core macOS needs anyway.
-4. Direct (P2P) voice, then self-hosting quality, in parallel with the native work.
+4. **Apple Watch, native** — declared; a wrist push-to-talk client, gated on a feasibility spike.
+5. Direct (P2P) voice, then self-hosting quality, in parallel with the native work.
 
 **Not on this list, on purpose:** Android (a native client already exists) and PWA/mobile-web work in this
 fork (proposed upstream instead). Details below.
@@ -31,7 +32,7 @@ Status legend: **✅ done** · **🔜 next** · **🧪 needs a spike** · **📋
 | Not doing | Why |
 | --- | --- |
 | **A second Android client** | A real native one already exists and is MIT: Kotlin + Jetpack Compose, with voice, video, screen share and DMs ([`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android)). A rewrite duplicates a year of work. |
-| **PWA / mobile-web work in this fork** | The three web-client gaps are generic improvements to upstream's client. Fixed upstream, every self-hosted instance and third-party client benefits; fixed here, only we do. Proposed upstream in [Track 5](#track-5-upstream-collaboration). |
+| **PWA / mobile-web work in this fork** | The three web-client gaps are generic improvements to upstream's client. Fixed upstream, every self-hosted instance and third-party client benefits; fixed here, only we do. Proposed upstream in [Track 6](#track-6-upstream-collaboration). |
 | **An Electron desktop client** | Roughly a dozen thin Electron wrappers already exist. A native client is the differentiator; a wrapper is not. |
 | **A plugin sandbox / runtime rewrite** | Upstream's plugin model is deliberate (trusted, in-process, capability-gated). Replacing it breaks every existing plugin for no user-visible gain. |
 | **Diverging the wire protocol** | Every third-party client depends on tRPC-over-WebSocket + mediasoup signalling as it exists. A fork that invents its own protocol is unusable by the ecosystem it wants to attract. |
@@ -73,7 +74,29 @@ Doing macOS first is deliberate: both are Swift, so the core written for Track 1
 rewritten. Documented constraints worth reading before starting: a recording session cannot be started
 from the background on iOS, and `playAndRecord` is pre-empted by incoming calls.
 
-## Track 4 — Direct (P2P) voice
+## Track 4 — Apple Watch, native (declared fourth)
+
+A wrist-first push-to-talk client: join one voice channel, tap to talk, hear the channel, leave. No text,
+one channel at a time. Declared as intent — **not** as a feature promise, because the platform question
+below is unanswered and its answer decides whether this ships at all.
+
+| Item | Status |
+| --- | --- |
+| W1: **watchOS networking spike on real hardware** — on a current watchOS, does a single audio-session activation get revoked ~36 s later (Apple defect **FB24377808**), does timer-based renewal hold a session through an hour of real two-way audio, and what does that cost in battery | 🧪 |
+| W2: architecture decision — a server-side ingest bridge (mediasoup `PlainTransport`, the same path FFmpeg/GStreamer sources use) versus a WebRTC stack on the watch, including the transport-encryption consequence either way | 🧪 |
+| W3: minimal client — join, push-to-talk, leave, against a real server | 📋 |
+| Decide whether the client can exist at all, and record the answer here either way | 🧪 |
+
+Why the watch at all: push-to-talk is the one kind of conversation where a watch beats a phone, and Apple
+discontinued its own Walkie-Talkie in watchOS 27. That removal does not help third parties — the system app
+ran as a FaceTime-Audio VoIP service, never through the third-party networking exception. The constraints
+are documented with primary sources in [`docs/APPLE_WATCH.md`](docs/APPLE_WATCH.md): watchOS grants
+low-level networking only for audio streaming, VoIP + CallKit, or tvOS pairing (TN3135); the Push to Talk
+framework and the `pushtotalk` push type do not exist on watchOS; the simulator always permits low-level
+networking, so only real hardware counts; and the known revocation has a community workaround that is still
+unvalidated with real audio.
+
+## Track 5 — Direct (P2P) voice
 
 Today *all* media is relayed through the server SFU (`routed, not mixed`), so an N-person channel costs
 the host N−1 upstream streams ([RTC](docs/RTC_ARCHITECTURE.md)). For 1:1 calls that is pure overhead.
@@ -87,7 +110,7 @@ the host N−1 upstream streams ([RTC](docs/RTC_ARCHITECTURE.md)). For 1:1 calls
 The concrete change surface (signalling, permissions, server media abstraction, client media layer, ICE)
 is listed with `file:line` evidence in [`docs/RTC_ARCHITECTURE.md` §7](docs/RTC_ARCHITECTURE.md).
 
-## Track 5 — Upstream collaboration
+## Track 6 — Upstream collaboration
 
 | Item | Status |
 | --- | --- |
@@ -100,7 +123,7 @@ is listed with `file:line` evidence in [`docs/RTC_ARCHITECTURE.md` §7](docs/RTC
 Rule of thumb: if a change benefits everyone who self-hosts or writes a client, it belongs upstream. Only
 things that are specific to this project's own direction are carried here.
 
-## Track 6 — Self-hosting quality
+## Track 7 — Self-hosting quality
 
 | Item | Status |
 | --- | --- |
@@ -115,6 +138,7 @@ Proposals are welcome as issues. A roadmap item is only promoted to work when it
 `docs/` is strong enough to describe the change surface — that is the bar this project set for itself, and
 it is why the `docs/` set was written before any code was touched.
 
-Milestone numbering here reflects the priority order above (macOS before Windows before iOS). The designs
+Milestone numbering here reflects the priority order above (macOS before Windows before iOS before
+watchOS). The designs
 in [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) still apply; only the ordering of the native
 tracks was changed.

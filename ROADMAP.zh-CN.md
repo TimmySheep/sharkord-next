@@ -9,7 +9,8 @@
 1. **macOS，原生** — Swift + SwiftUI，不使用 Electron。
 2. **Windows，原生** — C# + WinUI 3，先做文本，语音需通过可行性验证（spike）后才推进。
 3. **iPhone + iPad，原生** — 一个 Apple 项目，复用 macOS 本来就需要的那套 Swift 核心。
-4. 直连（P2P）语音，然后是自托管质量，与原生开发工作并行推进。
+4. **Apple Watch，原生** — 已声明；腕上按键说话客户端，需先过可行性验证。
+5. 直连（P2P）语音，然后是自托管质量，与原生开发工作并行推进。
 
 **有意不在本列表中：** Android（已存在原生客户端）以及本 fork 中的 PWA/移动 Web 工作（改为向上游提议）。详见下文。
 
@@ -28,7 +29,7 @@
 | 不做 | 原因 |
 | --- | --- |
 | **第二个 Android 客户端** | 已经有一个真正的原生客户端，且采用 MIT 许可：Kotlin + Jetpack Compose，支持语音、视频、屏幕共享和私信（[`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android)）。重写等于重复一年的工作。 |
-| **本 fork 中的 PWA / 移动 Web 工作** | 这三个 Web 客户端的缺口都是对上游客户端的通用改进。在上游修复，所有自托管实例和第三方客户端都能受益；在这里修复，只有我们受益。已在 [Track 5](#track-5-upstream-collaboration) 向上游提议。 |
+| **本 fork 中的 PWA / 移动 Web 工作** | 这三个 Web 客户端的缺口都是对上游客户端的通用改进。在上游修复，所有自托管实例和第三方客户端都能受益；在这里修复，只有我们受益。已在 [Track 6](#track-6-upstream-collaboration) 向上游提议。 |
 | **Electron 桌面客户端** | 大约已经有十几个轻量的 Electron 套壳。原生客户端才是差异点；套壳不是。 |
 | **插件沙箱 / 运行时重写** | 上游的插件模型是刻意设计的（受信任、进程内、按能力授权）。替换它会破坏所有现有插件，而用户感知不到任何收益。 |
 | **让线路协议（wire protocol）产生分歧** | 每个第三方客户端都依赖现有的 tRPC-over-WebSocket + mediasoup 信令。一个自创协议的 fork，无法被它想吸引的生态所使用。 |
@@ -65,7 +66,20 @@
 
 先做 macOS 是刻意的：两者都用 Swift，因此为 Track 1 编写的核心会被复用而非重写。开工前值得一读的已记录约束：在 iOS 上录音会话无法从后台启动，且 `playAndRecord` 会被来电抢占。
 
-## Track 4 — 直连（P2P）语音
+## Track 4 — Apple Watch 原生（声明为第四）
+
+一个只做腕上对讲机的客户端：进入一个语音频道、按住说话、听到频道、退出。不做文字，一次只在一个频道。这是**已声明的意图**，**不是**功能承诺 —— 因为下面那个平台问题还没有答案，而答案决定它到底能不能做出来。
+
+| 项目 | 状态 |
+| --- | --- |
+| W1：**在真机上的 watchOS 网络可行性验证** —— 在当前的 watchOS 上，单次音频会话激活是否约 36 秒后被收回（Apple 缺陷 **FB24377808**）；定时续期能否用真实双向音频撑住一小时；以及这要付出多少耗电代价 | 🧪 |
+| W2：架构决定 —— 服务端接入桥（mediasoup `PlainTransport`，也就是 FFmpeg/GStreamer 音源走的那条路）对比在手表上跑 WebRTC 栈，并记录两种选择各自的传输加密后果 | 🧪 |
+| W3：最小客户端 —— 进入、按键说话、退出，对接真实服务器 | 📋 |
+| 判断这个客户端到底能否存在，并把结论（无论哪种）记录在此 | 🧪 |
+
+为什么值得为手表单开一条线：按键说话是唯一一种手表胜过手机的通话方式，而 Apple 已在 watchOS 27 撤掉了自家的 Walkie-Talkie。但撤掉它对第三方**没有帮助** —— 系统版是以 FaceTime Audio 的 VoIP 服务运行的，从来没走第三方那条例外。相关限制连同**一手来源**记录在 [`docs/APPLE_WATCH.zh-CN.md`](docs/APPLE_WATCH.zh-CN.md)：watchOS 只在音频流、VoIP + CallKit、tvOS 配对三种情况下允许低层网络（TN3135）；Push to Talk 框架与 `pushtotalk` 推送类型在 watchOS 上都不存在；模拟器永远放行低层网络，所以只有真机数据算数；而已知的那次收回虽然有社区绕过办法，但尚未在真实音频下验证。
+
+## Track 5 — 直连（P2P）语音
 
 目前*所有*媒体都通过服务器 SFU 转发（`routed, not mixed`），因此一个 N 人频道会消耗主机 N−1 路上行流（[RTC](docs/RTC_ARCHITECTURE.md)）。对 1 对 1 通话而言，这纯属额外开销。
 
@@ -77,7 +91,7 @@
 
 具体的改动面（信令、权限、服务器媒体抽象、客户端媒体层、ICE）连同 `file:line` 证据列于 [`docs/RTC_ARCHITECTURE.md` §7](docs/RTC_ARCHITECTURE.md)。
 
-## Track 5 — 与上游协作
+## Track 6 — 与上游协作
 
 | 项目 | 状态 |
 | --- | --- |
@@ -89,7 +103,7 @@
 
 经验法则：如果一项改动能惠及所有自托管者或客户端开发者，它就属于上游。只有专属于本项目自身方向的东西才在本仓库维护。
 
-## Track 6 — 自托管质量
+## Track 7 — 自托管质量
 
 | 项目 | 状态 |
 | --- | --- |
@@ -102,4 +116,4 @@
 
 欢迎通过 issue 提出建议。只有当某项路线图条目在 `docs/` 中的证据部分足够充分、能够描述出改动面时，它才会被提升为待办工作——这是本项目为自己设定的门槛，也正是为什么在任何代码被改动之前，就先写好了那套 `docs/`。
 
-此处的里程碑编号反映上文的优先级顺序（macOS 先于 Windows，Windows 先于 iOS）。[`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) 中的设计仍然适用；改变的只是各原生 Track 的先后顺序。
+此处的里程碑编号反映上文的优先级顺序（macOS 先于 Windows，Windows 先于 iOS，iOS 先于 watchOS）。[`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) 中的设计仍然适用；改变的只是各原生 Track 的先后顺序。
