@@ -23,8 +23,10 @@ apps/windows/
     Models.cs
     MessageHtml.cs
     SharkordSession.cs           # login -> handshake -> join -> state + live subscriptions
+    I18n/L10n.cs                 # locale lookup, embedded tables, {{placeholder}} interpolation
+    I18n/locales/<lang>/         # windows.json + connect.json, 10 languages
   src/Sharkord.App/              # WinUI 3 shell (Windows-only, not built here)
-  tests/Sharkord.Core.Tests/     # wire-format unit tests + a gated integration test
+  tests/Sharkord.Core.Tests/     # wire-format + i18n unit tests, a gated integration test
 ```
 
 ## Build
@@ -62,7 +64,7 @@ SHARKORD_IT_HOST=127.0.0.1:4992 dotnet test --filter LoginJoinSendAndReceive
 
 ## What works today (verified)
 
-`Sharkord.Core` builds clean and its tests pass with `dotnet test` on macOS (12 tests, two of
+`Sharkord.Core` builds clean and its tests pass with `dotnet test` on macOS (48 tests, two of
 them end to end against a real server):
 
 - tRPC WebSocket framing: `connectionParams` first frame, `?connectionParams=1`, one
@@ -76,6 +78,12 @@ them end to end against a real server):
 - Live subscriptions for messages, users, channels, categories, emojis, roles, server
   settings, read states and DM conversation opens.
 - Reconnect with the `[1, 2, 4, 8, 8]s` backoff.
+- Localisation: 10 languages (`en`, `de`, `es`, `fr`, `it`, `cs`, `ru`, `zh`, `zh-Hant`,
+  `pt-BR`) with the same key layout the macOS client uses. The `windows` namespace holds the
+  seven labels the WinUI shell needs; `identityLabel`, `passwordLabel` and `connectBtn` are
+  read from the shared `connect` namespace instead of being copied. The tables are embedded
+  in `Sharkord.Core.dll`, and `L10nTests` scans the window source so a hardcoded english
+  label or a renamed key fails the suite instead of surfacing as raw text at runtime.
 
 `Sharkord.App` is a conventional WinUI 3 shell (connect form, channel list, message list,
 composer) wired to `SharkordSession`. It **compiles clean on Windows** (0 warnings, 0 errors).

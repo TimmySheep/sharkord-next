@@ -1,0 +1,20 @@
+{
+  "tagline": "與網頁版用戶端連線到同一套伺服器，使用 tRPC 與 WebSocket。",
+  "selectChannel": "選擇一個頻道",
+  "moveUp": "上移",
+  "moveDown": "下移",
+  "loadEarlierMessages": "載入較早的訊息",
+  "returnToPresent": "回到最新",
+  "searchTruncated": "搜尋結果已截斷",
+  "searchPlaceholder": "搜尋訊息和檔案",
+  "typeAtLeast2": "請至少輸入 2 個字元",
+  "noChannels": "沒有頻道",
+  "joinVoice": "加入語音",
+  "voiceNoPermission": "你沒有加入語音頻道的權限",
+  "voiceMediaMissing": "語音已連上伺服器，但此版本尚無法傳送音訊或視訊。",
+  "pinnedBadge": "已釘選",
+  "searchButton": "搜尋",
+  "membersButton": "成員",
+  "settingsButton": "設定",
+  "saveButton": "儲存"
+}

@@ -16,15 +16,15 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Center">
             <TextBlock Text="Sharkord" FontSize="28" FontWeight="Bold" />
-            <TextBlock Text="Native Windows client" Opacity="0.6" />
-            <TextBox x:Name="HostBox" Header="Server address" PlaceholderText="localhost:4991" />
-            <TextBox x:Name="IdentityBox" Header="Identity" />
-            <PasswordBox x:Name="PasswordBox" Header="Password" />
-            <PasswordBox x:Name="ServerPasswordBox" Header="Server password (optional)" />
-            <TextBox x:Name="InviteBox" Header="Invite code (optional)" />
+            <TextBlock x:Name="TaglineText" Opacity="0.6" />
+            <!-- the placeholder shows a host:port example, so it stays untranslated -->
+            <TextBox x:Name="HostBox" PlaceholderText="localhost:4991" />
+            <TextBox x:Name="IdentityBox" />
+            <PasswordBox x:Name="PasswordBox" />
+            <PasswordBox x:Name="ServerPasswordBox" />
+            <TextBox x:Name="InviteBox" />
             <Button
                 x:Name="ConnectButton"
-                Content="Connect"
                 Style="{StaticResource AccentButtonStyle}"
                 Click="OnConnectClick" />
             <ProgressRing x:Name="ConnectProgress" IsActive="False" />
@@ -78,11 +78,10 @@
                     </Grid.ColumnDefinitions>
                     <TextBox
                         x:Name="ComposerBox"
-                        PlaceholderText="Message"
                         KeyDown="OnComposerKeyDown" />
                     <Button
+                        x:Name="SendButton"
                         Grid.Column="1"
-                        Content="Send"
                         Style="{StaticResource AccentButtonStyle}"
                         Click="OnSendClick" />
                 </Grid>

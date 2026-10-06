@@ -55,8 +55,8 @@ macOS 其中 6 个、Windows Core 其中 2 个是打**真实服务器**的端到
 | 实时表情/角色/服务器设置/邀请/插件 | `emojis.*` / `roles.*` / `others.onServerSettingsUpdate` / `invites.*` / `plugins.*` | ✅ | 事件消费 ✅ |
 | 在线状态 + 成员分组 | 用户事件 + `status` | ✅ | ✅ |
 | 断线重连（固定退避 + 重新加入） | `[1,2,4,8,8]s` | ✅ | ✅ |
-| i18n（8 语言 × 8 命名空间） | 与 `apps/client/src/i18n/locales` 同源打包 | ✅ | — |
-| UI 文案全走 i18n（无硬编码英文） | 另有原生专属 `macos` 命名空间，8 语言齐备 | ✅ | — |
+| i18n（10 语言 × 9 命名空间） | 与 `apps/client/src/i18n/locales` 同源打包，另补 `de` / `zh-Hant` | ✅ | 基础层 ✅（10 语言 × 2 命名空间） |
+| UI 文案全走 i18n（无硬编码英文） | 另有原生专属 `macos` / `windows` 命名空间，10 语言齐备 | ✅ | ✅ |
 
 协议细节集中在单一位置，并由逐字节单测固定：macOS 是 `TRPCProtocol.swift` / `TRPCWebSocketClient.swift`，
 Windows 是 `TrpcProtocol.cs` / `TrpcWebSocketClient.cs`。消息 HTML 的解析与生成在 macOS
@@ -167,9 +167,77 @@ cd apps/macos && swift run SharkordMac
 
 ## 四、依赖与工具链
 
-- macOS：Xcode 27 / Swift 6.4（本机已有，直接复用）。无第三方 Swift 依赖；i18n 资源是
-  `apps/client/src/i18n/locales` 的逐字节拷贝，放在 `apps/macos/Resources/locales`。
+- macOS：Xcode 27 / Swift 6.4（本机已有，直接复用）。无第三方 Swift 依赖；i18n 资源在
+  `apps/macos/Resources/locales`，其中 8 种语言来自 `apps/client/src/i18n/locales` 的逐字节拷贝，
+  `de` 与 `zh-Hant` 是原生侧自有的（网页端目前没有这两种）。
 - Windows Core：.NET SDK 8.0（本机用官方 `dotnet-install.sh` 装到 `~/.dotnet`，无需 sudo）。
   `Sharkord.App` 另需 Windows App SDK（由 NuGet 还原，无需单独安装 Windows SDK）；实际构建是在一台
   Windows 11 机器上用官方 `dotnet-install.ps1` 装 .NET SDK 8.0.425 到 `%USERPROFILE%\.dotnet` 完成的。
 - 两者都不进入 Bun workspace：`apps/macos` 与 `apps/windows` 下没有 `package.json`，`bun.lock` 不受影响。
+
+---
+
+## 五、多语言
+
+两端原生客户端都走同一套 i18n 表，语言集合一致，共 **10 种**：
+
+| 代号 | 显示名 | 要求 |
+|---|---|---|
+| `zh` | 简体中文 | 必须 |
+| `zh-Hant` | 繁體中文 | 必须 |
+| `en` | English | 必须 |
+| `fr` | Français | 必须 |
+| `es` | Español | 必须 |
+| `it` | Italiano | 必须 |
+| `de` | Deutsch | 必须 |
+| `cs` | Čeština | 随网页端保留 |
+| `ru` | Русский | 随网页端保留 |
+| `pt-BR` | Português | 随网页端保留 |
+
+后 3 种是网页端已有的，保留下来不额外花成本，需要精简时改两处
+`supportedLanguages` 数组即可（`L10n.swift` 与 `L10n.cs`）。
+
+### 覆盖范围
+
+- **macOS**：9 个命名空间 × 10 语言，共 938 键/语言，含原生专属 `macos` 命名空间（18 键）。
+- **Windows**：2 个命名空间 × 10 语言。`windows` 命名空间 7 条是 WinUI 壳专有文案
+  （标语、服务器地址、服务器密码、邀请码、输入框占位、发送、系统消息作者），
+  另 3 条（`identityLabel` / `passwordLabel` / `connectBtn`）与网页端同名同义，直接读共享的
+  `connect` 命名空间，不复制一份免得将来漂移。
+
+Windows 的译表**内嵌在 `Sharkord.Core.dll`** 里（`EmbeddedResource`），不靠输出目录拷贝，
+也没有运行时路径要解析。注意 MSBuild 会把资源名里的 `-` 改写成 `_`（`pt-BR` → `pt_BR`、
+`zh-Hant` → `zh_Hant`），`L10n.OpenTable` 按尾部匹配资源名绕开这一点。
+
+### 修掉的漏英文
+
+审计发现 6 个键**在代码里真被引用**（网页端 + macOS 都用），却只有英文有，其余语言会直接显示英文：
+
+`common.typeAMessage`、`common.messageChannel`、`settings.simulcastLabel`、`settings.simulcastDesc`、
+`sidebar.simulcastLayer`、`sidebar.simulcastLayers`
+
+`cs` / `es` / `fr` / `it` / `ru` / `zh` / `zh-Hant` 共 7 种语言缺，已补齐 42 条译文。
+同样缺失的 36 条也补进了 `apps/client/src/i18n/locales`（`zh-Hant` 网页端没有），
+这样将来按旧流程「网页端 → macOS 重刷」不会把补丁冲掉。
+
+反向还有 11 个**零引用**的残留键（`ru` 的 9 个 security 键、`fr` / `ru` 的 2 个
+`EXECUTE_PLUGIN_COMMANDS` 权限键），代码里查不到任何消费点，暂留不动，属于上游清理项。
+
+### 语言判定
+
+- macOS：`Locale.preferredLanguages` 精确匹配，再两字母回落，最后 `en`。中文单独处理，
+  `zh-Hant` / `zh-TW` / `zh-HK` / `zh-MO` 落繁体，其余中文落简体。
+  不这么做的话繁体用户会被两字母回落打到简体表。
+- Windows：`CultureInfo.CurrentUICulture`，同样的中文规则，`pt` 归到 `pt-BR`。
+
+### 测试
+
+- macOS：`LocaleParityTests`（5）固定命名空间齐备与 UI 键存在性，`L10nTests`（10）固定查找、
+  复数、占位符、回落与语言清单。合计 swift-testing 27 + XCTest 15 全过。
+- Windows：`L10nTests`（17）固定译表齐备、占位符、回落、语言清单，并扫描
+  `MainWindow.xaml` 确认没有硬编码文案、扫描 C# 调用点确认每个键都有定义。
+  Windows 机器编译不了的场景由这两个扫描兜住。`dotnet test` 48/48 全过。
+
+回落到英文的行为以前靠「某语言恰好缺某个键」当测试夹具，现在补齐后夹具没了，
+改用 `L10n` 的测试接缝（Swift `overrideStrings` / C# `OverrideStrings`）显式构造，
+不再需要故意留一个不完整的语系表。

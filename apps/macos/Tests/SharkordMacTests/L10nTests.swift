@@ -11,6 +11,7 @@ final class L10nTests: XCTestCase {
     }
 
     override func tearDown() {
+        L10n.resetStringsCache()
         L10n.language = originalLanguage
         super.tearDown()
     }
@@ -49,20 +50,45 @@ final class L10nTests: XCTestCase {
     }
 
     func testMissingTranslationFallsBackToEnglish() {
-        // messageChannel exists in english but not in cs or zh
-        L10n.language = "cs"
-        XCTAssertEqual(L10n.t("messageChannel", ["name": "general"]), "Message \"general\"")
-        L10n.language = "zh"
-        XCTAssertEqual(L10n.t("typeAMessage"), "Type a message...")
+        // translations land after the english strings, so a language is briefly behind. the
+        // seam reproduces that state instead of shipping a locale that is deliberately
+        // incomplete, which is what this used to rely on.
+        L10n.overrideStrings(["knownKey": "Kennzahl"], language: "de", ns: "common")
+        L10n.language = "de"
+
+        XCTAssertEqual(L10n.t("knownKey"), "Kennzahl")
+        XCTAssertEqual(L10n.t("cancel"), "Cancel", "a key the table does not carry falls back to english")
+
+        L10n.resetStringsCache()
     }
 
     func testSupportedLanguages() {
-        XCTAssertEqual(L10n.supportedLanguages.count, 8)
+        XCTAssertEqual(L10n.supportedLanguages.count, 10)
         XCTAssertEqual(
             L10n.supportedLanguages.map(\.code),
-            ["en", "cs", "es", "fr", "it", "ru", "zh", "pt-BR"]
+            ["en", "de", "es", "fr", "it", "cs", "ru", "zh", "zh-Hant", "pt-BR"]
         )
-        XCTAssertTrue(L10n.supportedLanguages.contains { $0.code == "pt-BR" })
+        // the two chinese tables must stay distinguishable in the language picker
+        XCTAssertEqual(L10n.supportedLanguages.first { $0.code == "zh" }?.nativeName, "简体中文")
+        XCTAssertEqual(L10n.supportedLanguages.first { $0.code == "zh-Hant" }?.nativeName, "繁體中文")
+    }
+
+    func testEverySupportedLanguageIsActuallyTranslated() {
+        // de and zh-Hant are the two that were added by hand rather than copied from the web
+        // client, so pin a few of their strings to prove the tables are really loaded
+        L10n.language = "de"
+        XCTAssertEqual(L10n.t("cancel"), "Abbrechen")
+        XCTAssertEqual(L10n.t("connectBtn", ns: "connect"), "Verbinden")
+        XCTAssertEqual(L10n.t("tagline", ns: "macos"), "Verbindet sich über tRPC und WebSocket mit demselben Server wie der Web-Client.")
+
+        L10n.language = "zh-Hant"
+        XCTAssertEqual(L10n.t("cancel"), "取消")
+        XCTAssertEqual(L10n.t("typeAMessage"), "輸入訊息...")
+        XCTAssertEqual(L10n.t("simulcastLabel", ns: "settings"), "聯播")
+
+        // the key that used to leak english on every non-en table
+        L10n.language = "zh"
+        XCTAssertEqual(L10n.t("messageChannel", ["name": "general"]), "消息「general」")
     }
 
     func testLocaleResourcesLoadedFromBundle() {

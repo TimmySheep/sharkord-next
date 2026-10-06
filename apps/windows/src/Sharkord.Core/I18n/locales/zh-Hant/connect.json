@@ -1,0 +1,26 @@
+{
+  "identityLabel": "帳號",
+  "identityHelp": "這是你在此伺服器上帳號的唯一識別碼。你可以使用任何喜歡的內容，例如電子郵件地址或使用者名稱。這些資訊不會公開分享。",
+  "passwordLabel": "密碼",
+  "autoLoginLabel": "自動登入",
+  "insecureTitle": "不安全的連線",
+  "insecureDesc": "你正透過不安全的連線 (HTTP) 存取伺服器。預設情況下，瀏覽器會阻止不安全的來源存取攝影機、麥克風等媒體裝置。這表示透過 HTTP 連線到伺服器時，你將無法使用視訊或語音聊天功能。如果你是伺服器管理員，可以依照說明文件中的指示設定 HTTPS。",
+  "connectBtn": "連線",
+  "registrationDisabled": "目前已停用新使用者註冊。如果你還沒有帳號，需要由既有使用者邀請才能加入此伺服器。",
+  "invitedTitle": "你受邀加入此伺服器",
+  "inviteCode": "邀請碼：{{code}}",
+  "connectError": "連線失敗：{{message}}",
+  "oidcBtn": "使用 SSO 登入",
+  "oidcCompleting": "正在完成登入",
+  "oidcError": {
+    "access_denied": "你的身分提供者拒絕了此次登入。",
+    "invalid_state": "無法驗證此登入請求，請重試。",
+    "expired": "此登入請求已過期，請重試。",
+    "rate_limited": "登入嘗試次數過多，請稍後再試。",
+    "registration_closed": "此伺服器不接受新的註冊。請聯絡管理員為你建立帳號。",
+    "server_error": "登入時發生問題，請重試。"
+  },
+  "loggingInAutomatically": "正在自動登入...",
+  "loadingApp": "正在載入 Sharkord",
+  "loadingPlugins": "正在載入外掛"
+}

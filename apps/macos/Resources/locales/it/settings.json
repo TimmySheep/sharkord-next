@@ -141,6 +141,8 @@
   "allowNewUsersDesc": "Consenti a chiunque di registrarsi e unirsi al server. Se disabilitato, potranno entrare solo gli utenti invitati.",
   "pluginsLabel": "Plugin",
   "pluginsDesc": "Abilita o disabilita i plugin del server.",
+  "simulcastLabel": "Simulcast",
+  "simulcastDesc": "Consente agli utenti di inviare più livelli di qualità video così che i destinatari possano adattarsi a connessioni più deboli. Questo aumenterà la larghezza di banda e l'uso della CPU sul server, ma può migliorare l'esperienza degli utenti con connessioni più lente.",
   "directMessagesEnabledLabel": "Messaggi diretti",
   "directMessagesEnabledDesc": "Consenti agli utenti di inviarsi messaggi diretti. Se disabilitato, potranno comunicare solo nei canali.",
   "searchEnabledLabel": "Ricerca",

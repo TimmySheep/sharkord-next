@@ -5,14 +5,18 @@ import Foundation
 /// semantics: dotted keys address nested objects and `key_one` / `key_other` are the
 /// plural variants selected by a `count` argument.
 public enum L10n {
+    // de and zh-Hant are native-only today: the web client does not ship them. everything
+    // else is kept in step with apps/client/src/i18n/locales by re-copying that tree.
     public static let supportedLanguages: [(code: String, nativeName: String)] = [
         (code: "en", nativeName: "English"),
-        (code: "cs", nativeName: "Čeština"),
+        (code: "de", nativeName: "Deutsch"),
         (code: "es", nativeName: "Español"),
         (code: "fr", nativeName: "Français"),
         (code: "it", nativeName: "Italiano"),
+        (code: "cs", nativeName: "Čeština"),
         (code: "ru", nativeName: "Русский"),
-        (code: "zh", nativeName: "中文"),
+        (code: "zh", nativeName: "简体中文"),
+        (code: "zh-Hant", nativeName: "繁體中文"),
         (code: "pt-BR", nativeName: "Português")
     ]
 
@@ -77,11 +81,20 @@ public enum L10n {
     }
 
     // matches the web client's detection: exact code first so "pt-BR" is reachable at all,
-    // then the two-letter prefix, then english
+    // then the two-letter prefix, then english. chinese is special because zh-Hant is a
+    // script and not a region: without this a zh-TW or zh-HK machine falls through to the
+    // two-letter rule and lands on the simplified table.
     private static let detectedLanguage: String = {
         for preferred in Locale.preferredLanguages {
             if supportedLanguages.contains(where: { $0.code == preferred }) {
                 return preferred
+            }
+            if preferred.hasPrefix("zh") {
+                let isTraditional = preferred.hasPrefix("zh-Hant")
+                    || preferred.hasSuffix("-TW")
+                    || preferred.hasSuffix("-HK")
+                    || preferred.hasSuffix("-MO")
+                return isTraditional ? "zh-Hant" : "zh"
             }
             let twoLetter = preferred.split(separator: "-").first.map(String.init) ?? preferred
             if supportedLanguages.contains(where: { $0.code == twoLetter }) {
@@ -129,6 +142,18 @@ public enum L10n {
     // namespace and t() can run for every visible row of a message list
     private static var stringsCache: [String: [String: String]] = [:]
 
+    /// test seam: installs a partial table so the english fallback can be asserted without
+    /// shipping a locale that is deliberately incomplete. the app never calls this.
+    static func overrideStrings(_ strings: [String: String], language: String, ns: String) {
+        stringsCache["\(language)/\(ns)"] = strings
+    }
+
+    /// test seam: drops everything the seam above installed, so one test cannot leak a
+    /// table into the next.
+    static func resetStringsCache() {
+        stringsCache = [:]
+    }
+
     private static func strings(language: String, ns: String) -> [String: String] {
         let cacheKey = "\(language)/\(ns)"
         if let cached = stringsCache[cacheKey] {
@@ -161,12 +186,14 @@ public enum L10n {
 
     private static let localeIdentifiers: [String: String] = [
         "en": "en_US",
-        "cs": "cs_CZ",
+        "de": "de_DE",
         "es": "es_ES",
         "fr": "fr_FR",
         "it": "it_IT",
+        "cs": "cs_CZ",
         "ru": "ru_RU",
         "zh": "zh_CN",
+        "zh-Hant": "zh_TW",
         "pt-BR": "pt_BR"
     ]
 

@@ -1,0 +1,11 @@
+{
+  "kicked": "你已被踢出",
+  "banned": "你已被封鎖",
+  "connectionLost": "連線中斷",
+  "noReasonProvided": "未提供原因。",
+  "lostConnectionMessage": "與伺服器的連線意外中斷。",
+  "goToConnectScreen": "前往連線頁面",
+  "details": "詳細資訊",
+  "code": "代碼：{{code}}",
+  "time": "時間：{{time}}"
+}

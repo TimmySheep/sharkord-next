@@ -1,0 +1,9 @@
+{
+  "tagline": "Windows 原生用戶端",
+  "serverAddress": "伺服器位址",
+  "serverPassword": "伺服器密碼（選填）",
+  "inviteCode": "邀請碼（選填）",
+  "messagePlaceholder": "訊息",
+  "send": "傳送",
+  "systemUser": "系統"
+}

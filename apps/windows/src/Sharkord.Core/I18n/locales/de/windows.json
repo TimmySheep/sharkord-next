@@ -1,0 +1,9 @@
+{
+  "tagline": "Nativer Windows-Client",
+  "serverAddress": "Serveradresse",
+  "serverPassword": "Serverpasswort (optional)",
+  "inviteCode": "Einladungscode (optional)",
+  "messagePlaceholder": "Nachricht",
+  "send": "Senden",
+  "systemUser": "System"
+}

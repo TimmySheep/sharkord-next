@@ -1,0 +1,18 @@
+{
+  "closeVoiceChat": "Sprachchat schließen",
+  "openVoiceChat": "Sprachchat öffnen",
+  "closeMembersSidebar": "Mitgliederleiste schließen",
+  "openMembersSidebar": "Mitgliederleiste öffnen",
+  "searchContent": "Nach Inhalten suchen...",
+  "voiceOptions": "Sprachchat-Optionen",
+  "hideNonVideoParticipants": "Teilnehmer ohne Video ausblenden",
+  "displayUserBanners": "Benutzerbanner anzeigen",
+  "alwaysShowVoiceControls": "Sprachsteuerung immer anzeigen",
+  "hideOwnScreenShare": "Eigene Bildschirmfreigabe ausblenden",
+  "audioControls": "Audiosteuerung",
+  "stream_one": "Stream",
+  "stream_other": "Streams",
+  "noRemoteAudioStreams": "Keine entfernten Audiostreams verfügbar.",
+  "volumeControls": "Lautstärkeregelung",
+  "externalAudio": "Externes Audio"
+}

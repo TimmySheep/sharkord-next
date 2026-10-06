@@ -1,0 +1,9 @@
+{
+  "tagline": "Windows 原生客户端",
+  "serverAddress": "服务器地址",
+  "serverPassword": "服务器密码（可选）",
+  "inviteCode": "邀请码（可选）",
+  "messagePlaceholder": "消息",
+  "send": "发送",
+  "systemUser": "系统"
+}

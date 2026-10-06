@@ -1,0 +1,9 @@
+{
+  "tagline": "Нативный клиент для Windows",
+  "serverAddress": "Адрес сервера",
+  "serverPassword": "Пароль сервера (необязательно)",
+  "inviteCode": "Код приглашения (необязательно)",
+  "messagePlaceholder": "Сообщение",
+  "send": "Отправить",
+  "systemUser": "Система"
+}

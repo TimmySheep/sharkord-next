@@ -13,4 +13,10 @@
     <InternalsVisibleTo Include="Sharkord.Core.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- embedded so the tables travel inside the assembly: no output-copy step to get wrong
+         and no path to resolve at runtime. the layout mirrors apps/macos/Resources/locales. -->
+    <EmbeddedResource Include="I18n/locales/**/*.json" />
+  </ItemGroup>
+
 </Project>

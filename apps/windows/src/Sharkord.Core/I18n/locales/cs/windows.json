@@ -1,0 +1,9 @@
+{
+  "tagline": "Nativní Windows klient",
+  "serverAddress": "Adresa serveru",
+  "serverPassword": "Heslo serveru (volitelné)",
+  "inviteCode": "Kód pozvánky (volitelný)",
+  "messagePlaceholder": "Zpráva",
+  "send": "Odeslat",
+  "systemUser": "Systém"
+}

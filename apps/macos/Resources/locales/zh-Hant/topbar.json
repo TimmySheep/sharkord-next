@@ -1,0 +1,18 @@
+{
+  "closeVoiceChat": "關閉語音聊天",
+  "openVoiceChat": "開啟語音聊天",
+  "closeMembersSidebar": "關閉成員側邊欄",
+  "openMembersSidebar": "開啟成員側邊欄",
+  "searchContent": "搜尋內容...",
+  "voiceOptions": "語音選項",
+  "hideNonVideoParticipants": "隱藏未開啟視訊的參與者",
+  "displayUserBanners": "顯示使用者橫幅",
+  "alwaysShowVoiceControls": "始終顯示語音控制項",
+  "hideOwnScreenShare": "隱藏自己的螢幕分享",
+  "audioControls": "音訊控制項",
+  "stream_one": "路串流",
+  "stream_other": "路串流",
+  "noRemoteAudioStreams": "沒有遠端音訊串流。",
+  "volumeControls": "音量控制項",
+  "externalAudio": "外部音訊"
+}

@@ -1,0 +1,20 @@
+{
+  "tagline": "Verbindet sich über tRPC und WebSocket mit demselben Server wie der Web-Client.",
+  "selectChannel": "Kanal auswählen",
+  "moveUp": "Nach oben verschieben",
+  "moveDown": "Nach unten verschieben",
+  "loadEarlierMessages": "Frühere Nachrichten laden",
+  "returnToPresent": "Zurück zu den neuesten Nachrichten",
+  "searchTruncated": "Suche gekürzt",
+  "searchPlaceholder": "Nachrichten und Dateien durchsuchen",
+  "typeAtLeast2": "Mindestens 2 Zeichen eingeben",
+  "noChannels": "Keine Kanäle",
+  "joinVoice": "Sprachchat beitreten",
+  "voiceNoPermission": "Du kannst keine Sprachkanäle betreten",
+  "voiceMediaMissing": "Die Sprachverbindung zum Server steht, aber diese Version unterstützt noch keine Audio- oder Videoübertragung.",
+  "pinnedBadge": "Angeheftet",
+  "searchButton": "Suche",
+  "membersButton": "Mitglieder",
+  "settingsButton": "Einstellungen",
+  "saveButton": "Speichern"
+}

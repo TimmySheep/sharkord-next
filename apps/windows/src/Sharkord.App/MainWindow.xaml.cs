@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Sharkord.Core;
+using Sharkord.Core.I18n;
 using Windows.System;
 
 namespace Sharkord.App;
@@ -21,7 +22,31 @@ public sealed partial class MainWindow : Window
         ChannelList.ItemsSource = _channels;
         MessageList.ItemsSource = _messages;
 
+        ApplyLocalisation();
+        L10n.LanguageChanged += ApplyLocalisation;
+        Closed += (_, _) => L10n.LanguageChanged -= ApplyLocalisation;
+
         _session.Changed += OnSessionChanged;
+    }
+
+    /// <summary>
+    /// every user-facing literal in this window is assigned here, so a language change only
+    /// has to re-run this one method. see <see cref="I18n.L10n"/> for the tables.
+    /// </summary>
+    private void ApplyLocalisation()
+    {
+        TaglineText.Text = L10n.T("tagline", ns: "windows");
+        HostBox.Header = L10n.T("serverAddress", ns: "windows");
+        IdentityBox.Header = L10n.T("identityLabel", ns: "connect");
+        PasswordBox.Header = L10n.T("passwordLabel", ns: "connect");
+        ServerPasswordBox.Header = L10n.T("serverPassword", ns: "windows");
+        InviteBox.Header = L10n.T("inviteCode", ns: "windows");
+        ConnectButton.Content = L10n.T("connectBtn", ns: "connect");
+        ComposerBox.PlaceholderText = L10n.T("messagePlaceholder", ns: "windows");
+        SendButton.Content = L10n.T("send", ns: "windows");
+
+        // messages embed the localised system author name, so they have to be rebuilt too
+        Refresh();
     }
 
     private void OnSessionChanged()
@@ -59,7 +84,8 @@ public sealed partial class MainWindow : Window
             {
                 var author = message.UserId is { } userId ? _session.User(userId)?.Name : null;
                 var text = MessageHtml.ToPlainText(message.Content ?? "");
-                _messages.Add($"{(author ?? "System")}: {text}");
+                var byline = author ?? L10n.T("systemUser", ns: "windows");
+                _messages.Add($"{byline}: {text}");
             }
         }
     }
