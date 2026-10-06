@@ -1,0 +1,20 @@
+{
+  "tagline": "Conecta-se ao mesmo servidor do cliente web por tRPC e WebSocket.",
+  "selectChannel": "Selecione um canal",
+  "moveUp": "Mover para cima",
+  "moveDown": "Mover para baixo",
+  "loadEarlierMessages": "Carregar mensagens anteriores",
+  "returnToPresent": "Voltar ao presente",
+  "searchTruncated": "Resultados da busca truncados",
+  "searchPlaceholder": "Buscar mensagens e arquivos",
+  "typeAtLeast2": "Digite pelo menos 2 caracteres",
+  "noChannels": "Nenhum canal",
+  "joinVoice": "Entrar na voz",
+  "voiceNoPermission": "Você não pode entrar em canais de voz",
+  "voiceMediaMissing": "A sinalização de voz está conectada, mas esta versão ainda não transmite áudio nem vídeo.",
+  "pinnedBadge": "Fixado",
+  "searchButton": "Buscar",
+  "membersButton": "Membros",
+  "settingsButton": "Configurações",
+  "saveButton": "Salvar"
+}

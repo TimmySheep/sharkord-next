@@ -20,25 +20,47 @@ public final class SharkordSession: ObservableObject {
         public let invite: String?
     }
 
-    @Published public private(set) var phase: Phase = .disconnected
-    @Published public private(set) var serverInfo: SharkordServerInfo?
-    @Published public private(set) var serverName: String = ""
-    @Published public private(set) var categories: [SharkordCategory] = []
-    @Published public private(set) var channels: [SharkordChannel] = []
-    @Published public private(set) var users: [SharkordUser] = []
-    @Published public private(set) var roles: [SharkordRole] = []
-    @Published public private(set) var emojis: [SharkordEmoji] = []
-    @Published public private(set) var settings: SharkordSettings?
+    // MARK: observable state
+
+    @Published public internal(set) var phase: Phase = .disconnected
+    @Published public internal(set) var serverInfo: SharkordServerInfo?
+    @Published public internal(set) var serverId: String = ""
+    @Published public internal(set) var serverName: String = ""
+    @Published public internal(set) var categories: [SharkordCategory] = []
+    @Published public internal(set) var channels: [SharkordChannel] = []
+    @Published public internal(set) var users: [SharkordUser] = []
+    @Published public internal(set) var roles: [SharkordRole] = []
+    @Published public internal(set) var emojis: [SharkordEmoji] = []
+    @Published public internal(set) var settings: SharkordSettings?
     @Published public internal(set) var directMessages: [DirectMessageConversation] = []
-    @Published public private(set) var ownUserId: Int = 0
-    @Published public private(set) var selectedChannelId: Int?
-    @Published public private(set) var messagesByChannel: [Int: [SharkordMessage]] = [:]
-    @Published public private(set) var hasMoreOlderByChannel: [Int: Bool] = [:]
-    @Published public private(set) var isLoadingMore: Set<Int> = []
-    @Published public private(set) var unreadByChannel: [Int: Int] = [:]
-    @Published public private(set) var typingByChannel: [Int: [Int: Date]] = [:]
-    @Published public private(set) var replyCounts: [Int: Int] = [:]
-    @Published public private(set) var lastError: String?
+    @Published public internal(set) var ownUserId: Int = 0
+    @Published public internal(set) var ownUserPasswordSet = false
+    @Published public internal(set) var showWelcomeDialog = false
+    @Published public internal(set) var channelPermissions: ChannelPermissionsMap = .init(entries: [:])
+    @Published public internal(set) var voiceMap: VoiceMap = .init(entries: [:])
+    @Published public internal(set) var externalStreamsMap: ExternalStreamsMap = .init(entries: [:])
+    @Published public internal(set) var pluginCommands: PluginCommandsMap = .init(entries: [:])
+    @Published public internal(set) var pluginIdsWithComponents: [String] = []
+    @Published public internal(set) var pluginCapabilityAccess: [PluginCapabilityAccessRule] = []
+    @Published public internal(set) var pluginsMetadata: [PluginMetadata] = []
+    @Published public internal(set) var pluginLogs: [PluginLogEntry] = []
+
+    @Published public internal(set) var selectedChannelId: Int?
+    @Published public internal(set) var messagesByChannel: [Int: [SharkordMessage]] = [:]
+    @Published public internal(set) var hasMoreOlderByChannel: [Int: Bool] = [:]
+    @Published public internal(set) var hasNewerByChannel: [Int: Bool] = [:]
+    @Published public internal(set) var isLoadingMore: Set<Int> = []
+    @Published public internal(set) var unreadByChannel: [Int: Int] = [:]
+    @Published public internal(set) var typingByChannel: [Int: [Int: Date]] = [:]
+    @Published public internal(set) var replyCounts: [Int: Int] = [:]
+    @Published public internal(set) var pinnedByChannel: [Int: [SharkordMessage]] = [:]
+    @Published public internal(set) var threadMessages: [Int: [SharkordMessage]] = [:]
+    @Published public internal(set) var voiceReactions: [VoiceReactionEvent] = []
+    @Published public internal(set) var producersByChannel: [Int: [VoiceProducerEvent]] = [:]
+    @Published public internal(set) var pluginPushes: [PluginPushEvent] = []
+    @Published public internal(set) var lastError: String?
+
+    // MARK: plumbing
 
     private(set) var http: SharkordHTTPClient?
     private(set) var client: TRPCWebSocketClient?
@@ -89,14 +111,81 @@ public final class SharkordSession: ObservableObject {
         users.first { $0.id == id }
     }
 
+    public func role(for id: Int) -> SharkordRole? {
+        roles.first { $0.id == id }
+    }
+
+    public func emoji(named name: String) -> SharkordEmoji? {
+        emojis.first { $0.name == name }
+    }
+
     public func publicFileURL(for file: SharkordFile) -> URL? {
         http?.publicFileURL(for: file)
     }
 
+    /// Resolves a server relative path (`/public/emoji/12`) or an absolute url, which is
+    /// what message html carries for custom emoji and link previews.
+    public func url(forPath path: String) -> URL? {
+        if let absolute = URL(string: path), absolute.scheme != nil {
+            return absolute
+        }
+
+        guard let base = http?.baseURL else {
+            return nil
+        }
+
+        return URL(string: path, relativeTo: base)?.absoluteURL
+    }
+
+    /// The origin of the connected server, for invite links and share buttons.
+    public var serverBaseURL: URL? {
+        http?.baseURL
+    }
+
+    // MARK: - permissions
+
+    /// The union of the viewer's role permissions.
+    public func hasPermission(_ permission: Permission) -> Bool {
+        guard let ownUser, let roleIds = ownUser.roleIds else {
+            return false
+        }
+
+        return roleIds.contains { roleId in
+            role(for: roleId)?.allows(permission) ?? false
+        }
+    }
+
+    /// Effective channel permissions the server computed for the viewer.
+    public func hasChannelPermission(_ channelId: Int, _ permission: ChannelPermission) -> Bool {
+        if let entry = channelPermissions[channelId] {
+            return entry.allows(permission)
+        }
+
+        // dm channels carry no explicit permission rows and are always usable
+        return channel(for: channelId)?.isDm ?? false
+    }
+
+    public var canManageUsers: Bool { hasPermission(.manageUsers) }
+    public var canManageChannels: Bool { hasPermission(.manageChannels) }
+    public var canManageRoles: Bool { hasPermission(.manageRoles) }
+    public var canManageEmojis: Bool { hasPermission(.manageEmojis) }
+    public var canManageCategories: Bool { hasPermission(.manageCategories) }
+    public var canManageSettings: Bool { hasPermission(.manageSettings) }
+    public var canManageStorage: Bool { hasPermission(.manageStorage) }
+    public var canManageInvites: Bool { hasPermission(.manageInvites) }
+    public var canManageMessages: Bool { hasPermission(.manageMessages) }
+    public var canManagePlugins: Bool { hasPermission(.managePlugins) }
+
+    /// The owner role cannot be touched by anyone who is not an owner.
+    public func isOwner() -> Bool {
+        ownUser?.roleIds?.contains(ProtocolDefaults.ownerRoleId) ?? false
+    }
+
+    // MARK: - message presentation helpers
+
     /// Reactions of a message grouped into one chip per emoji.
     public func reactionGroups(for message: SharkordMessage) -> [ReactionGroup] {
         let reactions = message.reactions ?? []
-
         var grouped: [String: (count: Int, mine: Bool, file: SharkordFile?)] = [:]
 
         for reaction in reactions {
@@ -125,6 +214,41 @@ public final class SharkordSession: ObservableObject {
 
     public func replyCount(for message: SharkordMessage) -> Int {
         replyCounts[message.id] ?? message.replyCount ?? 0
+    }
+
+    public func pinnedMessages(in channelId: Int) -> [SharkordMessage] {
+        pinnedByChannel[channelId] ?? []
+    }
+
+    public func threadMessages(for parentMessageId: Int) -> [SharkordMessage] {
+        threadMessages[parentMessageId] ?? []
+    }
+
+    /// Users currently connected to a voice channel.
+    public func voiceUsers(in channelId: Int) -> [(user: SharkordUser, state: VoiceUserState)] {
+        guard let channelUsers = voiceMap[channelId] else {
+            return []
+        }
+
+        return channelUsers
+            .states()
+            .compactMap { userId, state in
+                user(for: userId).map { (user: $0, state: state) }
+            }
+            .sorted { $0.user.name.lowercased() < $1.user.name.lowercased() }
+    }
+
+    public func isInVoice(_ channelId: Int) -> Bool {
+        voiceMap[channelId]?.users.keys.contains(String(ownUserId)) ?? false
+    }
+
+    /// The channel the viewer is currently in, if any.
+    public var currentVoiceChannelId: Int? {
+        for (channelId, channelUsers) in voiceMap.entries where channelUsers.users.keys.contains(String(ownUserId)) {
+            return channelId
+        }
+
+        return nil
     }
 
     // MARK: - connect
@@ -197,6 +321,7 @@ public final class SharkordSession: ObservableObject {
         credentials = nil
         http = nil
         serverInfo = nil
+        serverId = ""
         serverName = ""
         categories = []
         channels = []
@@ -206,12 +331,25 @@ public final class SharkordSession: ObservableObject {
         settings = nil
         directMessages = []
         ownUserId = 0
+        ownUserPasswordSet = false
+        showWelcomeDialog = false
+        channelPermissions = .init(entries: [:])
+        voiceMap = .init(entries: [:])
+        externalStreamsMap = .init(entries: [:])
+        pluginCommands = .init(entries: [:])
+        pluginIdsWithComponents = []
+        pluginCapabilityAccess = []
+        pluginsMetadata = []
+        pluginLogs = []
         selectedChannelId = nil
         messagesByChannel = [:]
         hasMoreOlderByChannel = [:]
+        hasNewerByChannel = [:]
         unreadByChannel = [:]
         typingByChannel = [:]
         replyCounts = [:]
+        pinnedByChannel = [:]
+        threadMessages = [:]
         cursors = [:]
         loadedChannels = []
         phase = .disconnected
@@ -260,7 +398,17 @@ public final class SharkordSession: ObservableObject {
         emojis = join.emojis ?? []
         settings = join.publicSettings
         ownUserId = join.ownUserId
+        ownUserPasswordSet = join.ownUserPasswordSet ?? true
+        showWelcomeDialog = join.showWelcomeDialog ?? false
+        serverId = join.serverId
         serverName = join.serverName
+        channelPermissions = join.channelPermissions ?? .init(entries: [:])
+        voiceMap = join.voiceMap ?? .init(entries: [:])
+        externalStreamsMap = join.externalStreamsMap ?? .init(entries: [:])
+        pluginCommands = join.commands ?? .init(entries: [:])
+        pluginIdsWithComponents = join.pluginIdsWithComponents ?? []
+        pluginCapabilityAccess = join.pluginCapabilityAccess ?? []
+        pluginsMetadata = join.pluginsMetadata ?? []
 
         if let readStates = join.readStates {
             unreadByChannel = readStates.reduce(into: [:]) { result, entry in
@@ -280,6 +428,7 @@ public final class SharkordSession: ObservableObject {
     private func startSubscriptions(client: TRPCWebSocketClient) {
         subscriptionTasks.forEach { $0.cancel() }
 
+        // messages
         subscribe(client, "messages.onNew") { [weak self] value in
             guard let message = try? value.decode(SharkordMessage.self) else { return }
             self?.upsert(message, markUnread: message.userId != self?.ownUserId)
@@ -291,8 +440,8 @@ public final class SharkordSession: ObservableObject {
         }
 
         subscribe(client, "messages.onDelete") { [weak self] value in
-            guard let channelId = value["channelId"]?.intValue, let messageId = value["messageId"]?.intValue else { return }
-            self?.removeMessage(id: messageId, channelId: channelId)
+            guard let event = try? value.decode(MessageDeleteEvent.self) else { return }
+            self?.removeMessage(id: event.messageId, channelId: event.channelId)
         }
 
         subscribe(client, "messages.onTyping") { [weak self] value in
@@ -305,6 +454,7 @@ public final class SharkordSession: ObservableObject {
             self?.replyCounts[update.messageId] = update.replyCount
         }
 
+        // users
         subscribe(client, "users.onJoin") { [weak self] value in
             guard let user = try? value.decode(SharkordUser.self) else { return }
             self?.upsert(user: user, online: true)
@@ -329,13 +479,11 @@ public final class SharkordSession: ObservableObject {
         }
 
         subscribe(client, "users.onDelete") { [weak self] value in
-            if let userId = value.intValue {
-                self?.removeUser(userId)
-            } else if let userId = value["id"]?.intValue {
-                self?.removeUser(userId)
-            }
+            guard let event = try? value.decode(UserDeleteEvent.self) else { return }
+            self?.removeUser(event.deletedUserId)
         }
 
+        // channels
         subscribe(client, "channels.onCreate") { [weak self] value in
             guard let channel = try? value.decode(SharkordChannel.self) else { return }
             self?.upsert(channel: channel)
@@ -352,6 +500,11 @@ public final class SharkordSession: ObservableObject {
             }
         }
 
+        subscribe(client, "channels.onPermissionsUpdate") { [weak self] value in
+            guard let map = try? value.decode(ChannelPermissionsMap.self) else { return }
+            self?.channelPermissions = map
+        }
+
         subscribe(client, "channels.onReadStateUpdate") { [weak self] value in
             guard let update = try? value.decode(ReadStateUpdate.self) else { return }
             self?.unreadByChannel[update.channelId] = update.count
@@ -362,6 +515,7 @@ public final class SharkordSession: ObservableObject {
             self?.applyUnreadDelta(channelId: delta.channelId, delta: delta.delta)
         }
 
+        // categories
         subscribe(client, "categories.onCreate") { [weak self] value in
             guard let category = try? value.decode(SharkordCategory.self) else { return }
             self?.upsert(category: category)
@@ -378,6 +532,7 @@ public final class SharkordSession: ObservableObject {
             }
         }
 
+        // emojis
         subscribe(client, "emojis.onCreate") { [weak self] value in
             guard let emoji = try? value.decode(SharkordEmoji.self) else { return }
             self?.upsert(emoji: emoji)
@@ -394,6 +549,7 @@ public final class SharkordSession: ObservableObject {
             }
         }
 
+        // roles
         subscribe(client, "roles.onCreate") { [weak self] value in
             guard let role = try? value.decode(SharkordRole.self) else { return }
             self?.upsert(role: role)
@@ -410,13 +566,95 @@ public final class SharkordSession: ObservableObject {
             }
         }
 
+        // server settings
         subscribe(client, "others.onServerSettingsUpdate") { [weak self] value in
             guard let settings = try? value.decode(SharkordSettings.self) else { return }
             self?.settings = settings
         }
 
+        // dms
         subscribe(client, "dms.onConversationOpen") { [weak self] value in
             Task { await self?.loadDirectMessagesQuietly() }
+        }
+
+        // voice
+        subscribe(client, "voice.onJoin") { [weak self] value in
+            guard let event = try? value.decode(VoiceJoinEvent.self) else { return }
+            self?.applyVoiceJoin(event)
+        }
+
+        subscribe(client, "voice.onLeave") { [weak self] value in
+            guard let event = try? value.decode(VoiceLeaveEvent.self) else { return }
+            self?.applyVoiceLeave(event)
+        }
+
+        subscribe(client, "voice.onUpdateState") { [weak self] value in
+            guard let event = try? value.decode(VoiceJoinEvent.self) else { return }
+            self?.applyVoiceJoin(event)
+        }
+
+        subscribe(client, "voice.onMoved") { [weak self] value in
+            guard let event = try? value.decode(VoiceMovedEvent.self) else { return }
+            self?.applyVoiceMoved(event)
+        }
+
+        subscribe(client, "voice.onReaction") { [weak self] value in
+            guard let event = try? value.decode(VoiceReactionEvent.self) else { return }
+            self?.voiceReactions.append(event)
+        }
+
+        subscribe(client, "voice.onNewProducer") { [weak self] value in
+            guard let event = try? value.decode(VoiceProducerEvent.self) else { return }
+            self?.upsertProducer(event)
+        }
+
+        subscribe(client, "voice.onProducerClosed") { [weak self] value in
+            guard let event = try? value.decode(VoiceProducerEvent.self) else { return }
+            self?.removeProducer(event)
+        }
+
+        subscribe(client, "voice.onAddExternalStream") { [weak self] value in
+            self?.applyExternalStream(value)
+        }
+
+        subscribe(client, "voice.onUpdateExternalStream") { [weak self] value in
+            self?.applyExternalStream(value)
+        }
+
+        subscribe(client, "voice.onRemoveExternalStream") { [weak self] value in
+            guard let event = try? value.decode(VoiceExternalStreamEvent.self), let streamId = event.streamId else { return }
+            self?.removeExternalStream(channelId: event.channelId, streamId: streamId)
+        }
+
+        // plugins
+        subscribe(client, "plugins.onLog") { [weak self] value in
+            guard let entry = try? value.decode(PluginLogEntry.self) else { return }
+            self?.pluginLogs.append(entry)
+        }
+
+        subscribe(client, "plugins.onCommandsChange") { [weak self] value in
+            guard let map = try? value.decode(PluginCommandsMap.self) else { return }
+            self?.pluginCommands = map
+        }
+
+        subscribe(client, "plugins.onComponentsChange") { [weak self] value in
+            guard let ids = try? value.decode([String].self) else { return }
+            self?.pluginIdsWithComponents = ids
+        }
+
+        subscribe(client, "plugins.onCapabilityAccessChange") { [weak self] value in
+            guard let rules = try? value.decode([PluginCapabilityAccessRule].self) else { return }
+            self?.pluginCapabilityAccess = rules
+        }
+
+        subscribe(client, "plugins.onMetadataChange") { [weak self] value in
+            guard let metadata = try? value.decode([PluginMetadata].self) else { return }
+            self?.pluginsMetadata = metadata
+        }
+
+        subscribe(client, "plugins.onPush") { [weak self] value in
+            guard let event = try? value.decode(PluginPushEvent.self) else { return }
+            self?.pluginPushes.append(event)
         }
     }
 
@@ -447,28 +685,67 @@ public final class SharkordSession: ObservableObject {
     // MARK: - state mutators
 
     private func upsert(_ message: SharkordMessage, markUnread: Bool) {
+        if let parentMessageId = message.parentMessageId {
+            var thread = threadMessages[parentMessageId] ?? []
+
+            if let index = thread.firstIndex(where: { $0.id == message.id }) {
+                thread[index] = message
+            } else {
+                thread.append(message)
+                thread.sort { $0.createdAt < $1.createdAt }
+            }
+
+            threadMessages[parentMessageId] = thread
+
+            if markUnread, message.channelId != selectedChannelId {
+                applyUnreadDelta(channelId: message.channelId, delta: 1)
+            }
+
+            return
+        }
+
         var list = messagesByChannel[message.channelId] ?? []
 
         if let index = list.firstIndex(where: { $0.id == message.id }) {
             list[index] = message
-        } else if message.parentMessageId == nil {
+        } else {
             list.append(message)
             list.sort { $0.createdAt < $1.createdAt }
-        } else {
-            return
         }
 
         messagesByChannel[message.channelId] = list
 
-        if markUnread, message.channelId != selectedChannelId {
-            unreadByChannel[message.channelId, default: 0] += 1
+        if message.pinned == true {
+            upsertPinned(message)
         }
+
+        if markUnread, message.channelId != selectedChannelId {
+            applyUnreadDelta(channelId: message.channelId, delta: 1)
+        }
+    }
+
+    private func upsertPinned(_ message: SharkordMessage) {
+        var list = pinnedByChannel[message.channelId] ?? []
+
+        if let index = list.firstIndex(where: { $0.id == message.id }) {
+            list[index] = message
+        } else {
+            list.append(message)
+            list.sort { ($0.pinnedAt ?? $0.createdAt) > ($1.pinnedAt ?? $1.createdAt) }
+        }
+
+        pinnedByChannel[message.channelId] = list
     }
 
     private func removeMessage(id: Int, channelId: Int) {
         guard var list = messagesByChannel[channelId] else { return }
         list.removeAll { $0.id == id }
         messagesByChannel[channelId] = list
+
+        if var pinned = pinnedByChannel[channelId] {
+            pinned.removeAll { $0.id == id }
+            pinnedByChannel[channelId] = pinned
+        }
     }
 
     private func upsert(user: SharkordUser, online: Bool?) {
@@ -507,6 +784,7 @@ public final class SharkordSession: ObservableObject {
         channels.removeAll { $0.id == channelId }
         messagesByChannel[channelId] = nil
         unreadByChannel[channelId] = nil
+        pinnedByChannel[channelId] = nil
 
         if selectedChannelId == channelId {
             selectedChannelId = textChannels.first?.id ?? directMessageChannels.first?.id
@@ -537,6 +815,8 @@ public final class SharkordSession: ObservableObject {
         } else {
             roles.append(role)
         }
+
+        roles.sort { $0.id < $1.id }
     }
 
     private func applyUnreadDelta(channelId: Int, delta: Int) {
@@ -547,6 +827,73 @@ public final class SharkordSession: ObservableObject {
     /// Clears the unread badge locally; the server is told separately by `markAsRead`.
     func clearUnread(_ channelId: Int) {
         unreadByChannel[channelId] = 0
+    }
+
+    // MARK: - voice state
+
+    func applyVoiceJoin(_ event: VoiceJoinEvent) {
+        var entries = voiceMap.entries
+        var channelUsers = entries[event.channelId]?.users ?? [:]
+
+        channelUsers[String(event.userId)] = event.state
+        entries[event.channelId] = VoiceChannelUsers(users: channelUsers)
+        voiceMap = VoiceMap(entries: entries)
+    }
+
+    func applyVoiceLeave(_ event: VoiceLeaveEvent) {
+        var entries = voiceMap.entries
+
+        guard var channelUsers = entries[event.channelId]?.users else {
+            return
+        }
+
+        channelUsers.removeValue(forKey: String(event.userId))
+        entries[event.channelId] = VoiceChannelUsers(users: channelUsers)
+        voiceMap = VoiceMap(entries: entries)
+    }
+
+    private func applyVoiceMoved(_ event: VoiceMovedEvent) {
+        applyVoiceLeave(VoiceLeaveEvent(channelId: event.fromChannelId, userId: ownUserId))
+    }
+
+    private func upsertProducer(_ event: VoiceProducerEvent) {
+        var list = producersByChannel[event.channelId] ?? []
+
+        if !list.contains(where: { $0.remoteId == event.remoteId && $0.kind == event.kind }) {
+            list.append(event)
+        }
+
+        producersByChannel[event.channelId] = list
+    }
+
+    private func removeProducer(_ event: VoiceProducerEvent) {
+        producersByChannel[event.channelId]?.removeAll {
+            $0.remoteId == event.remoteId && $0.kind == event.kind
+        }
+    }
+
+    private func applyExternalStream(_ value: JSONValue) {
+        guard
+            let event = try? value.decode(VoiceExternalStreamEvent.self),
+            let streamId = event.streamId,
+            let stream = event.stream
+        else {
+            return
+        }
+
+        var entries = externalStreamsMap.entries
+        var channelStreams = entries[event.channelId] ?? [:]
+
+        channelStreams[streamId] = stream
+        entries[event.channelId] = channelStreams
+        externalStreamsMap = ExternalStreamsMap(entries: entries)
+    }
+
+    private func removeExternalStream(channelId: Int, streamId: String) {
+        var entries = externalStreamsMap.entries
+
+        entries[channelId]?.removeValue(forKey: streamId)
+        externalStreamsMap = ExternalStreamsMap(entries: entries)
     }
 
     // MARK: - channel selection + history
@@ -562,7 +909,7 @@ public final class SharkordSession: ObservableObject {
         loadedChannels.insert(channelId)
 
         do {
-            try await load(channelId: channelId, cursor: nil)
+            try await load(channelId: channelId, cursor: nil, targetMessageId: nil)
             markAsRead(channelId)
         } catch {
             lastError = Self.describe(error)
@@ -583,13 +930,26 @@ public final class SharkordSession: ObservableObject {
         defer { isLoadingMore.remove(channelId) }
 
         do {
-            try await load(channelId: channelId, cursor: cursor)
+            try await load(channelId: channelId, cursor: cursor, targetMessageId: nil)
         } catch {
             lastError = Self.describe(error)
         }
     }
 
-    private func load(channelId: Int, cursor: MessagesCursor?) async throws {
+    /// Loads the window around one message so the list can jump to it.
+    public func jumpTo(messageId: Int, channelId: Int) async {
+        selectedChannelId = channelId
+        isLoadingMore.insert(channelId)
+        defer { isLoadingMore.remove(channelId) }
+
+        do {
+            try await load(channelId: channelId, cursor: nil, targetMessageId: messageId)
+        } catch {
+            lastError = Self.describe(error)
+        }
+    }
+
+    private func load(channelId: Int, cursor: MessagesCursor?, targetMessageId: Int?) async throws {
         guard let client else {
             throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
         }
@@ -606,12 +966,17 @@ public final class SharkordSession: ObservableObject {
             ])
         }
 
+        if let targetMessageId {
+            input["targetMessageId"] = .int(targetMessageId)
+        }
+
         let value = try await client.query("messages.get", input: .object(input))
         let page = try value.decode(MessagesPage.self)
-
         let ascending = page.messages.sorted { $0.createdAt < $1.createdAt }
 
-        if cursor == nil {
+        if targetMessageId != nil {
+            messagesByChannel[channelId] = ascending
+        } else if cursor == nil {
             messagesByChannel[channelId] = ascending
         } else if !ascending.isEmpty {
             let existing = messagesByChannel[channelId] ?? []
@@ -622,6 +987,11 @@ public final class SharkordSession: ObservableObject {
 
         cursors[channelId] = page.nextCursor
         hasMoreOlderByChannel[channelId] = page.nextCursor != nil
+        hasNewerByChannel[channelId] = page.hasNewer ?? false
+
+        for message in ascending where message.pinned == true {
+            upsertPinned(message)
+        }
     }
 
     // MARK: - reconnect
@@ -663,6 +1033,22 @@ public final class SharkordSession: ObservableObject {
 
     // MARK: - helpers
 
+    /// Wraps one tRPC call so the extensions can share the error mapping.
+    func call(_ path: String, method: TRPCMethod, input: JSONValue? = nil) async throws -> JSONValue {
+        guard let client else {
+            throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
+        }
+
+        switch method {
+        case .query:
+            return try await client.query(path, input: input)
+        case .mutation:
+            return try await client.mutation(path, input: input)
+        case .subscription:
+            throw TRPCClientError(code: "PROTOCOL", message: "Subscriptions are not calls")
+        }
+    }
+
     static func normalize(host: String) -> URL? {
         let trimmed = host.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -679,7 +1065,7 @@ public final class SharkordSession: ObservableObject {
         return url
     }
 
-    static func describe(_ error: Error?) -> String {
+    public static func describe(_ error: Error?) -> String {
         guard let error else { return "Unknown error" }
 
         if let trpc = error as? TRPCClientError {

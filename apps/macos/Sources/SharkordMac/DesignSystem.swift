@@ -1,3 +1,4 @@
+import AppKit
 import SharkordCore
 import SwiftUI
 
@@ -50,6 +51,18 @@ extension Color {
             green: Double((number >> 8) & 0xFF) / 255,
             blue: Double(number & 0xFF) / 255
         )
+    }
+
+    /// The `#rrggbb` form the server stores, for colour pickers round tripping a role or
+    /// profile colour.
+    var hexString: String {
+        let components = NSColor(self).usingColorSpace(.sRGB)
+
+        let red = Int(((components?.redComponent ?? 0) * 255).rounded())
+        let green = Int(((components?.greenComponent ?? 0) * 255).rounded())
+        let blue = Int(((components?.blueComponent ?? 0) * 255).rounded())
+
+        return String(format: "#%02X%02X%02X", red, green, blue)
     }
 }
 

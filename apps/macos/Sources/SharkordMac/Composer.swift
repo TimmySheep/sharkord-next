@@ -1,266 +1,431 @@
-import Combine
+import AppKit
 import SharkordCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Text composer. Plain text is escaped into the HTML the server stores, the same way the
-/// web client's editor hands over HTML. Enter sends, Shift+Enter inserts a line break. It
-/// also owns the reply target, edit mode and attachment uploads for the channel.
+/// The composer's text view. A plain SwiftUI `TextEditor` cannot tell Enter (send) from
+/// Shift+Enter (newline), cannot take over ArrowUp on an empty field and cannot intercept
+/// pasted images, and all three matter here.
+final class ComposerTextView: NSTextView {
+    var onSubmit: () -> Void = {}
+    var onCancel: () -> Void = {}
+    var onEditLast: () -> Void = {}
+    var onPasteFiles: ([URL]) -> Void = { _ in }
+
+    override func keyDown(with event: NSEvent) {
+        switch event.keyCode {
+        case 36, 76:
+            if event.modifierFlags.contains(.shift) {
+                super.keyDown(with: event)
+            } else {
+                onSubmit()
+            }
+
+        case 53:
+            onCancel()
+
+        case 126:
+            if event.modifierFlags.isEmpty, string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                onEditLast()
+            } else {
+                super.keyDown(with: event)
+            }
+
+        default:
+            super.keyDown(with: event)
+        }
+    }
+
+    override func paste(_ sender: Any?) {
+        let board = NSPasteboard.general
+        let urls = board.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
+
+        if !urls.isEmpty {
+            onPasteFiles(urls)
+
+            return
+        }
+
+        if let image = NSImage(pasteboard: board), let tiff = image.tiffRepresentation {
+            let temporary = FileManager.default.temporaryDirectory
+                .appendingPathComponent("pasted-\(UUID().uuidString).png")
+
+            if let bitmap = NSBitmapImageRep(data: tiff),
+               let png = bitmap.representation(using: .png, properties: [:]),
+               (try? png.write(to: temporary)) != nil {
+                onPasteFiles([temporary])
+
+                return
+            }
+        }
+
+        super.paste(sender)
+    }
+}
+
+struct ComposerTextEditor: NSViewRepresentable {
+    @Binding var text: String
+
+    var isEnabled: Bool = true
+    var onTextChange: (String) -> Void = { _ in }
+    var onSubmit: () -> Void = {}
+    var onCancel: () -> Void = {}
+    var onEditLast: () -> Void = {}
+    var onPasteFiles: ([URL]) -> Void = { _ in }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        let textView = ComposerTextView(frame: .zero)
+
+        textView.delegate = context.coordinator
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.isContinuousSpellCheckingEnabled = false
+        textView.font = .systemFont(ofSize: 13.5)
+        textView.backgroundColor = .clear
+        textView.drawsBackground = false
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainerInset = NSSize(width: 8, height: 8)
+        textView.importsGraphics = false
+        textView.minSize = NSSize(width: 0, height: 38)
+        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+
+        scrollView.documentView = textView
+        scrollView.hasVerticalScroller = true
+        scrollView.drawsBackground = false
+
+        context.coordinator.textView = textView
+        context.coordinator.owner = self
+
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? ComposerTextView else {
+            return
+        }
+
+        context.coordinator.owner = self
+
+        textView.onSubmit = onSubmit
+        textView.onCancel = onCancel
+        textView.onEditLast = onEditLast
+        textView.onPasteFiles = onPasteFiles
+
+        if textView.string != text {
+            textView.string = text
+        }
+
+        textView.isEditable = isEnabled
+        textView.textColor = isEnabled ? .labelColor : .secondaryLabelColor
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(owner: self)
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var owner: ComposerTextEditor
+        weak var textView: ComposerTextView?
+
+        init(owner: ComposerTextEditor) {
+            self.owner = owner
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView else { return }
+
+            owner.text = textView.string
+            owner.onTextChange(textView.string)
+        }
+    }
+}
+
+/// Message composer: text, attachments, reply or edit context, emoji and a send button.
 struct Composer: View {
     @EnvironmentObject private var session: SharkordSession
 
     let channel: SharkordChannel
+    var parentMessageId: Int? = nil
     @Binding var replyTarget: SharkordMessage?
     @Binding var editing: SharkordMessage?
 
     @State private var text = ""
-    @State private var isSending = false
+    @State private var attachments: [PendingAttachment] = []
+    @State private var uploading = false
     @State private var errorMessage: String?
-    @State private var pendingFiles: [PendingAttachment] = []
-    @State private var isImporting = false
-    @State private var now = Date()
-    @State private var lastTypingSignal = Date.distantPast
-
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
-    struct PendingAttachment: Identifiable {
-        let id: String
-        let name: String
-    }
+    @State private var showsEmoji = false
 
     private var canSend: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pendingFiles.isEmpty
+        session.hasPermission(.sendMessages)
+            && session.hasChannelPermission(channel.id, .sendMessages)
     }
 
-    private var typingUsers: [SharkordUser] {
-        // `now` is read so the view re-evaluates as the typing window expires
-        _ = now
-
-        return session.typingUsers(in: channel.id)
+    private var canSubmit: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 0) {
             if let editing {
-                banner(
-                    icon: "pencil",
-                    label: "Editing message",
-                    detail: MessageHTML.toPlainText(editing.content ?? ""),
-                    onCancel: {
-                        self.editing = nil
-                        text = ""
-                    }
-                )
+                banner("Editing message") {
+                    self.editing = nil
+                    text = ""
+                }
             } else if let replyTarget {
-                banner(
-                    icon: "arrowshape.turn.up.left",
-                    label: "Replying to \(session.user(for: replyTarget.userId ?? 0)?.name ?? "message")",
-                    detail: MessageHTML.toPlainText(replyTarget.content ?? ""),
-                    onCancel: { self.replyTarget = nil }
-                )
+                banner("Replying to \(session.user(for: replyTarget.userId ?? 0)?.name ?? "message")") {
+                    self.replyTarget = nil
+                }
             }
 
-            if !typingUsers.isEmpty {
-                Text(typingLabel)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 4)
-            }
-
-            if !pendingFiles.isEmpty {
-                attachmentsRow
+            if !attachments.isEmpty {
+                attachmentRow
             }
 
             if let errorMessage {
                 Text(errorMessage)
                     .font(.system(size: 11))
                     .foregroundStyle(.red)
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
             }
 
             HStack(alignment: .bottom, spacing: 8) {
-                Button {
-                    isImporting = true
-                } label: {
-                    Image(systemName: "paperclip")
-                        .frame(width: 30, height: 30)
+                ZStack(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text(canSend ? "Message #\(channel.name)" : "You cannot send messages here")
+                            .font(.system(size: 13.5))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .allowsHitTesting(false)
+                    }
+
+                    ComposerTextEditor(
+                        text: $text,
+                        isEnabled: canSend && !uploading,
+                        onTextChange: { _ in signalTyping() },
+                        onSubmit: send,
+                        onCancel: cancel,
+                        onEditLast: editLastOwnMessage,
+                        onPasteFiles: { urls in Task { await upload(urls: urls) } }
+                    )
                 }
-                .buttonStyle(.borderless)
-                .help("Attach a file")
+                .frame(minHeight: 42, maxHeight: 150)
+                .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 8))
 
-                TextField("Message \(channel.isDm ? "" : "#")\(channel.name)", text: $text, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...6)
-                    .padding(10)
-                    .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .onSubmit(send)
-                    .onChange(of: text) { _, _ in signalTyping() }
-
-                Button(action: send) {
-                    Image(systemName: editing == nil ? "paperplane.fill" : "checkmark")
-                        .frame(width: 32, height: 32)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
-                .disabled(!canSend || isSending)
-            }
-        }
-        .padding(12)
-        .onReceive(timer) { now = $0 }
-        .onChange(of: editing?.id) { _, _ in
-            guard let editing else {
-                return
-            }
-
-            text = MessageHTML.toPlainText(editing.content ?? "")
-        }
-        .fileImporter(
-            isPresented: $isImporting,
-            allowedContentTypes: [.item],
-            allowsMultipleSelection: false
-        ) { result in
-            handleImport(result)
-        }
-    }
-
-    private var typingLabel: String {
-        let names = typingUsers.map(\.name)
-
-        if names.count == 1 {
-            return "\(names[0]) is typing..."
-        }
-
-        return "\(names.joined(separator: ", ")) are typing..."
-    }
-
-    private var attachmentsRow: some View {
-        HStack(spacing: 6) {
-            ForEach(pendingFiles) { file in
-                HStack(spacing: 4) {
-                    Image(systemName: "paperclip").font(.system(size: 10))
-                    Text(file.name).font(.system(size: 11)).lineLimit(1)
+                if canSend {
                     Button {
-                        pendingFiles.removeAll { $0.id == file.id }
+                        showsEmoji.toggle()
                     } label: {
-                        Image(systemName: "xmark").font(.system(size: 9))
+                        Image(systemName: "face.smiling")
                     }
                     .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Emoji")
+
+                    Button(action: pickFiles) {
+                        Image(systemName: "paperclip")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Attach files")
+
+                    Button(action: send) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 22))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(canSubmit ? Theme.accent : .secondary)
+                    .disabled(!canSubmit || uploading)
+                    .help("Send")
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Theme.elevated, in: Capsule())
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+        .background(Theme.panel)
+        .overlay(alignment: .bottomLeading) {
+            if showsEmoji {
+                EmojiPicker { picked in
+                    text += picked
+                    showsEmoji = false
+                }
+                .frame(width: 300, height: 320)
+                .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 10))
+                .shadow(radius: 16)
+                .offset(y: -330)
+                .padding(.leading, 12)
             }
         }
     }
 
-    private func banner(
-        icon: String,
-        label: String,
-        detail: String,
-        onCancel: @escaping () -> Void
-    ) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon).font(.system(size: 11)).foregroundStyle(Theme.accent)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(label).font(.system(size: 11, weight: .semibold))
-
-                Text(detail)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
+    private func banner(_ title: String, onCancel: @escaping () -> Void) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
 
             Spacer()
 
             Button(action: onCancel) {
-                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                Image(systemName: "xmark.circle.fill")
             }
             .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
+    }
+
+    private var attachmentRow: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 6) {
+                ForEach(attachments) { attachment in
+                    HStack(spacing: 5) {
+                        Text(attachment.fileName)
+                            .font(.system(size: 11))
+                            .lineLimit(1)
+
+                        Button {
+                            attachments.removeAll { $0.id == attachment.id }
+                        } label: {
+                            Image(systemName: "xmark")
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Theme.elevated, in: Capsule())
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+        }
+    }
+
+    // MARK: - actions
+
+    private func send() {
+        guard canSubmit else {
+            return
+        }
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        Task {
+            do {
+                if let editing {
+                    try await session.editMessage(editing.id, text: trimmed)
+                    self.editing = nil
+                } else {
+                    let entities = MessageHTML.withEntities(
+                        MessageHTML.fromPlainText(trimmed),
+                        users: session.users.map { (id: $0.id, name: $0.name) },
+                        channels: session.channels.map { (id: $0.id, name: $0.name) }
+                    )
+
+                    let html = MessageHTML.withEmoji(
+                        entities,
+                        emojis: session.emojis.compactMap { emoji in
+                            emoji.file.map { (name: emoji.name, src: "/public/\($0.name)") }
+                        }
+                    )
+
+                    try await session.sendRichMessage(
+                        html,
+                        channelId: channel.id,
+                        replyToMessageId: replyTarget?.id,
+                        parentMessageId: parentMessageId,
+                        files: attachments.compactMap(\.fileId)
+                    )
+
+                    replyTarget = nil
+                }
+
+                text = ""
+                attachments = []
+                errorMessage = nil
+            } catch {
+                errorMessage = SharkordSession.describe(error)
+            }
+        }
+    }
+
+    private func cancel() {
+        editing = nil
+        replyTarget = nil
+        text = ""
+    }
+
+    private func editLastOwnMessage() {
+        guard editing == nil, replyTarget == nil, text.isEmpty else {
+            return
+        }
+
+        let own = (session.messagesByChannel[channel.id] ?? [])
+            .last { $0.userId == session.ownUserId && $0.editable != false }
+
+        if let own {
+            editing = own
+            text = MessageHTML.toPlainText(own.content ?? "")
+        }
     }
 
     private func signalTyping() {
-        guard !text.isEmpty, Date().timeIntervalSince(lastTypingSignal) > 3 else {
-            return
-        }
-
-        lastTypingSignal = Date()
-        session.signalTyping(channelId: channel.id)
+        session.signalTyping(channelId: channel.id, parentMessageId: parentMessageId)
     }
 
-    private func send() {
-        guard canSend, !isSending else {
+    private func pickFiles() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+
+        if panel.runModal() == .OK {
+            Task { await upload(urls: panel.urls) }
+        }
+    }
+
+    private func upload(urls: [URL]) async {
+        guard session.hasPermission(.uploadFiles) else {
+            errorMessage = "You cannot upload files"
+
             return
         }
 
-        let outgoing = text
-        let fileIds = pendingFiles.map(\.id)
-        let replyTo = replyTarget?.id
-        let editingId = editing?.id
+        uploading = true
+        defer { uploading = false }
 
-        text = ""
-        pendingFiles = []
-        isSending = true
-        errorMessage = nil
-
-        Task {
-            defer { isSending = false }
+        for url in urls {
+            guard let data = try? Data(contentsOf: url) else {
+                continue
+            }
 
             do {
-                if let editingId {
-                    try await session.editMessage(editingId, text: outgoing)
-                    editing = nil
-                } else {
-                    try await session.sendMessage(
-                        outgoing,
-                        channelId: channel.id,
-                        replyToMessageId: replyTo,
-                        files: fileIds
-                    )
-                    replyTarget = nil
-                }
+                let fileId = try await session.uploadAttachment(
+                    data: data,
+                    fileName: url.lastPathComponent,
+                    mimeType: UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
+                        ?? "application/octet-stream"
+                )
+
+                attachments.append(
+                    PendingAttachment(id: fileId, fileId: fileId, fileName: url.lastPathComponent)
+                )
             } catch {
-                text = outgoing
-                errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to send"
+                errorMessage = SharkordSession.describe(error)
             }
         }
     }
+}
 
-    private func handleImport(_ result: Result<[URL], Error>) {
-        guard case .success(let urls) = result, let url = urls.first else {
-            return
-        }
-
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer {
-            if scoped {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
-
-        do {
-            let data = try Data(contentsOf: url)
-            let mimeType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
-                ?? "application/octet-stream"
-
-            Task {
-                do {
-                    let id = try await session.uploadAttachment(
-                        data: data,
-                        fileName: url.lastPathComponent,
-                        mimeType: mimeType
-                    )
-                    pendingFiles.append(PendingAttachment(id: id, name: url.lastPathComponent))
-                } catch {
-                    errorMessage = (error as? LocalizedError)?.errorDescription ?? "Upload failed"
-                }
-            }
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
+struct PendingAttachment: Identifiable, Hashable {
+    let id: String
+    let fileId: String
+    let fileName: String
 }

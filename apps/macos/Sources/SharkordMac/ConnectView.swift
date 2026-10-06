@@ -114,7 +114,7 @@ struct ConnectView: View {
     }
 
     private var footer: some View {
-        Text("Talks to the same server as the web client over tRPC and WebSocket.")
+        Text(L10n.t("tagline", ns: "macos"))
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
     }

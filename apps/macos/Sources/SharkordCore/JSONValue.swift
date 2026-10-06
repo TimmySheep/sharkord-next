@@ -153,6 +153,14 @@ public extension JSONValue {
         return value
     }
 
+    var objectValue: [String: JSONValue]? {
+        guard case .object(let value) = self else {
+            return nil
+        }
+
+        return value
+    }
+
     /// Re-encodes this value and decodes it into a typed model. The response is decoded
     /// twice (once as JSONValue, once as the model) in exchange for one generic transport.
     func decode<T: Decodable>(_ type: T.Type, using decoder: JSONDecoder = JSONDecoder()) throws -> T {

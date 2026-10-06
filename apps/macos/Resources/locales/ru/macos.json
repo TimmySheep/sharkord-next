@@ -1,0 +1,20 @@
+{
+  "tagline": "Подключается к тому же серверу, что и веб-клиент, по tRPC и WebSocket.",
+  "selectChannel": "Выберите канал",
+  "moveUp": "Переместить вверх",
+  "moveDown": "Переместить вниз",
+  "loadEarlierMessages": "Загрузить более ранние сообщения",
+  "returnToPresent": "Вернуться к последним",
+  "searchTruncated": "Результаты поиска усечены",
+  "searchPlaceholder": "Поиск сообщений и файлов",
+  "typeAtLeast2": "Введите не менее 2 символов",
+  "noChannels": "Нет каналов",
+  "joinVoice": "Присоединиться к голосу",
+  "voiceNoPermission": "Вы не можете присоединяться к голосовым каналам",
+  "voiceMediaMissing": "Сигнализация голоса подключена, но эта сборка пока не передаёт звук и видео.",
+  "pinnedBadge": "Закреплено",
+  "searchButton": "Поиск",
+  "membersButton": "Участники",
+  "settingsButton": "Настройки",
+  "saveButton": "Сохранить"
+}

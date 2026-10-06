@@ -52,7 +52,7 @@ struct ReactionMenu: View {
                 }
             }
         } label: {
-            Label("React", systemImage: "face.smiling")
+            Label(L10n.t("addReaction", ns: "common"), systemImage: "face.smiling")
         }
     }
 
@@ -89,5 +89,100 @@ struct ReactionChip: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Picker for the composer: the server's custom emoji first, then a standard set. Custom
+/// emoji insert their `:name:` shortcode, which the composer turns into an emoji element
+/// when it builds the message html.
+struct EmojiPicker: View {
+    @EnvironmentObject private var session: SharkordSession
+
+    var onPick: (String) -> Void
+
+    @State private var query = ""
+
+    /// A compact standard set, enough for chat without shipping a whole emoji font index.
+    private static let standard: [(name: String, char: String)] = [
+        ("smile", "😄"), ("joy", "😂"), ("heart", "❤️"), ("thumbsup", "👍"),
+        ("thumbsdown", "👎"), ("tada", "🎉"), ("fire", "🔥"), ("eyes", "👀"),
+        ("wave", "👋"), ("thinking", "🤔"), ("sob", "😭"), ("pray", "🙏"),
+        ("rocket", "🚀"), ("star", "⭐"), ("warning", "⚠️"), ("check", "✅"),
+        ("x", "❌"), ("100", "💯"), ("clap", "👏"), ("muscle", "💪"),
+        ("sparkles", "✨"), ("cake", "🎂"), ("coffee", "☕"), ("pizza", "🍕"),
+        ("sun", "☀️"), ("moon", "🌙"), ("rainbow", "🌈"), ("dog", "🐶"),
+        ("cat", "🐱"), ("unicorn", "🦄"), ("shrug", "🤷"), ("sleeping", "😴")
+    ]
+
+    var body: some View {
+        VStack(spacing: 8) {
+            TextField(L10n.t("searchEmojisPlaceholder", ns: "settings"), text: $query)
+                .textFieldStyle(.roundedBorder)
+
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 32), spacing: 6)], spacing: 6) {
+                    if !custom.isEmpty {
+                        Section {
+                            ForEach(custom) { emoji in
+                                button {
+                                    if let file = emoji.file, let url = session.publicFileURL(for: file) {
+                                        AsyncImage(url: url) { phase in
+                                            if case .success(let image) = phase {
+                                                image.resizable().scaledToFit()
+                                            }
+                                        }
+                                        .frame(width: 22, height: 22)
+                                    } else {
+                                        Text(":")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                } label: {
+                                    onPick(":\(emoji.name):")
+                                }
+                            }
+                        } header: {
+                            Eyebrow(text: "Server")
+                        }
+                    }
+
+                    ForEach(filtered, id: \.name) { entry in
+                        button {
+                            Text(entry.char).font(.system(size: 20))
+                        } label: {
+                            onPick(entry.char)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(10)
+    }
+
+    private func button<Content: View>(
+        @ViewBuilder content: () -> Content,
+        label: @escaping () -> Void
+    ) -> some View {
+        Button(action: label) {
+            content()
+                .frame(width: 32, height: 32)
+                .background(Theme.panel, in: RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var custom: [SharkordEmoji] {
+        guard !query.isEmpty else {
+            return session.emojis
+        }
+
+        return session.emojis.filter { $0.name.localizedCaseInsensitiveContains(query) }
+    }
+
+    private var filtered: [(name: String, char: String)] {
+        guard !query.isEmpty else {
+            return Self.standard
+        }
+
+        return Self.standard.filter { $0.name.localizedCaseInsensitiveContains(query) }
     }
 }

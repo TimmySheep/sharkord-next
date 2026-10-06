@@ -79,6 +79,11 @@ Windows.
 - **Plugins.** Needs a WebView2 host.
 - **The WinUI views do not yet surface** reactions, edit/delete, reply, typing, attachments
   or DMs, even though the session layer supports them.
+- **The admin and settings surface is macOS-only for now.** Categories/channels management,
+  roles, emojis, invites, user administration, server settings, pins, threads, search and
+  the voice control plane are implemented in `SharkordCore` (Swift) and not in
+  `Sharkord.Core` (C#). Porting them is mechanical: the routes and payload shapes are
+  recorded in the macOS `SharkordSession+*.swift` files and in `docs/` .
 - **Token persistence** is not implemented on the Windows side (no DPAPI yet); Core only
   carries the token in memory.
 

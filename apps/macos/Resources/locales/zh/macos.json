@@ -1,0 +1,20 @@
+{
+  "tagline": "与网页端连的是同一套服务器，走 tRPC 与 WebSocket。",
+  "selectChannel": "选择一个频道",
+  "moveUp": "上移",
+  "moveDown": "下移",
+  "loadEarlierMessages": "加载更早的消息",
+  "returnToPresent": "回到最新",
+  "searchTruncated": "搜索结果已截断",
+  "searchPlaceholder": "搜索消息和文件",
+  "typeAtLeast2": "请至少输入 2 个字符",
+  "noChannels": "没有频道",
+  "joinVoice": "加入语音",
+  "voiceNoPermission": "你没有加入语音频道的权限",
+  "voiceMediaMissing": "语音信令已接通，但此版本还不能传输音频或视频。",
+  "pinnedBadge": "已置顶",
+  "searchButton": "搜索",
+  "membersButton": "成员",
+  "settingsButton": "设置",
+  "saveButton": "保存"
+}

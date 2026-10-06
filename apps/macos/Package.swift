@@ -19,11 +19,29 @@ let package = Package(
         ),
         .executableTarget(
             name: "SharkordMac",
-            dependencies: ["SharkordCore"]
+            dependencies: ["SharkordCore"],
+            // resources live next to Sources/, not inside it, so the locale tree can be
+            // re-copied from the web client in one place. swiftPM only allows resources
+            // under the target directory, so the target claims the package root and the
+            // compiled sources are named explicitly
+            path: ".",
+            exclude: [
+                "Sources/SharkordCore",
+                "Tests",
+                "README.md"
+            ],
+            sources: ["Sources/SharkordMac"],
+            resources: [
+                .copy("Resources/locales")
+            ]
         ),
         .testTarget(
             name: "SharkordCoreTests",
             dependencies: ["SharkordCore"]
+        ),
+        .testTarget(
+            name: "SharkordMacTests",
+            dependencies: ["SharkordMac"]
         )
     ]
 )

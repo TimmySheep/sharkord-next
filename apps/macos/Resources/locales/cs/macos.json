@@ -1,0 +1,20 @@
+{
+  "tagline": "Připojuje se ke stejnému serveru jako webový klient přes tRPC a WebSocket.",
+  "selectChannel": "Vyberte kanál",
+  "moveUp": "Posunout nahoru",
+  "moveDown": "Posunout dolů",
+  "loadEarlierMessages": "Načíst starší zprávy",
+  "returnToPresent": "Zpět na nejnovější",
+  "searchTruncated": "Výsledky hledání byly zkráceny",
+  "searchPlaceholder": "Hledat zprávy a soubory",
+  "typeAtLeast2": "Zadejte alespoň 2 znaky",
+  "noChannels": "Žádné kanály",
+  "joinVoice": "Připojit se k hlasu",
+  "voiceNoPermission": "Nemůžete se připojit ke hlasovým kanálům",
+  "voiceMediaMissing": "Hlasová signalizace je připojena, ale toto sestavení zatím nepřenáší zvuk ani video.",
+  "pinnedBadge": "Připnuto",
+  "searchButton": "Hledat",
+  "membersButton": "Členové",
+  "settingsButton": "Nastavení",
+  "saveButton": "Uložit"
+}

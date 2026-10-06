@@ -1,19 +1,16 @@
 import Foundation
 
-/// Message actions: send (with replies and attachments), edit, delete, reactions, typing
-/// and read receipts. Kept in an extension so the session's state and event handling stay
-/// in one file.
+/// Message actions: send (with replies, threads and attachments), edit, delete, reactions
+/// and typing. Kept in an extension so the session's state and event handling stay in one
+/// file; pins, threads and search live in `SharkordSession+MessagesExtra`.
 extension SharkordSession {
     public func sendMessage(
         _ text: String,
         channelId: Int,
         replyToMessageId: Int? = nil,
+        parentMessageId: Int? = nil,
         files: [String] = []
     ) async throws {
-        guard let client else {
-            throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
-        }
-
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmed.isEmpty || !files.isEmpty else {
@@ -21,7 +18,7 @@ extension SharkordSession {
         }
 
         var input: [String: JSONValue] = [
-            "content": .string(MessageHTML.fromPlainText(trimmed)),
+            "content": .string(MessageHTML.prepare(MessageHTML.fromPlainText(trimmed))),
             "channelId": .int(channelId),
             "files": .array(files.map { .string($0) })
         ]
@@ -30,47 +27,67 @@ extension SharkordSession {
             input["replyToMessageId"] = .int(replyToMessageId)
         }
 
-        _ = try await client.mutation("messages.send", input: .object(input))
+        if let parentMessageId {
+            input["parentMessageId"] = .int(parentMessageId)
+        }
+
+        _ = try await call("messages.send", method: .mutation, input: .object(input))
+    }
+
+    /// Sends raw html, for content the composer built from mentions and emoji.
+    public func sendRichMessage(
+        _ html: String,
+        channelId: Int,
+        replyToMessageId: Int? = nil,
+        parentMessageId: Int? = nil,
+        files: [String] = []
+    ) async throws {
+        var input: [String: JSONValue] = [
+            "content": .string(MessageHTML.prepare(html)),
+            "channelId": .int(channelId),
+            "files": .array(files.map { .string($0) })
+        ]
+
+        if let replyToMessageId {
+            input["replyToMessageId"] = .int(replyToMessageId)
+        }
+
+        if let parentMessageId {
+            input["parentMessageId"] = .int(parentMessageId)
+        }
+
+        _ = try await call("messages.send", method: .mutation, input: .object(input))
     }
 
     public func editMessage(_ messageId: Int, text: String) async throws {
-        guard let client else {
-            throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
-        }
-
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmed.isEmpty else {
             return
         }
 
-        _ = try await client.mutation(
+        _ = try await call(
             "messages.edit",
+            method: .mutation,
             input: .object([
                 "messageId": .int(messageId),
-                "content": .string(MessageHTML.fromPlainText(trimmed))
+                "content": .string(MessageHTML.prepare(MessageHTML.fromPlainText(trimmed)))
             ])
         )
     }
 
     public func deleteMessage(_ messageId: Int) async throws {
-        guard let client else {
-            throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
-        }
-
-        _ = try await client.mutation(
+        _ = try await call(
             "messages.delete",
+            method: .mutation,
             input: .object(["messageId": .int(messageId)])
         )
     }
 
     public func toggleReaction(messageId: Int, emoji: String) async throws {
-        guard let client else {
-            throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
-        }
-
-        _ = try await client.mutation(
+        _ = try await call(
             "messages.toggleReaction",
+            method: .mutation,
             input: .object([
                 "messageId": .int(messageId),
                 "emoji": .string(emoji)
@@ -79,51 +96,19 @@ extension SharkordSession {
     }
 
     /// Fire and forget: a typing signal is not worth surfacing an error for.
-    public func signalTyping(channelId: Int) {
+    public func signalTyping(channelId: Int, parentMessageId: Int? = nil) {
         guard let client else {
             return
         }
 
-        Task {
-            _ = try? await client.mutation(
-                "messages.signalTyping",
-                input: .object(["channelId": .int(channelId)])
-            )
-        }
-    }
+        var input: [String: JSONValue] = ["channelId": .int(channelId)]
 
-    public func markAsRead(_ channelId: Int) {
-        clearUnread(channelId)
-
-        guard let client else {
-            return
+        if let parentMessageId {
+            input["parentMessageId"] = .int(parentMessageId)
         }
 
         Task {
-            _ = try? await client.mutation(
-                "channels.markAsRead",
-                input: .object(["channelId": .int(channelId)])
-            )
+            _ = try? await client.mutation("messages.signalTyping", input: .object(input))
         }
-    }
-
-    /// Uploads one attachment and returns the temp file id `messages.send` expects in `files`.
-    public func uploadAttachment(
-        data: Data,
-        fileName: String,
-        mimeType: String
-    ) async throws -> String {
-        guard let http, let token else {
-            throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
-        }
-
-        let temp = try await http.upload(
-            data: data,
-            fileName: fileName,
-            mimeType: mimeType,
-            token: token
-        )
-
-        return temp.id
     }
 }

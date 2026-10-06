@@ -1,258 +1,472 @@
-import AppKit
 import SharkordCore
 import SwiftUI
 
-struct MessageListView: View {
-    @EnvironmentObject private var session: SharkordSession
-
-    let channel: SharkordChannel
-    let onReply: (SharkordMessage) -> Void
-    let onEdit: (SharkordMessage) -> Void
-
-    private var messages: [SharkordMessage] {
-        session.messagesByChannel[channel.id] ?? []
-    }
-
-    private var hasMoreOlder: Bool {
-        session.hasMoreOlderByChannel[channel.id] == true
-    }
-
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    if hasMoreOlder {
-                        olderButton
-                    }
-
-                    ForEach(messages) { message in
-                        MessageRow(message: message, onReply: onReply, onEdit: onEdit)
-                            .id(message.id)
-                    }
-                }
-                .padding(.vertical, 10)
-            }
-            .onChange(of: messages.last?.id) { _, lastId in
-                guard let lastId else {
-                    return
-                }
-
-                withAnimation(.easeOut(duration: 0.15)) {
-                    proxy.scrollTo(lastId, anchor: .bottom)
-                }
-            }
-            .onChange(of: channel.id) { _, _ in
-                if let lastId = messages.last?.id {
-                    proxy.scrollTo(lastId, anchor: .bottom)
-                }
-            }
-        }
-    }
-
-    private var olderButton: some View {
-        HStack {
-            Spacer()
-
-            if session.isLoadingMore.contains(channel.id) {
-                ProgressView().controlSize(.small)
-            } else {
-                Button("Load older messages") {
-                    Task { await session.loadOlder(channelId: channel.id) }
-                }
-                .buttonStyle(.link)
-                .font(.system(size: 12))
-            }
-
-            Spacer()
-        }
-        .padding(.vertical, 6)
-    }
-}
-
-struct MessageRow: View {
+/// One message and the chrome around it: the group header, inline reply preview, files,
+/// reactions, the thread button and the hover actions. The web client keeps hover actions
+/// in the row, so the native list does the same instead of using a context menu only.
+struct MessageRowView: View {
     @EnvironmentObject private var session: SharkordSession
 
     let message: SharkordMessage
-    let onReply: (SharkordMessage) -> Void
-    let onEdit: (SharkordMessage) -> Void
+    let grouped: Bool
+    var highlighted: Bool = false
+
+    var onReply: (SharkordMessage) -> Void
+    var onEdit: (SharkordMessage) -> Void
+    var onOpenThread: (SharkordMessage) -> Void
+
+    @State private var hovering = false
 
     private var author: SharkordUser? {
         message.userId.flatMap { session.user(for: $0) }
-    }
-
-    private var authorName: String {
-        if message.pluginId != nil {
-            return "Plugin"
-        }
-
-        return author?.name ?? "Unknown"
     }
 
     private var isOwn: Bool {
         message.userId == session.ownUserId
     }
 
-    private var text: String {
-        MessageHTML.toPlainText(message.content ?? "")
+    private var canEdit: Bool {
+        message.editable != false && (isOwn || session.canManageMessages)
     }
 
-    private var reactions: [ReactionGroup] {
-        session.reactionGroups(for: message)
+    private var canDelete: Bool {
+        isOwn || session.canManageMessages
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            AvatarView(user: author, size: 36)
-
-            VStack(alignment: .leading, spacing: 3) {
-                header
-
-                if let replyTo = message.replyTo {
-                    replyPreview(replyTo)
-                }
-
-                if !text.isEmpty {
-                    Text(text)
-                        .font(.system(size: 13))
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if let files = message.files, !files.isEmpty {
-                    attachments(files)
-                }
-
-                if !reactions.isEmpty {
-                    reactionRow
-                }
+        VStack(alignment: .leading, spacing: 2) {
+            if let preview = message.replyTo {
+                replyPreview(preview)
             }
 
-            Spacer(minLength: 0)
+            HStack(alignment: .top, spacing: 8) {
+                if grouped {
+                    Color.clear.frame(width: 32)
+                } else {
+                    AvatarView(user: author, size: 32)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    if !grouped {
+                        header
+                    }
+
+                    content
+
+                    if let files = message.files, !files.isEmpty {
+                        HStack(spacing: 6) {
+                            ForEach(files) { file in
+                                FileCardView(file: file, onDelete: canDelete ? { deleteFile(file) } : nil)
+                            }
+                        }
+                        .padding(.top, 2)
+                    }
+
+                    ReactionBar(groups: session.reactionGroups(for: message)) { emoji in
+                        Task {
+                            try? await session.toggleReaction(messageId: message.id, emoji: emoji)
+                        }
+                    }
+
+                    footer
+                }
+
+                Spacer(minLength: 32)
+
+                if hovering {
+                    actions
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, grouped ? 1 : 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(highlighted ? Theme.accent.opacity(0.22) : mentionHighlight)
+            )
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+            .contextMenu {
+                contextMenuItems
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 3)
-        .contentShape(Rectangle())
-        .contextMenu { contextMenu }
+    }
+
+    private var mentionHighlight: Color {
+        if session.ownUser.map({ MessageHTML.toPlainText(message.content ?? "").contains("@\($0.name)") }) == true {
+            return Theme.accent.opacity(0.06)
+        }
+
+        return .clear
     }
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text(authorName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.color(for: author))
+            Text(author?.name ?? "Unknown")
+                .font(.system(size: 13.5, weight: isOwn ? .bold : .semibold))
+                .foregroundStyle(author.map { Theme.color(for: $0) } ?? .primary)
+                .strikethrough(author?.banned == true)
 
-            Text(Self.timestamp(message.createdAt))
-                .font(.system(size: 11))
+            if message.pluginId != nil {
+                Text("bot")
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Theme.accent, in: Capsule())
+                    .foregroundStyle(.white)
+            }
+
+            Text(Date(timeIntervalSince1970: Double(message.createdAt) / 1000), style: .relative)
+                .font(.system(size: 10.5))
                 .foregroundStyle(.secondary)
+        }
+    }
 
+    @ViewBuilder
+    private var content: some View {
+        let html = message.content ?? ""
+        let document = MessageHTML.parse(html)
+
+        if MessageHTML.isEmpty(html), let files = message.files, !files.isEmpty {
+            EmptyView()
+        } else {
+            MessageBodyView(document: document, emojiOnly: MessageHTML.isEmojiOnly(html))
+        }
+    }
+
+    @ViewBuilder
+    private var footer: some View {
+        HStack(spacing: 6) {
             if message.editedAt != nil {
-                Text("(edited)")
+                Text("edited")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
-        }
-    }
 
-    private func replyPreview(_ reply: SharkordReplyPreview) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "arrowshape.turn.up.left.fill")
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary)
+            if message.pinned == true {
+                Label(L10n.t("pinnedBadge", ns: "macos"), systemImage: "pin.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.orange)
+            }
 
-            Text(session.user(for: reply.userId ?? 0)?.name ?? "Unknown")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
+            let replies = session.replyCount(for: message)
 
-            Text(MessageHTML.toPlainText(reply.content ?? ""))
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .padding(.leading, 2)
-    }
-
-    private var reactionRow: some View {
-        HStack(spacing: 4) {
-            ForEach(reactions) { group in
-                ReactionChip(group: group) {
-                    Task {
-                        try? await session.toggleReaction(messageId: message.id, emoji: group.emoji)
-                    }
+            if replies > 0, message.parentMessageId == nil {
+                Button {
+                    onOpenThread(message)
+                } label: {
+                    Label("\(replies) replies", systemImage: "text.bubble")
+                        .font(.system(size: 10.5, weight: .medium))
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.accent)
             }
         }
         .padding(.top, 1)
     }
 
-    @ViewBuilder
-    private var contextMenu: some View {
-        ReactionMenu(message: message)
+    private func replyPreview(_ preview: SharkordReplyPreview) -> some View {
+        let author = preview.userId.flatMap { session.user(for: $0) }
 
-        Button {
-            onReply(message)
-        } label: {
-            Label("Reply", systemImage: "arrowshape.turn.up.left")
+        return HStack(spacing: 5) {
+            Image(systemName: "arrowshape.turn.up.left.fill")
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary)
+
+            Text(author?.name ?? "Unknown")
+                .font(.system(size: 10.5, weight: .semibold))
+
+            Text(MessageHTML.toPlainText(preview.content ?? ""))
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Spacer()
         }
+        .padding(.leading, 40)
+    }
 
-        Button {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.setString(text, forType: .string)
-        } label: {
-            Label("Copy text", systemImage: "doc.on.doc")
-        }
+    private var actions: some View {
+        HStack(spacing: 2) {
+            if session.hasPermission(.reactToMessages) {
+                quickReactButton
+            }
 
-        if isOwn && message.editable != false {
             Button {
-                onEdit(message)
+                onReply(message)
             } label: {
-                Label("Edit", systemImage: "pencil")
+                Image(systemName: "arrowshape.turn.up.left")
+            }
+            .help("Reply")
+
+            if message.parentMessageId == nil {
+                Button {
+                    onOpenThread(message)
+                } label: {
+                    Image(systemName: "text.bubble")
+                }
+                .help("Reply in thread")
+            }
+
+            if canEdit {
+                Button {
+                    onEdit(message)
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .help("Edit")
+            }
+
+            if session.hasPermission(.pinMessages), message.parentMessageId == nil {
+                Button {
+                    Task { try? await session.togglePin(messageId: message.id) }
+                } label: {
+                    Image(systemName: message.pinned == true ? "pin.slash" : "pin")
+                }
+                .help(message.pinned == true ? "Unpin" : "Pin")
+            }
+
+            if canDelete {
+                Button(role: .destructive) {
+                    Task { try? await session.deleteMessage(message.id) }
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .help("Delete")
+            }
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 11))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var quickReactButton: some View {
+        Menu {
+            ForEach(["👍", "❤️", "😂", "🎉", "👀", "🙏"], id: \.self) { emoji in
+                Button(emoji) {
+                    Task { try? await session.toggleReaction(messageId: message.id, emoji: emoji) }
+                }
+            }
+        } label: {
+            Image(systemName: "face.smiling")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private var contextMenuItems: some View {
+        Button(L10n.t("replyToMessage", ns: "common")) { onReply(message) }
+
+        if message.parentMessageId == nil {
+            Button(L10n.t("replyInThread", ns: "common")) { onOpenThread(message) }
+        }
+
+        if canEdit {
+            Button(L10n.t("editLabel", ns: "sidebar")) { onEdit(message) }
+        }
+
+        if session.hasPermission(.pinMessages), message.parentMessageId == nil {
+            Button(message.pinned == true ? "Unpin" : "Pin") {
+                Task { try? await session.togglePin(messageId: message.id) }
             }
         }
 
-        if isOwn {
+        if canDelete {
             Divider()
-
-            Button(role: .destructive) {
-                Task {
-                    try? await session.deleteMessage(message.id)
-                }
-            } label: {
-                Label("Delete", systemImage: "trash")
+            Button(L10n.t("deleteLabel", ns: "sidebar"), role: .destructive) {
+                Task { try? await session.deleteMessage(message.id) }
             }
         }
     }
 
-    private func attachments(_ files: [SharkordFile]) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(files) { file in
-                if file.mimeType.hasPrefix("image/"), let url = session.publicFileURL(for: file) {
-                    AsyncImage(url: url) { image in
-                        image.resizable().scaledToFit()
-                    } placeholder: {
-                        ProgressView()
-                    }
-                    .frame(maxWidth: 320)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                } else if let url = session.publicFileURL(for: file) {
-                    Link(destination: url) {
-                        Label(file.originalName, systemImage: "paperclip")
-                            .font(.system(size: 12))
-                    }
-                } else {
-                    Label(file.originalName, systemImage: "paperclip")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.accent)
-                }
-            }
-        }
+    private func deleteFile(_ file: SharkordFile) {
+        Task { try? await session.deleteFile(fileId: file.id) }
+    }
+}
+
+/// The message list of one channel. Consecutive messages from the same author within a
+/// minute merge into a group, exactly like the web client's `useGroupedMessages`.
+struct MessageListView: View {
+    @EnvironmentObject private var session: SharkordSession
+
+    let channel: SharkordChannel
+    var onReply: (SharkordMessage) -> Void
+    var onEdit: (SharkordMessage) -> Void
+    var onOpenThread: (SharkordMessage) -> Void
+
+    @State private var highlightId: Int?
+
+    private var messages: [SharkordMessage] {
+        session.messagesByChannel[channel.id] ?? []
     }
 
-    private static func timestamp(_ milliseconds: Int) -> String {
-        let date = Date(timeIntervalSince1970: Double(milliseconds) / 1000)
-        let formatter = DateFormatter()
-        formatter.dateFormat = Calendar.current.isDateInToday(date) ? "HH:mm" : "MMM d, HH:mm"
+    var body: some View {
+        VStack(spacing: 0) {
+            if session.hasNewerByChannel[channel.id] == true {
+                returnToPresent
+            }
 
-        return formatter.string(from: date)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        if session.hasMoreOlderByChannel[channel.id] == true {
+                            loadOlderButton
+                        }
+
+                        ForEach(groups) { group in
+                            MessageGroupView(
+                                group: group,
+                                highlightId: highlightId,
+                                onReply: onReply,
+                                onEdit: onEdit,
+                                onOpenThread: onOpenThread
+                            )
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+                .onChange(of: messages.count) {
+                    if let last = messages.last {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    }
+                }
+                .onChange(of: session.selectedChannelId) {
+                    if let last = messages.last {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    }
+                }
+            }
+
+            if !session.typingUsers(in: channel.id).isEmpty {
+                typingIndicator
+            }
+        }
+        .background(Theme.panel)
+    }
+
+    private var loadOlderButton: some View {
+        Button(L10n.t("loadEarlierMessages", ns: "macos")) {
+            Task { await session.loadOlder(channelId: channel.id) }
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 11))
+        .foregroundStyle(Theme.accent)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+    }
+
+    private var returnToPresent: some View {
+        Button(L10n.t("returnToPresent", ns: "macos")) {
+            Task { await session.select(channelId: channel.id) }
+        }
+        .buttonStyle(.borderless)
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Theme.accent, in: Capsule())
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+    }
+
+    private var typingIndicator: some View {
+        HStack(spacing: 6) {
+            TypingDots()
+
+            Text(typingText)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 5)
+    }
+
+    private var typingText: String {
+        let names = session.typingUsers(in: channel.id).map(\.name)
+
+        if names.count == 1 {
+            return "\(names[0]) is typing"
+        }
+
+        return "\(names.joined(separator: ", ")) are typing"
+    }
+
+    /// Same rules as the web client: same author, neither side is an inline reply, and less
+    /// than a minute apart.
+    private var groups: [MessageGroup] {
+        var result: [MessageGroup] = []
+
+        for message in messages {
+            guard let last = result.last, let previous = last.messages.last else {
+                result.append(MessageGroup(id: message.id, messages: [message]))
+                continue
+            }
+
+            let sameAuthor = previous.userId == message.userId && previous.pluginId == message.pluginId
+            let inlineReply = previous.replyToMessageId != nil || message.replyToMessageId != nil
+            let closeInTime = abs(message.createdAt - previous.createdAt) < 60_000
+
+            if sameAuthor, !inlineReply, closeInTime {
+                result[result.count - 1].messages.append(message)
+            } else {
+                result.append(MessageGroup(id: message.id, messages: [message]))
+            }
+        }
+
+        return result
+    }
+}
+
+/// A run of consecutive messages that render as one block with a single author header.
+struct MessageGroup: Identifiable {
+    let id: Int
+    var messages: [SharkordMessage]
+}
+
+struct MessageGroupView: View {
+    let group: MessageGroup
+    let highlightId: Int?
+    var onReply: (SharkordMessage) -> Void
+    var onEdit: (SharkordMessage) -> Void
+    var onOpenThread: (SharkordMessage) -> Void
+
+    var body: some View {
+        ForEach(group.messages) { message in
+            MessageRowView(
+                message: message,
+                grouped: message.id != group.id,
+                highlighted: message.id == highlightId,
+                onReply: onReply,
+                onEdit: onEdit,
+                onOpenThread: onOpenThread
+            )
+            .id(message.id)
+        }
+    }
+}
+
+/// Three dots that fade in sequence, matching the web client's `TypingDots`.
+struct TypingDots: View {
+    @State private var phase = 0
+
+    private let timer = Timer.publish(every: 0.35, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .fill(Theme.accent)
+                    .frame(width: 4, height: 4)
+                    .opacity(phase == index ? 1 : 0.3)
+            }
+        }
+        .onReceive(timer) { _ in
+            phase = (phase + 1) % 3
+        }
     }
 }

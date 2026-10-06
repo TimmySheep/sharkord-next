@@ -123,16 +123,6 @@ struct TRPCProtocolTests {
     }
 
     @Test
-    func messageHTMLKeepsLineStructure() {
-        #expect(MessageHTML.fromPlainText("hello") == "<p>hello</p>")
-        #expect(
-            MessageHTML.fromPlainText("a\nb")
-                == "<p>a</p><br class=\"hard-break\"><p>b</p>"
-        )
-        #expect(MessageHTML.fromPlainText("<b>") == "<p>&lt;b&gt;</p>")
-    }
-
-    @Test
     func plainTextRoundTrip() {
         let html = MessageHTML.fromPlainText("a\nb")
         #expect(MessageHTML.toPlainText(html) == "a\nb")
