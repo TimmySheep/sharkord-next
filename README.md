@@ -4,13 +4,68 @@
 It is not affiliated with, endorsed by, or supported by the Sharkord project or its maintainers.
 Fixes and generally useful improvements are offered back upstream where they belong.
 
-A lightweight, self-hostable, Discord-like communication platform — text and voice — that aims for
-**native-first clients** instead of a pile of Electron wrappers.
+**Languages:** English | [中文](README.zh-CN.md)
+
+A lightweight, self-hostable, Discord-like communication platform — text and voice — with real
+**native clients**, not Electron wrappers around a web page.
 
 [![CI](https://github.com/TimmySheep/sharkord-next/actions/workflows/ci.yml/badge.svg)](https://github.com/TimmySheep/sharkord-next/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/TimmySheep/sharkord-next)](LICENSE)
 
 ---
+
+## What we are building (and what we are not)
+
+This is the project's own plan, in priority order. **Native is the whole point:** the desktop clients that
+exist in this ecosystem today are Electron wrappers that load the web app. This project builds real
+native applications that talk to the same server.
+
+### 1. macOS — native (first)
+
+Swift + SwiftUI, AppKit where it is the right tool. No Electron, no embedded web view, no wrapper around
+the web client. Real system integration: menu bar presence, global push-to-talk hotkeys, native screen
+capture (ScreenCaptureKit), system audio. Text first, then voice.
+Design and evidence: [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
+
+### 2. Windows — native (second)
+
+C# + WinUI 3, native. Text first. Voice is gated on a feasibility spike, because **no C# mediasoup client
+exists today** — that is a research problem, not a task. System tray, global hotkeys, WASAPI audio,
+Windows.Graphics.Capture.
+Design and evidence: [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
+
+### 3. iPhone + iPad — native (third)
+
+One unified Apple project, Swift + SwiftUI, sharing the Swift core that macOS will already need. Voice,
+APNs notifications, background behaviour. Doing macOS first makes this cheaper rather than later.
+Design and evidence: [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
+
+### Not doing: Android
+
+A native Android client already exists — [`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android)
+(Kotlin + Jetpack Compose, MIT, with text, DMs, voice, video and screen share). Building a second one
+would duplicate a year of work, not advance anything.
+
+### Not doing: PWA / mobile-web work in this fork
+
+The three gaps in the web client (no service worker, no `viewport-fit=cover`, no iOS standalone meta) are
+**generic improvements to upstream's client**, and fixing them upstream benefits every self-hosted instance
+and every third-party client. So they are proposed in the original project instead of being carried here:
+see [Track 5](ROADMAP.md#track-5-upstream-collaboration).
+
+### Also on the list: direct (P2P) voice
+
+All media is server-relayed today, so a self-hoster's uplink is the ceiling. A direct path for 1:1 calls,
+with the relayed path as the fallback, is [Track 4](ROADMAP.md#track-4-direct-p2p-voice).
+
+| Platform | Decision | Why |
+| --- | --- | --- |
+| **macOS** (native, Swift) | **Build** — priority 1 | Unclaimed; existing desktop clients are Electron wrappers |
+| **Windows** (native, WinUI 3) | **Build** — priority 2 | Unclaimed; text first, voice gated on a spike |
+| **iPhone + iPad** (native, Swift) | **Build** — priority 3 | Unclaimed; shares the Swift core macOS needs anyway |
+| **Android** | **Do not build** | A native Kotlin/Compose client already exists |
+| **PWA / mobile web** | **Propose upstream** | Generic improvement; upstream serves every instance |
+| **Web client** | Keep as the reference client | It is the compatibility baseline for every client here |
 
 ## Status
 
@@ -23,10 +78,10 @@ Like upstream, it is **alpha**: expect bugs, incomplete features and breaking ch
 | --- | --- |
 | Server (`apps/server`) | Upstream code, unmodified. Builds and runs; **1458 server tests pass**. |
 | Reference web client (`apps/client`) | Upstream code, unmodified. Builds and runs (Vite 7.3.1). |
-| Our own features | **None yet.** Everything still tracks upstream `development`. |
+| Native clients | **Not started.** Designs are written; see the plan above. |
 | Documentation | Architecture, RTC, ecosystem and native-strategy research live in [`docs/`](docs/). |
 
-## What it is
+## What the server already does
 
 Everything below is upstream's feature set, unchanged — it is worth stating plainly so it is clear what
 this fork inherits:
@@ -40,29 +95,20 @@ this fork inherits:
 - **File uploads** with per-user storage quotas and optional signed URLs
 - **Plugins** that extend both server and client, through the [plugin SDK](packages/plugin-sdk)
 
-## Why a fork
+## Why a fork at all
 
 Upstream is doing good work and this project wants to stay mergeable with it. The fork exists because
 three things are true today ([evidence](docs/ECOSYSTEM_RESEARCH.md)):
 
-1. **There is no official mobile or desktop client.** Upstream ships a web client; the community
-   discussion for a desktop/mobile app has been open since 2026-02 with no commitment
-   ([#105](https://github.com/Sharkord/sharkord/discussions/105)).
+1. **There is no native desktop or mobile client.** Upstream ships a web client; the community discussion
+   for a desktop/mobile app has been open since 2026-02 with no commitment
+   ([#105](https://github.com/Sharkord/sharkord/discussions/105)). What exists on the desktop side are
+   Electron wrappers.
 2. **The web client is a desktop-first SPA**, not an installable app: no service worker, no
-   `viewport-fit=cover`, no iOS standalone meta. On a phone it works, but it is not a PWA.
+   `viewport-fit=cover`, no iOS standalone meta.
    ([audit](docs/ECOSYSTEM_RESEARCH.md#4-current-web-client--pwa--mobile-web-audit))
 3. **Media is server-relayed only (SFU).** Bandwidth is the first thing a self-hoster runs out of, and
    there is no option for a direct 1v1 path. ([RTC architecture](docs/RTC_ARCHITECTURE.md))
-
-## Platform plan
-
-| Platform | Plan | Where |
-| --- | --- | --- |
-| **Web** (reference client) | Keep, improve mobile/PWA behaviour | [`docs/ECOSYSTEM_RESEARCH.md`](docs/ECOSYSTEM_RESEARCH.md) |
-| **iPhone + iPad** | One unified Apple project, Swift + SwiftUI — **unclaimed by anyone today** | [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) |
-| **macOS** | Swift + SwiftUI, no Electron | [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) |
-| **Windows** | C# + WinUI 3, text-first (voice gated on a spike) | [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) |
-| **Android** | **Do not rewrite.** Contribute to / fork [`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android) (Kotlin + Compose, MIT) | [`docs/ECOSYSTEM_RESEARCH.md`](docs/ECOSYSTEM_RESEARCH.md#1-existing-android-native-clients) |
 
 ## Getting started
 
@@ -159,12 +205,14 @@ deterministically. Either unset the proxy or add `NO_PROXY=localhost,127.0.0.1`.
 
 ## Documentation
 
-| Document | Answers |
-| --- | --- |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Where the code lives, boot order, data layer, plugin system, how to add an endpoint |
-| [`docs/RTC_ARCHITECTURE.md`](docs/RTC_ARCHITECTURE.md) | How media actually flows, mediasoup lifecycle, and where a P2P path would plug in |
-| [`docs/ECOSYSTEM_RESEARCH.md`](docs/ECOSYSTEM_RESEARCH.md) | Which clients already exist, what upstream ships, PWA/mobile-web audit |
-| [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) | Shared-core decision and the Apple / macOS / Windows project designs |
+English is the primary language; Chinese translations sit next to each document as `*.zh-CN.md`.
+
+| Document | Answers | 中文 |
+| --- | --- | --- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Where the code lives, boot order, data layer, plugin system, how to add an endpoint | [中文](docs/ARCHITECTURE.zh-CN.md) |
+| [`docs/RTC_ARCHITECTURE.md`](docs/RTC_ARCHITECTURE.md) | How media actually flows, mediasoup lifecycle, and where a P2P path would plug in | [中文](docs/RTC_ARCHITECTURE.zh-CN.md) |
+| [`docs/ECOSYSTEM_RESEARCH.md`](docs/ECOSYSTEM_RESEARCH.md) | Which clients already exist, what upstream ships, PWA/mobile-web audit | [中文](docs/ECOSYSTEM_RESEARCH.zh-CN.md) |
+| [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) | Shared-core decision and the macOS / Windows / iOS designs | [中文](docs/NATIVE_STRATEGY.zh-CN.md) |
 
 Upstream's own documentation (still accurate for this codebase) is at
 <https://sharkord.com/docs>, and its local developer notes remain in [`DEVELOPMENT.md`](DEVELOPMENT.md).
@@ -180,8 +228,10 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md). The plan and the explicit "we are not 
 - Upstream: <https://github.com/Sharkord/sharkord> — kept as the `upstream` git remote.
 - `development` in this repository mirrors upstream `development` and is merged forward, so contributions
   stay mergeable in both directions.
+- General fixes and the PWA/mobile-web improvements are offered upstream rather than kept here.
 - Upstream's original README, contribution guide and roadmap are preserved verbatim under
-  [`upstream-notes/`](upstream-notes/) so nothing was lost in the rebrand.
+  [`upstream-notes/`](upstream-notes/), and the repository keeps upstream's full commit history, so its
+  contributor list and tags include upstream authors and releases.
 - Trademark and branding belong to the Sharkord project; this fork uses the name only to describe what it
   is based on.
 

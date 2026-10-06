@@ -1,5 +1,7 @@
 # Contributing to Sharkord Next
 
+**Languages:** English | [中文](CONTRIBUTING.zh-CN.md)
+
 Thanks for considering it. This project is a community fork — see the [README](README.md) for what it is
 and why it exists, and [`ROADMAP.md`](ROADMAP.md) for the plan and the things we have decided **not** to do.
 

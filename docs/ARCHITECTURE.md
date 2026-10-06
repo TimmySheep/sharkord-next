@@ -1,5 +1,7 @@
 # Sharkord Next Architecture
 
+> 中文版: [ARCHITECTURE.zh-CN.md](ARCHITECTURE.zh-CN.md)
+
 A map of the codebase for contributors: **where things live and what rule governs them**.
 Written from the source at `c611bb4` (branch `development`) with `file:line` citations. It
 complements [`AGENTS.md`](../AGENTS.md): that file is the full rule book, this one is the

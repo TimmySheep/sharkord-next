@@ -1,5 +1,7 @@
 # Sharkord Next — Native Client Strategy
 
+> 中文版: [NATIVE_STRATEGY.zh-CN.md](NATIVE_STRATEGY.zh-CN.md)
+
 Design document for the first native targets (iPhone + iPad, macOS, Windows) and for the shared
 core that is supposed to keep them from re-inventing the same business logic three times.
 

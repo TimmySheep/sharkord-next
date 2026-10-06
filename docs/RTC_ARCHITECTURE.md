@@ -1,5 +1,7 @@
 # RTC Architecture
 
+> 中文版: [RTC_ARCHITECTURE.zh-CN.md](RTC_ARCHITECTURE.zh-CN.md)
+
 How media actually flows in Sharkord Next — server, client, signaling, deployment — with a
 file:line map for every claim, followed by a concrete analysis of what a P2P ("direct") media
 path would require.

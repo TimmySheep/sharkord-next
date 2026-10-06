@@ -1,5 +1,7 @@
 # Sharkord Next — Ecosystem Research
 
+> 中文版: [ECOSYSTEM_RESEARCH.zh-CN.md](ECOSYSTEM_RESEARCH.zh-CN.md)
+
 **Purpose:** inventory the existing third-party client ecosystem around Sharkord, the upstream project's
 official position, and the real state of the current web client's PWA / mobile-web support — so that
 Sharkord Next can decide where to **contribute / fork / rewrite** instead of rebuilding blind.
