@@ -6,8 +6,10 @@ struct SharkordApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(model: model)
-                .tint(.sharkordBlue)
+            RootView()
+                .environmentObject(model)
+                .environmentObject(model.session)
+                .environmentObject(model.voice)
         }
     }
 }

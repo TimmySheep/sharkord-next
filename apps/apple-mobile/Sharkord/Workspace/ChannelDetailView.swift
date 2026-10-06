@@ -1,224 +1,192 @@
+import SharkordCore
 import SwiftUI
 
-/// renders whichever channel is open: a text channel with a message list and composer, or a voice
-/// channel with its member roster. both are driven from `AppModel`, so swapping the sample data for a
-/// protocol client does not change this view's shape.
+/// The open channel: the message list with its composer for text channels, the voice
+/// room panel for voice channels. Messages, unread state, typing indicators and reactions
+/// all come from the live session.
 struct ChannelDetailView: View {
-    @ObservedObject var model: AppModel
-    let channelID: String
-    @State private var draft = ""
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var session: SharkordSession
 
-    private var channel: ServerChannel? {
-        model.channel(withID: channelID)
-    }
+    let channelId: Int
+
+    @State private var draft = ""
+    @State private var replyTo: SharkordMessage?
+    @FocusState private var composerFocused: Bool
 
     var body: some View {
         Group {
-            if let channel {
-                switch channel.kind {
-                case .text:
-                    textChannel(channel)
-                case .voice:
-                    voiceChannel(channel)
-                }
+            if let channel = session.channel(for: channelId), channel.type == .voice {
+                VoiceRoomView(channelId: channelId)
             } else {
-                missingChannel
+                messageScreen
             }
         }
-        .background(BrandBackground())
-        .navigationTitle(channel?.name ?? "频道")
+        .navigationTitle(channelTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            model.selectChannel(channelId)
+        }
     }
 
-    private func textChannel(_ channel: ServerChannel) -> some View {
+    private var messageScreen: some View {
         VStack(spacing: 0) {
-            OfflineNotice()
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-
-            messageList(channel)
-
-            composer(channel)
+            messageList
+            Divider()
+            composer
         }
     }
 
-    private func messageList(_ channel: ServerChannel) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(channel.topic)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 4)
-                    .padding(.top, 12)
+    private var messageList: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    if session.hasMoreOlderByChannel[channelId] == true {
+                        Button {
+                            Task { await session.loadOlder(channelId: channelId) }
+                        } label: {
+                            Text(L10n.t("channel.loadOlder"))
+                                .font(.caption.weight(.medium))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .padding(.vertical, 9)
+                    }
 
-                ForEach(model.messagesByChannel[channel.id] ?? []) { message in
-                    messageRow(message)
+                    let messages = session.messagesByChannel[channelId] ?? []
+
+                    if messages.isEmpty && session.hasMoreOlderByChannel[channelId] != true {
+                        emptyState
+                    }
+
+                    ForEach(messages) { message in
+                        MessageRow(message: message) { reply in
+                            replyTo = reply
+                            composerFocused = true
+                        }
+                        .id(message.id)
+                    }
+
+                    Color.clear.frame(height: 1).id("bottom")
                 }
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-            .frame(maxWidth: 700)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .onAppear {
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
+            .onChange(of: session.messagesByChannel[channelId]?.count) { _, _ in
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
         }
-        .scrollIndicators(.hidden)
-        .defaultScrollAnchor(.bottom)
     }
 
-    private func messageRow(_ message: ChatMessage) -> some View {
-        let name = authorName(for: message)
+    private var emptyState: some View {
+        VStack(spacing: 9) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 30))
+                .foregroundStyle(.secondary)
 
-        return HStack(alignment: .top, spacing: 11) {
-            AvatarView(name: name, diameter: 36)
+            Text(L10n.t("channel.empty"))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+    }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 7) {
-                    Text(name)
-                        .font(.subheadline.weight(.semibold))
-
-                    Text(message.sentAt.formatted(date: .omitted, time: .shortened))
-                        .font(.caption2)
+    private var composer: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let replyTo {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrowshape.turn.up.left")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    Spacer(minLength: 0)
+                    Text(MessageText.plainText(fromHTML: replyTo.content))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 4)
+
+                    Button {
+                        self.replyTo = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-
-                Text(message.body)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(13)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            Color.primary.opacity(0.04),
-            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.7)
-        }
-    }
-
-    private func composer(_ channel: ServerChannel) -> some View {
-        HStack(spacing: 10) {
-            TextField("在 #\(channel.name) 中发言", text: $draft)
-                .font(.subheadline)
-                .textFieldStyle(.plain)
                 .padding(.horizontal, 14)
-                .frame(minHeight: 46)
-                .background(
-                    Color.primary.opacity(0.045),
-                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.7)
-                }
-                .onSubmit(sendDraft)
-
-            Button(action: sendDraft) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(canSend ? Color.sharkordBlue : Color.secondary)
             }
-            .disabled(!canSend)
-            .accessibilityLabel("发送")
+
+            if !typingNames.isEmpty {
+                Text(L10n.format("channel.typing", typingNames))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 14)
+            }
+
+            HStack(spacing: 10) {
+                TextField(L10n.t("channel.messagePlaceholder"), text: $draft, axis: .vertical)
+                    .lineLimit(1...5)
+                    .textFieldStyle(.plain)
+                    .focused($composerFocused)
+                    .onChange(of: draft) { _, _ in
+                        session.signalTyping(channelId: channelId)
+                    }
+
+                Button(action: send) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 27))
+                        .foregroundStyle(canSend ? Color.sharkordBlue : Color.secondary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSend)
+            }
+            .padding(.horizontal, 13)
+            .padding(.vertical, 10)
+            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(.bar)
     }
 
     private var canSend: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private func sendDraft() {
-        guard canSend else { return }
-        model.send(draft, to: channelID)
+    private var typingNames: String {
+        session.typingUsers(in: channelId).map(\.name).joined(separator: ", ")
+    }
+
+    private var channelTitle: String {
+        guard let channel = session.channel(for: channelId) else {
+            return ""
+        }
+        return channel.isDm ? (session.directMessagePartner(for: channel)?.name ?? channel.name) : "#\(channel.name)"
+    }
+
+    private func send() {
+        let text = draft
+        let reply = replyTo
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
         draft = ""
-    }
+        replyTo = nil
 
-    private func voiceChannel(_ channel: ServerChannel) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                OfflineNotice()
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(channel.topic)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text("\(channel.voiceMemberIDs.count) 人在线")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: 4),
-                    spacing: 18
-                ) {
-                    ForEach(channel.voiceMemberIDs, id: \.self) { memberID in
-                        voiceTile(memberID)
-                    }
-                }
-
-                SharkordPrimaryButton(
-                    title: "语音尚未接入",
-                    symbol: "speaker.wave.2",
-                    enabled: false,
-                    action: {}
+        Task {
+            do {
+                try await session.sendMessage(
+                    text,
+                    channelId: channelId,
+                    replyToMessageId: reply?.id
                 )
-                .accessibilityHint("语音依赖 mediasoup 客户端，属于第二阶段")
-
-                Text("本阶段只搭界面骨架，语音频道尚未建立 WebRTC 连接。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            } catch {
+                model.banner = error.localizedDescription
             }
-            .padding(16)
-            .frame(maxWidth: 620)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .scrollIndicators(.hidden)
-    }
-
-    private func voiceTile(_ memberID: String) -> some View {
-        let member = model.member(withID: memberID)
-
-        return VStack(spacing: 7) {
-            AvatarView(
-                name: member?.name ?? "?",
-                diameter: 54,
-                isSpeaking: member?.isSpeaking ?? false
-            )
-
-            Text(member?.name ?? "未知用户")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var missingChannel: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "questionmark.circle")
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(.tertiary)
-            Text("频道不存在")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func authorName(for message: ChatMessage) -> String {
-        if message.authorID == "local" {
-            return model.accountDisplayName
-        }
-        return model.member(withID: message.authorID)?.name ?? "未知用户"
     }
 }

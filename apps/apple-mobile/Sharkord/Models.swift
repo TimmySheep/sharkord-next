@@ -1,35 +1,20 @@
 import Foundation
+import SharkordCore
 
-enum ChannelKind: Hashable {
-    case text
-    case voice
+/// App local view models. Server state itself is typed in `SharkordCore`; anything the
+/// screens need on top of it lives here.
+
+/// One participant row in a voice channel, carrying the user plus the four state flags
+/// the server broadcasts (`micMuted`, `soundMuted`, `webcamEnabled`, `sharingScreen`).
+struct VoiceParticipant: Identifiable {
+    let user: SharkordUser
+    let state: VoiceUserState
+
+    var id: Int { user.id }
 }
 
-struct ServerChannel: Identifiable, Hashable {
-    let id: String
-    let name: String
-    let kind: ChannelKind
-    let topic: String
-    let voiceMemberIDs: [String]
-}
-
-struct ServerCategory: Identifiable, Hashable {
-    let id: String
-    let name: String
-    let channels: [ServerChannel]
-}
-
-struct ChatMessage: Identifiable, Hashable {
-    let id: String
-    let authorID: String
-    let body: String
-    let sentAt: Date
-}
-
-struct WorkspaceMember: Identifiable, Hashable {
-    let id: String
-    let name: String
-    let roleName: String
-    let isOnline: Bool
-    let isSpeaking: Bool
+extension SharkordSession {
+    func voiceParticipants(in channelId: Int) -> [VoiceParticipant] {
+        voiceUsers(in: channelId).map { VoiceParticipant(user: $0.user, state: $0.state) }
+    }
 }

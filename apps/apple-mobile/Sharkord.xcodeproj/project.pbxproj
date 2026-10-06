@@ -25,6 +25,14 @@
 		BB0000000000000000000010 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000002 /* DesignSystem.swift */; };
 		BB0000000000000000000011 /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000000F /* LiveActivityWidget.swift */; };
 		BB0000000000000000000012 /* SharkordLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = FD0000000000000000000002 /* SharkordLiveActivity.appex */; };
+		BB0000000000000000000013 /* VoiceEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000011 /* VoiceEngine.swift */; };
+		BB0000000000000000000014 /* RTPCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000012 /* RTPCodec.swift */; };
+		BB0000000000000000000015 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000013 /* L10n.swift */; };
+		BB0000000000000000000016 /* MessageText.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000014 /* MessageText.swift */; };
+		BB0000000000000000000017 /* MessageRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000015 /* MessageRow.swift */; };
+		BB0000000000000000000018 /* VoiceRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000016 /* VoiceRoomView.swift */; };
+		BB0000000000000000000019 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000017 /* Localizable.strings */; };
+		BB000000000000000000001A /* RemoteVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000001D /* RemoteVideoView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,6 +76,18 @@
 		FB000000000000000000000E /* LiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
 		FB000000000000000000000F /* LiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
 		FB0000000000000000000010 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FB0000000000000000000011 /* VoiceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceEngine.swift; sourceTree = "<group>"; };
+		FB0000000000000000000012 /* RTPCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RTPCodec.swift; sourceTree = "<group>"; };
+		FB0000000000000000000013 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		FB0000000000000000000014 /* MessageText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageText.swift; sourceTree = "<group>"; };
+		FB0000000000000000000015 /* MessageRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRow.swift; sourceTree = "<group>"; };
+		FB0000000000000000000016 /* VoiceRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRoomView.swift; sourceTree = "<group>"; };
+		FB0000000000000000000018 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		FB0000000000000000000019 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		FB000000000000000000001A /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
+		FB000000000000000000001B /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
+		FB000000000000000000001C /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
+		FB000000000000000000001D /* RemoteVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteVideoView.swift; sourceTree = "<group>"; };
 		FD0000000000000000000001 /* Sharkord.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sharkord.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD0000000000000000000002 /* SharkordLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SharkordLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -110,6 +130,8 @@
 				600000000000000000000006 /* Activities */,
 				600000000000000000000004 /* Onboarding */,
 				600000000000000000000005 /* Workspace */,
+				600000000000000000000008 /* Voice */,
+				600000000000000000000009 /* i18n */,
 				FB000000000000000000000C /* Assets.xcassets */,
 			);
 			path = Sharkord;
@@ -138,10 +160,40 @@
 				FB0000000000000000000007 /* WorkspaceView.swift */,
 				FB0000000000000000000008 /* ChannelListView.swift */,
 				FB0000000000000000000009 /* ChannelDetailView.swift */,
+				FB0000000000000000000015 /* MessageRow.swift */,
+				FB0000000000000000000014 /* MessageText.swift */,
+				FB0000000000000000000016 /* VoiceRoomView.swift */,
 				FB000000000000000000000A /* MembersView.swift */,
 				FB000000000000000000000B /* SettingsView.swift */,
 			);
 			path = Workspace;
+			sourceTree = "<group>";
+		};
+		600000000000000000000008 /* Voice */ = {
+			isa = PBXGroup;
+			children = (
+				FB0000000000000000000011 /* VoiceEngine.swift */,
+				FB0000000000000000000012 /* RTPCodec.swift */,
+				FB000000000000000000001D /* RemoteVideoView.swift */,
+			);
+			path = Voice;
+			sourceTree = "<group>";
+		};
+		600000000000000000000009 /* i18n */ = {
+			isa = PBXGroup;
+			children = (
+				FB0000000000000000000013 /* L10n.swift */,
+				60000000000000000000000A /* Resources */,
+			);
+			path = i18n;
+			sourceTree = "<group>";
+		};
+		60000000000000000000000A /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				FB0000000000000000000017 /* Localizable.strings */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		600000000000000000000006 /* Activities */ = {
@@ -180,6 +232,10 @@
 				C00000000000000000000002 /* PBXTargetDependency */,
 			);
 			name = Sharkord;
+			packageProductDependencies = (
+				E00000000000000000000003 /* SharkordCore */,
+				E00000000000000000000004 /* Mediasoup */,
+			);
 			productName = Sharkord;
 			productReference = FD0000000000000000000001 /* Sharkord.app */;
 			productType = "com.apple.product-type.application";
@@ -225,8 +281,16 @@
 			knownRegions = (
 				en,
 				Base,
+				es,
+				fr,
+				de,
+				"zh-Hans",
 			);
 			mainGroup = 600000000000000000000001;
+			packageReferences = (
+				E00000000000000000000001 /* XCLocalSwiftPackageReference "../macos" */,
+				E00000000000000000000002 /* XCRemoteSwiftPackageReference "mediasoup-client-swift" */,
+			);
 			productRefGroup = 600000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -243,6 +307,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BB000000000000000000000C /* Assets.xcassets in Resources */,
+				BB0000000000000000000019 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -273,6 +338,13 @@
 				BB000000000000000000000B /* SettingsView.swift in Sources */,
 				BB000000000000000000000D /* LiveActivityAttributes.swift in Sources */,
 				BB000000000000000000000E /* LiveActivityController.swift in Sources */,
+				BB0000000000000000000013 /* VoiceEngine.swift in Sources */,
+				BB0000000000000000000014 /* RTPCodec.swift in Sources */,
+				BB0000000000000000000015 /* L10n.swift in Sources */,
+				BB0000000000000000000016 /* MessageText.swift in Sources */,
+				BB0000000000000000000017 /* MessageRow.swift in Sources */,
+				BB0000000000000000000018 /* VoiceRoomView.swift in Sources */,
+				BB000000000000000000001A /* RemoteVideoView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,6 +359,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		FB0000000000000000000017 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				FB0000000000000000000018 /* en */,
+				FB0000000000000000000019 /* zh-Hans */,
+				FB000000000000000000001A /* es */,
+				FB000000000000000000001B /* fr */,
+				FB000000000000000000001C /* de */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXTargetDependency section */
 		C00000000000000000000002 /* PBXTargetDependency */ = {
@@ -494,6 +581,36 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		E00000000000000000000001 /* XCLocalSwiftPackageReference "../macos" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../macos;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E00000000000000000000002 /* XCRemoteSwiftPackageReference "mediasoup-client-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/VLprojects/mediasoup-client-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.13.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E00000000000000000000003 /* SharkordCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SharkordCore;
+		};
+		E00000000000000000000004 /* Mediasoup */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E00000000000000000000002 /* XCRemoteSwiftPackageReference "mediasoup-client-swift" */;
+			productName = Mediasoup;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 700000000000000000000002 /* Project object */;
 }

@@ -1,20 +1,34 @@
+import SharkordCore
 import SwiftUI
 
-/// single switch between the two top level scenes. it lives in its own file because every future
-/// scene change (deeplink, expired session) will go through here rather than through a view.
+/// Routes between the connect screen and the workspace based on the session phase.
 struct RootView: View {
-    @ObservedObject var model: AppModel
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var session: SharkordSession
 
     var body: some View {
-        switch model.phase {
-        case .onboarding:
-            NavigationStack {
-                ConnectView(model: model)
+        Group {
+            switch session.phase {
+            case .disconnected, .failed:
+                ConnectView()
+            case .connecting:
+                connecting
+            case .connected:
+                WorkspaceView()
             }
-            .transition(.opacity)
-        case .workspace:
-            WorkspaceView(model: model)
-                .transition(.opacity)
         }
+        .background(BrandBackground())
+        .animation(.easeInOut(duration: 0.18), value: model.isConnected)
+    }
+
+    private var connecting: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .controlSize(.large)
+            Text(L10n.t("connect.connecting"))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

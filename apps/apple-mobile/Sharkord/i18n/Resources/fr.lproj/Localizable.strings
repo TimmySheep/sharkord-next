@@ -1,0 +1,100 @@
+/* Sharkord iOS - Français */
+
+/* connexion */
+"connect.title" = "Connexion à Sharkord";
+"connect.subtitle" = "Saisissez l'adresse de votre serveur et votre compte. Cette version communique avec le serveur réel : messages, voix et partage d'écran sont opérationnels.";
+"connect.server" = "Adresse du serveur";
+"connect.serverPlaceholder" = "https://chat.example.com";
+"connect.identity" = "Compte";
+"connect.identityPlaceholder" = "votre compte";
+"connect.password" = "Mot de passe";
+"connect.passwordPlaceholder" = "votre mot de passe";
+"connect.serverPassword" = "Mot de passe du serveur (facultatif)";
+"connect.serverPasswordPlaceholder" = "uniquement si le serveur en demande un";
+"connect.submit" = "Se connecter";
+"connect.connecting" = "Connexion en cours…";
+
+/* navigation */
+"nav.channels" = "Canaux";
+"nav.members" = "Membres";
+"nav.settings" = "Réglages";
+"nav.directMessages" = "Messages privés";
+"nav.voiceChannels" = "Canaux vocaux";
+
+/* canaux et messages */
+"channel.loadOlder" = "Charger les messages précédents";
+"channel.empty" = "Aucun message pour le moment. Dites quelque chose.";
+"channel.messagePlaceholder" = "Message";
+"channel.typing" = "%1$@ est en train d'écrire…";
+
+"message.reply" = "Répondre";
+"message.edit" = "Modifier";
+"message.delete" = "Supprimer";
+"message.pin" = "Épingler";
+"message.editTitle" = "Modifier le message";
+"message.editPlaceholder" = "Texte du message";
+"message.edited" = "(modifié)";
+"message.pinned" = "Épinglé";
+"message.unknownAuthor" = "Inconnu";
+
+/* voix */
+"voice.call" = "Voix";
+"voice.join" = "Rejoindre la voix";
+"voice.leave" = "Quitter la voix";
+"voice.controls" = "Commandes de l'appel";
+"voice.participants" = "Dans ce salon";
+"voice.emptyRoom" = "Il n'y a encore personne dans ce salon.";
+"voice.mic.mute" = "Couper le micro";
+"voice.mic.unmute" = "Réactiver le micro";
+"voice.output.enable" = "Activer le haut-parleur";
+"voice.output.disable" = "Couper le haut-parleur";
+"voice.screen.start" = "Partager l'écran";
+"voice.screen.stop" = "Arrêter le partage";
+"voice.micBlocked" = "Impossible d'ouvrir le micro tant que le haut-parleur est coupé.";
+"voice.status.idle" = "Non connecté";
+"voice.status.joining" = "Connexion au salon…";
+"voice.status.connecting" = "Connexion en cours…";
+"voice.status.live" = "Connecté";
+"voice.status.muted" = "Micro coupé";
+"voice.status.deafened" = "Haut-parleur coupé";
+"voice.status.failed" = "Échec de la connexion";
+"voice.state.joined" = "Connecté";
+"voice.state.live" = "Connecté";
+"voice.state.muted" = "Micro coupé";
+"voice.state.deafened" = "Haut-parleur coupé";
+"voice.state.screenSharing" = "Partage d'écran en cours";
+"voice.remoteStreams" = "Vidéo reçue";
+"voice.remoteCamera" = "caméra";
+"voice.notice.movedOrRemoved" = "Vous n'êtes plus dans le salon vocal.";
+"voice.error.notInCall" = "Rejoignez d'abord un salon vocal.";
+"voice.error.micBlockedByDeafen" = "Activez le haut-parleur avant d'ouvrir le micro.";
+"voice.error.screenShareNotAllowed" = "Vous n'avez pas la permission de partager l'écran ici.";
+"voice.error.screenShareUnavailable" = "Le partage d'écran n'est pas disponible sur cet appareil pour le moment.";
+"voice.error.transportFailed" = "La connexion vocale a échoué.";
+"voice.liveActivity.topic" = "Salon vocal";
+"voice.liveActivity.previewChannel" = "Salon";
+"voice.liveActivity.previewTopic" = "Aperçu avec des données d'exemple";
+
+/* membres */
+"members.online" = "En ligne";
+"members.offline" = "Hors ligne";
+"members.noRoles" = "Aucun rôle";
+
+/* réglages */
+"settings.language" = "Langue";
+"settings.languageHint" = "Cette version prend en charge l'anglais, le chinois simplifié, l'espagnol, le français et l'allemand.";
+"settings.liveActivity" = "Dynamic Island";
+"settings.liveActivityStart" = "Aperçu d'une activité en direct";
+"settings.liveActivityStop" = "Arrêter l'aperçu";
+"settings.liveActivityHint" = "Pendant un vrai appel, la Dynamic Island affiche le salon et le nombre de participants.";
+"settings.connection" = "Connexion";
+"settings.server" = "Serveur";
+"settings.account" = "Compte";
+"settings.disconnect" = "Se déconnecter";
+"settings.disconnectHint" = "Quitte le serveur et revient à l'écran de connexion.";
+"settings.about" = "À propos de cette version";
+"settings.aboutBody" = "Première version fonctionnelle : connexion, canaux, messages, réactions, voix avec contrôle du micro, partage d'écran et cinq langues. Les envois de fichiers, les fils, les plugins et les écrans de modération sont encore à venir.";
+
+/* général */
+"common.save" = "Enregistrer";
+"common.cancel" = "Annuler";

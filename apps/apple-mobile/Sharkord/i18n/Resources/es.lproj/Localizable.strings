@@ -1,0 +1,100 @@
+/* Sharkord iOS - Español */
+
+/* conexión */
+"connect.title" = "Inicia sesión en Sharkord";
+"connect.subtitle" = "Introduce la dirección de tu servidor y tu cuenta. Esta versión se conecta al servidor real: los mensajes, la voz y compartir pantalla funcionan de verdad.";
+"connect.server" = "Dirección del servidor";
+"connect.serverPlaceholder" = "https://chat.example.com";
+"connect.identity" = "Cuenta";
+"connect.identityPlaceholder" = "tu cuenta";
+"connect.password" = "Contraseña";
+"connect.passwordPlaceholder" = "tu contraseña";
+"connect.serverPassword" = "Contraseña del servidor (opcional)";
+"connect.serverPasswordPlaceholder" = "solo si el servidor la pide";
+"connect.submit" = "Conectar";
+"connect.connecting" = "Conectando…";
+
+/* navegación */
+"nav.channels" = "Canales";
+"nav.members" = "Miembros";
+"nav.settings" = "Ajustes";
+"nav.directMessages" = "Mensajes directos";
+"nav.voiceChannels" = "Canales de voz";
+
+/* canales y mensajes */
+"channel.loadOlder" = "Cargar mensajes anteriores";
+"channel.empty" = "Todavía no hay mensajes. Di algo.";
+"channel.messagePlaceholder" = "Mensaje";
+"channel.typing" = "%1$@ está escribiendo…";
+
+"message.reply" = "Responder";
+"message.edit" = "Editar";
+"message.delete" = "Eliminar";
+"message.pin" = "Fijar";
+"message.editTitle" = "Editar mensaje";
+"message.editPlaceholder" = "Texto del mensaje";
+"message.edited" = "(editado)";
+"message.pinned" = "Fijado";
+"message.unknownAuthor" = "Desconocido";
+
+/* voz */
+"voice.call" = "Voz";
+"voice.join" = "Unirse a la voz";
+"voice.leave" = "Salir de la voz";
+"voice.controls" = "Controles de la llamada";
+"voice.participants" = "En este canal";
+"voice.emptyRoom" = "Todavía no hay nadie en este canal.";
+"voice.mic.mute" = "Silenciar";
+"voice.mic.unmute" = "Activar micrófono";
+"voice.output.enable" = "Activar el altavoz";
+"voice.output.disable" = "Desactivar el altavoz";
+"voice.screen.start" = "Compartir pantalla";
+"voice.screen.stop" = "Dejar de compartir";
+"voice.micBlocked" = "No se puede abrir el micrófono mientras el altavoz está apagado.";
+"voice.status.idle" = "No conectado";
+"voice.status.joining" = "Uniéndose…";
+"voice.status.connecting" = "Conectando…";
+"voice.status.live" = "Conectado";
+"voice.status.muted" = "Micrófono apagado";
+"voice.status.deafened" = "Altavoz apagado";
+"voice.status.failed" = "Error de conexión";
+"voice.state.joined" = "Unido";
+"voice.state.live" = "Conectado";
+"voice.state.muted" = "Micrófono apagado";
+"voice.state.deafened" = "Altavoz apagado";
+"voice.state.screenSharing" = "Compartiendo pantalla";
+"voice.remoteStreams" = "Vídeo entrante";
+"voice.remoteCamera" = "cámara";
+"voice.notice.movedOrRemoved" = "Te han sacado del canal de voz.";
+"voice.error.notInCall" = "Únete primero a un canal de voz.";
+"voice.error.micBlockedByDeafen" = "Activa el altavoz antes de abrir el micrófono.";
+"voice.error.screenShareNotAllowed" = "No tienes permiso para compartir la pantalla aquí.";
+"voice.error.screenShareUnavailable" = "Compartir pantalla no está disponible en este dispositivo ahora mismo.";
+"voice.error.transportFailed" = "La conexión de voz ha fallado.";
+"voice.liveActivity.topic" = "Canal de voz";
+"voice.liveActivity.previewChannel" = "Sala de descanso";
+"voice.liveActivity.previewTopic" = "Vista previa con datos de ejemplo";
+
+/* miembros */
+"members.online" = "En línea";
+"members.offline" = "Desconectado";
+"members.noRoles" = "Sin roles";
+
+/* ajustes */
+"settings.language" = "Idioma";
+"settings.languageHint" = "Esta versión admite inglés, chino simplificado, español, francés y alemán.";
+"settings.liveActivity" = "Isla Dinámica";
+"settings.liveActivityStart" = "Probar una actividad en vivo";
+"settings.liveActivityStop" = "Detener la vista previa";
+"settings.liveActivityHint" = "Durante una llamada real, la Isla Dinámica muestra el canal y el número de participantes.";
+"settings.connection" = "Conexión";
+"settings.server" = "Servidor";
+"settings.account" = "Cuenta";
+"settings.disconnect" = "Desconectar";
+"settings.disconnectHint" = "Sale del servidor y vuelve a la pantalla de inicio de sesión.";
+"settings.about" = "Acerca de esta versión";
+"settings.aboutBody" = "Primera versión con funciones: inicio de sesión, canales, mensajes, reacciones, voz con control de micrófono, compartir pantalla y cinco idiomas. La subida de archivos, los hilos, los plugins y las pantallas de moderación todavía están por llegar.";
+
+/* común */
+"common.save" = "Guardar";
+"common.cancel" = "Cancelar";

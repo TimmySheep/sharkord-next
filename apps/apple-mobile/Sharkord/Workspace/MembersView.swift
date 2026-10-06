@@ -1,81 +1,70 @@
+import SharkordCore
 import SwiftUI
 
-/// roster grouped by presence. the grouping lives here rather than in `AppModel` because it is a
-/// presentation concern and nothing else needs it.
+/// Everyone on the server, with presence and role names.
 struct MembersView: View {
-    @ObservedObject var model: AppModel
+    @EnvironmentObject private var session: SharkordSession
 
-    private var online: [WorkspaceMember] {
-        model.members.filter(\.isOnline)
+    private var online: [SharkordUser] {
+        session.users.filter { $0.status == .online }
     }
 
-    private var offline: [WorkspaceMember] {
-        model.members.filter { !$0.isOnline }
+    private var offline: [SharkordUser] {
+        session.users.filter { $0.status != .online }
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                OfflineNotice()
+        NavigationStack {
+            List {
+                Section("\(L10n.t("members.online")) · \(online.count)") {
+                    ForEach(online) { user in
+                        memberRow(user)
+                    }
+                }
 
-                memberGroup(title: "在线 · \(online.count)", members: online, dimmed: false)
-                memberGroup(title: "离线 · \(offline.count)", members: offline, dimmed: true)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 28)
-            .frame(maxWidth: 620)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .scrollIndicators(.hidden)
-        .navigationTitle("成员")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func memberGroup(title: String, members: [WorkspaceMember], dimmed: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SectionEyebrow(title: title)
-                .padding(.horizontal, 4)
-
-            VStack(spacing: 4) {
-                ForEach(members) { member in
-                    memberRow(member, dimmed: dimmed)
+                if !offline.isEmpty {
+                    Section("\(L10n.t("members.offline")) · \(offline.count)") {
+                        ForEach(offline) { user in
+                            memberRow(user)
+                        }
+                    }
                 }
             }
+            .listStyle(.insetGrouped)
+            .navigationTitle(L10n.t("nav.members"))
         }
     }
 
-    private func memberRow(_ member: WorkspaceMember, dimmed: Bool) -> some View {
-        HStack(spacing: 12) {
-            AvatarView(name: member.name, diameter: 36, isSpeaking: member.isSpeaking)
+    private func memberRow(_ user: SharkordUser) -> some View {
+        HStack(spacing: 11) {
+            AvatarView(name: user.name, diameter: 34)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(member.name)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
+                Text(user.name)
+                    .font(.body.weight(.medium))
 
-                if member.isSpeaking {
-                    Text("正在说话")
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                }
+                Text(roleNames(for: user))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 6)
 
-            Text(member.roleName)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(Color.primary.opacity(0.05), in: Capsule())
+            Circle()
+                .fill(user.status == .online ? Color.green : Color.secondary.opacity(0.35))
+                .frame(width: 9, height: 9)
+                .accessibilityHidden(true)
         }
-        .padding(.horizontal, 13)
-        .frame(minHeight: 52)
-        .opacity(dimmed ? 0.55 : 1)
-        .background(
-            Color.primary.opacity(0.04),
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-        )
+        .padding(.vertical, 2)
+    }
+
+    private func roleNames(for user: SharkordUser) -> String {
+        let names = (user.roleIds ?? []).compactMap { session.role(for: $0)?.name }
+
+        if names.isEmpty {
+            return L10n.t("members.noRoles")
+        }
+        return names.joined(separator: ", ")
     }
 }

@@ -1,79 +1,151 @@
+import SharkordCore
 import SwiftUI
 
-/// picks the native layout for the device: a tab bar plus a push stack on iPhone, a split view on iPad.
-/// keeping the switch in one place is what lets both layouts share a single channel detail screen.
+/// App shell once connected: a tab bar on iPhone, a split view on iPad, and the voice
+/// call bar pinned on top of everything whenever the device is in a voice channel.
 struct WorkspaceView: View {
-    @ObservedObject var model: AppModel
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var channelPath: [String] = []
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var session: SharkordSession
+    @EnvironmentObject private var voice: VoiceEngine
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         Group {
-            if horizontalSizeClass == .regular {
-                iPadWorkspace
-            } else {
-                iPhoneWorkspace
-            }
-        }
-        .background(BrandBackground())
-    }
-
-    private var iPhoneWorkspace: some View {
-        TabView {
-            NavigationStack(path: $channelPath) {
-                ChannelListView(model: model, selectedID: model.selectedChannelID, onSelect: selectForPush)
-                    .navigationDestination(for: String.self) { id in
-                        ChannelDetailView(model: model, channelID: id)
+            if sizeClass == .regular {
+                NavigationSplitView {
+                    ChannelListView()
+                        .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 380)
+                } detail: {
+                    if let channelId = session.selectedChannelId {
+                        ChannelDetailView(channelId: channelId)
+                    } else {
+                        Text(L10n.t("channel.empty"))
+                            .foregroundStyle(.secondary)
                     }
-            }
-            .tabItem { Label("频道", systemImage: "number") }
-
-            MembersView(model: model)
-                .tabItem { Label("成员", systemImage: "person.2") }
-
-            SettingsView(model: model)
-                .tabItem { Label("设置", systemImage: "slider.horizontal.3") }
-        }
-        .tint(.sharkordBlue)
-        .onChange(of: channelPath) { _, path in
-            if path.isEmpty {
-                model.selectedChannelID = nil
-            }
-        }
-    }
-
-    private var iPadWorkspace: some View {
-        NavigationSplitView {
-            ChannelListView(model: model, selectedID: model.selectedChannelID, onSelect: selectInPlace)
-                .navigationTitle(model.serverDisplayName)
-        } detail: {
-            if let id = model.selectedChannelID {
-                ChannelDetailView(model: model, channelID: id)
+                }
             } else {
-                emptyDetail
+                TabView {
+                    ChannelListView()
+                        .tabItem { Label(L10n.t("nav.channels"), systemImage: "number") }
+
+                    MembersView()
+                        .tabItem { Label(L10n.t("nav.members"), systemImage: "person.2") }
+
+                    SettingsView()
+                        .tabItem { Label(L10n.t("nav.settings"), systemImage: "gearshape") }
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if voice.currentChannelId != nil {
+                VoiceCallBar()
             }
         }
     }
+}
 
-    private func selectForPush(_ id: String) {
-        model.selectedChannelID = id
-        channelPath.append(id)
-    }
+/// The call bar: connection state, then the three controls. The microphone button is
+/// disabled while the output is off, which is the protection the first version requires.
+struct VoiceCallBar: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var session: SharkordSession
+    @EnvironmentObject private var voice: VoiceEngine
 
-    private func selectInPlace(_ id: String) {
-        model.selectedChannelID = id
-    }
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(channelName)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
 
-    private var emptyDetail: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "bubble.left.and.text.bubble.right")
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(.tertiary)
-            Text("选择一个频道")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+                Text(statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            controlButton(
+                symbol: voice.microphoneOn ? "mic.fill" : "mic.slash.fill",
+                tint: voice.microphoneOn ? .green : .primary,
+                disabled: !voice.canEnableMicrophone,
+                action: { model.toggleMicrophone() }
+            )
+            .accessibilityLabel(voice.microphoneOn ? L10n.t("voice.mic.mute") : L10n.t("voice.mic.unmute"))
+
+            controlButton(
+                symbol: voice.deafened ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                tint: voice.deafened ? .orange : .primary,
+                disabled: false,
+                action: { model.toggleDeafen() }
+            )
+            .accessibilityLabel(voice.deafened ? L10n.t("voice.output.enable") : L10n.t("voice.output.disable"))
+
+            controlButton(
+                symbol: voice.screenSharing ? "rectangle.slash.fill" : "rectangle.on.rectangle.fill",
+                tint: voice.screenSharing ? .sharkordBlueSoft : .primary,
+                disabled: false,
+                action: { model.toggleScreenShare() }
+            )
+            .accessibilityLabel(voice.screenSharing ? L10n.t("voice.screen.stop") : L10n.t("voice.screen.start"))
+
+            controlButton(
+                symbol: "phone.down.fill",
+                tint: .red,
+                disabled: false,
+                action: { model.leaveVoice() }
+            )
+            .accessibilityLabel(L10n.t("voice.leave"))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(BrandBackground())
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .background(.regularMaterial)
+        .overlay(alignment: .top) {
+            Divider()
+        }
+    }
+
+    private var channelName: String {
+        guard let channelId = voice.currentChannelId,
+              let channel = session.channel(for: channelId) else {
+            return L10n.t("voice.call")
+        }
+        return "#\(channel.name)"
+    }
+
+    private var statusText: String {
+        if voice.deafened {
+            return L10n.t("voice.status.deafened")
+        }
+        switch voice.callState {
+        case .idle:
+            return L10n.t("voice.status.idle")
+        case .joining:
+            return L10n.t("voice.status.joining")
+        case .connecting:
+            return L10n.t("voice.status.connecting")
+        case .connected:
+            return voice.microphoneOn ? L10n.t("voice.status.live") : L10n.t("voice.status.muted")
+        case .failed:
+            return L10n.t("voice.status.failed")
+        }
+    }
+
+    private func controlButton(
+        symbol: String,
+        tint: Color,
+        disabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 16, weight: .semibold))
+                .frame(width: 42, height: 42)
+                .background(Color.primary.opacity(0.07), in: Circle())
+                .foregroundStyle(tint)
+        }
+        .disabled(disabled)
+        .opacity(disabled ? 0.35 : 1)
     }
 }

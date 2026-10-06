@@ -1,29 +1,41 @@
-# Sharkord iOS (first skeleton)
+# Sharkord iOS (first feature version)
 
-> **本版没有任何功能，只是把框架搭出来了。**
-> 屏幕、导航、目标结构、灵动岛扩展都能编译和运行，但**不连接任何服务器**，
-> 里面的频道、消息、成员、语音状态全部是写死的示例数据，界面上都标了"离线示例"。
+> **这一版有功能了。** 登录、频道、消息、表情回应、语音（开关麦、耳聋保护）、屏幕共享、
+> 五种语言、灵动岛，全部走真实协议：`POST /login` + tRPC over WebSocket + mediasoup SFU。
+> 没有示例数据，界面上不再有"离线示例"。
 >
-> **No functionality in this version: this is a framework only.** Every screen, route,
-> build target and the Dynamic Island extension compile and launch, but **nothing talks
-> to a server**. All channel, message, member and voice state is hard-coded sample data,
-> labelled as such on screen.
+> **This version has working features.** Sign in, channels, messages, reactions, voice
+> (mic on/off, output-off protection), screen sharing, five languages and the Dynamic
+> Island all run on the real protocol: `POST /login` + tRPC over WebSocket + the mediasoup
+> SFU. There is no sample data any more.
 
-The native iPhone/iPad client. This is **stage one: a shell only.** Every screen, route and piece of
-navigation exists and compiles; **nothing talks to a server yet.** The sample workspace is local data
-deliberately labelled as such on screen, so no mock can be mistaken for a working session.
+原生 iPhone/iPad 客户端，第一版功能。设计文档见
+[`docs/NATIVE_STRATEGY.md`](../../docs/NATIVE_STRATEGY.md)，目录形态按其 §3.1。
 
-Design document for the whole native programme is [`docs/NATIVE_STRATEGY.md`](../../docs/NATIVE_STRATEGY.md).
-This directory implements its §3.1 layout.
+## 这一版能做什么
 
-## Build it
+| 功能 | 状态 |
+| --- | --- |
+| 登录 | `POST /login` 取 token，`others.handshake` + `others.joinServer` 拉全量状态（频道、成员、角色、未读、语音表、权限） |
+| 频道与私信 | 分类、文字/语音频道、私信列表、未读角标，文字频道开屏即拉历史，支持向上翻更早消息 |
+| 消息 | 发送、编辑、删除、置顶、引用回复、表情回应（长按消息）、正在输入提示、附件名列表 |
+| 语音 | 真实 mediasoup 通话：join/leave、send/recv transport、opus 收发、远端参与者实时状态 |
+| 开关麦 | 静音只停发轨道不拆 producer（与网页端一致），状态经 `voice.updateState` 广播 |
+| **扬声器保护** | **扬声器关闭（`soundMuted`）时麦克风禁止打开**：UI 按钮禁用并给出原因，引擎层 `setMicrophoneEnabled(true)` 同样拒绝，两处同时拦 |
+| 耳聋联动 | 关闭扬声器会自动关麦并记住开麦前状态，恢复时还原（与网页端一致）；同时静音所有远端音轨 |
+| 屏幕共享 | ReplayKit 采集 → WebRTC 视频轨 → `kind: screen` producer，权限校验 `SHARE_SCREEN`；远端画面在语音房间内渲染 |
+| 语言 | 英语、简体中文、西班牙语、法语、德语，设置内即时切换（不用重启） |
+| 灵动岛 | 通话时显示频道与人数；设置页保留示例预览按钮 |
+| iPad | NavigationSplitView 双栏；iPhone 底部 Tab + 通话控制条 |
+
+## 构建
 
 ```bash
 cd apps/apple-mobile
-open Sharkord.xcodeproj          # run the Sharkord scheme on any iOS 17+ simulator
+open Sharkord.xcodeproj          # 跑 Sharkord scheme，任意 iOS 17+ 模拟器
 ```
 
-or from the command line (no signing needed for the simulator):
+命令行（模拟器无需签名）：
 
 ```bash
 xcodebuild -project Sharkord.xcodeproj -scheme Sharkord \
@@ -31,86 +43,55 @@ xcodebuild -project Sharkord.xcodeproj -scheme Sharkord \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-That builds both targets: `Sharkord` (the app) and `SharkordLiveActivity` (the widget extension),
-and embeds the extension in `Sharkord.app/PlugIns/`.
+首次构建会自动解析两个 Swift 包：
 
-Verified on Xcode 27.0 with the iOS 27.0 SDK: `clean build` succeeds with **zero Swift warnings**,
-the extension validates as an embedded binary, and the produced `Info.plist` contains
-`NSSupportsLiveActivities = true` plus `NSExtensionPointIdentifier = com.apple.widgetkit-extension`.
-
-## Targets
-
-| Target | Product | Contents |
+| 包 | 来源 | 用途 |
 | --- | --- | --- |
-| `Sharkord` | `Sharkord.app` | the app: onboarding, workspace, design system, `LiveActivityController` |
-| `SharkordLiveActivity` | `SharkordLiveActivity.appex` | widget extension: `ActivityConfiguration` rendering the lock screen view and all four Dynamic Island regions |
+| `SharkordCore` | 本地 `apps/macos`（`XCLocalSwiftPackageReference`） | 会话层：tRPC WebSocket、全部 procedure/订阅、数据模型。与 macOS 客户端共用一套，避免两份实现漂移 |
+| `Mediasoup` | [VLprojects/mediasoup-client-swift](https://github.com/VLprojects/mediasoup-client-swift) 0.13.2（SPM 二进制包） | libmediasoupclient 的 Swift 封装 + WebRTC，媒体层 |
 
-Both compile `Sharkord/Activities/LiveActivityAttributes.swift` directly (listed twice in
-`project.pbxproj`), so the two sides cannot drift apart on what a session looks like. The extension
-also compiles `Sharkord/DesignSystem.swift` for the brand colour rather than repeating the hex value.
+> `SharkordCore` 暂时从 `apps/macos` 引用（其 `Package.swift` 注释里写明了"later, the iOS target"）。
+> 等 macOS 侧稳定后应抽到 `packages/apple-core`，届时只改这一处引用。
 
-## What is on screen
+## 代码结构
 
-| Screen | State |
-| --- | --- |
-| `ConnectView` | server address, account, password. The connect button is intentionally disabled; the card below it opens the offline workspace so the layout can be reviewed. |
-| `ChannelListView` | categories and channels, text and voice, with selection. Drives a push stack on iPhone and a split view detail on iPad. |
-| `ChannelDetailView` | text channel: topic, message list, working local composer. voice channel: member roster, join button disabled. |
-| `MembersView` | roster grouped by presence, speaking ring on the avatar. |
-| `SettingsView` | stub rows that mark where real values land once the session layer exists; a Live Activity preview hook; plus the way back to onboarding. |
+```
+Sharkord/
+  SharkordApp.swift / RootView.swift    入口与路由
+  AppModel.swift                        编排：会话 + 语音引擎 + 语言 + 灵动岛
+  Models.swift                          视图本地模型
+  DesignSystem.swift                    玻璃卡片、品牌色、头像（沿用 webspeak-ios 的美学）
+  Onboarding/ConnectView.swift          真实登录
+  Workspace/                            频道列表、消息、语音房间、成员、设置
+  Voice/
+    VoiceEngine.swift                   mediasoup 设备/传输/收发 + 麦克风保护规则
+    RemoteVideoView.swift               远端视频/屏幕画面渲染
+    RTPCodec.swift                      JSONValue <-> mediasoup JSON 字符串
+  i18n/
+    L10n.swift                          运行时切换语言
+    Resources/<lang>.lproj/Localizable.strings   en / zh-Hans / es / fr / de
+  Activities/                           灵动岛（app 侧）
+SharkordLiveActivity/                   灵动岛（widget 扩展）
+```
 
-iPhone gets a tab bar plus a navigation stack; iPad gets a `NavigationSplitView`, per
-[`docs/NATIVE_STRATEGY.md`](../../docs/NATIVE_STRATEGY.md) §3.1 "UI" row.
+## 语音协议顺序（与 web 端一致）
 
-## Dynamic Island (Live Activity)
+1. 同一条 WebSocket 上完成全部信令（`?connectionParams=1` + `{"method":"connectionParams","data":{"token":…}}`）
+2. `voice.join` → `routerRtpCapabilities` → `Device.load`
+3. `voice.createProducerTransport` / `createConsumerTransport` → 建 send/recv transport，`onConnect` 时回 `connectXxxTransport(dtlsParameters)`
+4. `voice.getProducers` + `voice.onNewProducer` → `voice.consume` → consumer
+5. 开麦：`createProducer` → `onProduce` → `voice.produce` 回填 producerId → `voice.updateState({micMuted:false})`
+6. 屏幕共享同理，`kind: screen`；结束走 `voice.closeProducer` + `updateState({sharingScreen:false})`
 
-Framework is in place, **driven by nothing**:
+## 这一版还没有（对照网页端）
 
-- `Sharkord/Activities/LiveActivityAttributes.swift` — `ActivityAttributes` plus `ContentState`
-  (`channelName`, `topic`, `participantCount`, `isSpeaking`) shared with the extension.
-- `Sharkord/Activities/LiveActivityController.swift` — `start` / `update` / `end` around ActivityKit.
-  No session code calls it.
-- `SharkordLiveActivity/LiveActivityWidget.swift` — lock screen view plus `.leading`, `.trailing`,
-  `.bottom`, `compactLeading`, `compactTrailing` and `minimal` regions.
-- The app declares `NSSupportsLiveActivities`.
+文件上传/图片预览、子线程、消息内 HTML 渲染（当前按纯文本显示）、搜索、摄像头、远端画面画质选择、
+管理与服务器设置界面、插件、邀请、用户资料编辑、通知与音效、离线重连 UI。协议层（`SharkordCore`）
+已具备这些接口，属于界面层未接。
 
-The only caller is the **"预览示例灵动岛"** row in Settings. It starts an activity carrying sample
-data purely so the widget can be inspected before any session exists; when voice lands, that hook is
-replaced by the real join and leave events and `LiveActivityController` should not need to change.
+## 验证状态
 
-To see it: run on a device or simulator, allow Live Activities for Sharkord in system Settings, then
-start the preview from the Settings tab. Live Activities require the app to be built with a team
-selected (see below).
-
-## What is deliberately not here
-
-- **No networking.** No `GET /info`, no `POST /login`, no websocket handshake. That is Phase-1 steps 1
-  to 10 in the strategy document.
-- **No voice.** No WebRTC, no mediasoup, no `AVAudioSession`. The microphone usage string is already
-  declared so Phase-2 does not need an Info.plist change.
-- **No live session behind the Live Activity.** The extension renders whatever `ContentState` it is
-  handed; nothing hands it real state.
-- **No `packages/apple-core` yet.** The strategy document puts shared logic in a SwiftPM package that
-  `apps/macos` will also vendor. Extracting it now would move files that have no logic to share, so the
-  code is instead laid out in the folders the package will use (`Models`, `DesignSystem`, `AppModel`,
-  `Activities`, `Onboarding`, `Workspace`). The extraction is a mechanical move when real protocol
-  code arrives.
-- **No string catalog.** Strings are inline Chinese for now, matching how `webspeak-ios` writes its
-  design system. `Localizable.xcstrings` comes with the first user-facing feature.
-- **No `DEVELOPMENT_TEAM`.** Open the project in Xcode and pick your team before running on a device
-  or checking the Dynamic Island on hardware. The simulator does not need one.
-
-## Notes for whoever picks this up
-
-- `apps/apple-mobile` has **no `package.json`**, so Bun workspaces ignore it. Do not add one unless you
-  want it in the workspace graph (`bun install` behaviour is verified in
-  [`docs/NATIVE_STRATEGY.md`](../../docs/NATIVE_STRATEGY.md) §3).
-- Bundle ids are `com.timmysheep.sharkord.ios` (app) and `com.timmysheep.sharkord.ios.LiveActivity`
-  (extension); deployment target iOS 17.0; `TARGETED_DEVICE_FAMILY = 1,2`.
-- The accent colour comes from the web client's `--sidebar-primary` token, and the avatar palette from
-  its `--chart-*` tokens, so the native app reads as the same product rather than a different one.
-- Visual language follows `webspeak-ios`: continuous corner radii, glass cards, uppercase eyebrow
-  section labels, tinted 42pt icon chips. Reuse `DesignSystem.swift` instead of restyling per screen.
-- Adding a Swift file means adding it to `Sharkord.xcodeproj/project.pbxproj` (file reference, build
-  file, group child, Sources phase), and to the extension's Sources phase too if the extension needs
-  it. Xcode does that for you when the file is added through the IDE.
+- `xcodebuild`（scheme `Sharkord`，`generic/platform=iOS Simulator`，`CODE_SIGNING_ALLOWED=NO`）编译通过，
+  `Sharkord.app/PlugIns/SharkordLiveActivity.appex` 正常嵌入并校验。
+- **本机未安装 iOS Simulator runtime，因此没有运行时验收**：通话、屏幕共享、灵动岛均为编译期验证，
+  真机/模拟器实测待补。

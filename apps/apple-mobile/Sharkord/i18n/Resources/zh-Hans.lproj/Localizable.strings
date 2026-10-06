@@ -1,0 +1,100 @@
+/* Sharkord iOS - 简体中文 */
+
+/* connect */
+"connect.title" = "登录 Sharkord";
+"connect.subtitle" = "填写服务器地址与账号。此版本连接真实服务器：消息、语音、屏幕共享都是真的。";
+"connect.server" = "服务器地址";
+"connect.serverPlaceholder" = "https://chat.example.com";
+"connect.identity" = "账号";
+"connect.identityPlaceholder" = "你的账号";
+"connect.password" = "密码";
+"connect.passwordPlaceholder" = "你的密码";
+"connect.serverPassword" = "服务器密码（可选）";
+"connect.serverPasswordPlaceholder" = "仅当服务器要求时填写";
+"connect.submit" = "连接";
+"connect.connecting" = "正在连接…";
+
+/* navigation */
+"nav.channels" = "频道";
+"nav.members" = "成员";
+"nav.settings" = "设置";
+"nav.directMessages" = "私信";
+"nav.voiceChannels" = "语音频道";
+
+/* channels and messages */
+"channel.loadOlder" = "加载更早的消息";
+"channel.empty" = "还没有消息，来说点什么。";
+"channel.messagePlaceholder" = "发消息";
+"channel.typing" = "%1$@ 正在输入…";
+
+"message.reply" = "回复";
+"message.edit" = "编辑";
+"message.delete" = "删除";
+"message.pin" = "置顶";
+"message.editTitle" = "编辑消息";
+"message.editPlaceholder" = "消息内容";
+"message.edited" = "（已编辑）";
+"message.pinned" = "已置顶";
+"message.unknownAuthor" = "未知";
+
+/* voice */
+"voice.call" = "语音";
+"voice.join" = "加入语音";
+"voice.leave" = "离开语音";
+"voice.controls" = "通话控制";
+"voice.participants" = "频道内成员";
+"voice.emptyRoom" = "这个频道还没有人。";
+"voice.mic.mute" = "关麦";
+"voice.mic.unmute" = "开麦";
+"voice.output.enable" = "打开扬声器";
+"voice.output.disable" = "关闭扬声器";
+"voice.screen.start" = "共享屏幕";
+"voice.screen.stop" = "停止共享";
+"voice.micBlocked" = "扬声器关闭时不能打开麦克风。";
+"voice.status.idle" = "未连接";
+"voice.status.joining" = "正在加入…";
+"voice.status.connecting" = "正在连接…";
+"voice.status.live" = "已连接";
+"voice.status.muted" = "麦克风关闭";
+"voice.status.deafened" = "扬声器关闭";
+"voice.status.failed" = "连接失败";
+"voice.state.joined" = "已加入";
+"voice.state.live" = "已连接";
+"voice.state.muted" = "麦克风关闭";
+"voice.state.deafened" = "扬声器关闭";
+"voice.state.screenSharing" = "正在共享屏幕";
+"voice.remoteStreams" = "收到的画面";
+"voice.remoteCamera" = "摄像头";
+"voice.notice.movedOrRemoved" = "你已被移出语音频道。";
+"voice.error.notInCall" = "请先加入语音频道。";
+"voice.error.micBlockedByDeafen" = "请先打开扬声器，再打开麦克风。";
+"voice.error.screenShareNotAllowed" = "你没有在此频道共享屏幕的权限。";
+"voice.error.screenShareUnavailable" = "此设备当前无法共享屏幕。";
+"voice.error.transportFailed" = "语音连接失败。";
+"voice.liveActivity.topic" = "语音频道";
+"voice.liveActivity.previewChannel" = "大厅";
+"voice.liveActivity.previewTopic" = "示例数据预览";
+
+/* members */
+"members.online" = "在线";
+"members.offline" = "离线";
+"members.noRoles" = "无角色";
+
+/* settings */
+"settings.language" = "语言";
+"settings.languageHint" = "此版本支持英语、简体中文、西班牙语、法语和德语。";
+"settings.liveActivity" = "灵动岛";
+"settings.liveActivityStart" = "预览灵动岛";
+"settings.liveActivityStop" = "停止预览";
+"settings.liveActivityHint" = "真实通话时，灵动岛会显示频道名与参与人数。";
+"settings.connection" = "连接";
+"settings.server" = "服务器";
+"settings.account" = "账号";
+"settings.disconnect" = "断开连接";
+"settings.disconnectHint" = "离开服务器，返回登录界面。";
+"settings.about" = "关于此版本";
+"settings.aboutBody" = "第一个功能版本：登录、频道、消息、表情回应、带开关麦的语音、屏幕共享与五种语言。文件上传、子线程、插件与管理界面等仍待后续版本。";
+
+/* common */
+"common.save" = "保存";
+"common.cancel" = "取消";

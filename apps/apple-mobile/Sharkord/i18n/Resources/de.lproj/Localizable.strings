@@ -1,0 +1,100 @@
+/* Sharkord iOS - Deutsch */
+
+/* Anmeldung */
+"connect.title" = "Bei Sharkord anmelden";
+"connect.subtitle" = "Gib die Serveradresse und dein Konto ein. Diese Version spricht mit dem echten Server: Nachrichten, Sprache und Bildschirmfreigabe sind live.";
+"connect.server" = "Serveradresse";
+"connect.serverPlaceholder" = "https://chat.example.com";
+"connect.identity" = "Konto";
+"connect.identityPlaceholder" = "dein Konto";
+"connect.password" = "Passwort";
+"connect.passwordPlaceholder" = "dein Passwort";
+"connect.serverPassword" = "Serverpasswort (optional)";
+"connect.serverPasswordPlaceholder" = "nur, wenn der Server eines verlangt";
+"connect.submit" = "Verbinden";
+"connect.connecting" = "Verbindung wird hergestellt…";
+
+/* Navigation */
+"nav.channels" = "Kanäle";
+"nav.members" = "Mitglieder";
+"nav.settings" = "Einstellungen";
+"nav.directMessages" = "Direktnachrichten";
+"nav.voiceChannels" = "Sprachkanäle";
+
+/* Kanäle und Nachrichten */
+"channel.loadOlder" = "Ältere Nachrichten laden";
+"channel.empty" = "Noch keine Nachrichten. Schreib etwas.";
+"channel.messagePlaceholder" = "Nachricht";
+"channel.typing" = "%1$@ schreibt…";
+
+"message.reply" = "Antworten";
+"message.edit" = "Bearbeiten";
+"message.delete" = "Löschen";
+"message.pin" = "Anheften";
+"message.editTitle" = "Nachricht bearbeiten";
+"message.editPlaceholder" = "Nachrichtentext";
+"message.edited" = "(bearbeitet)";
+"message.pinned" = "Angeheftet";
+"message.unknownAuthor" = "Unbekannt";
+
+/* Sprache */
+"voice.call" = "Sprache";
+"voice.join" = "Sprachkanal beitreten";
+"voice.leave" = "Sprachkanal verlassen";
+"voice.controls" = "Anrufsteuerung";
+"voice.participants" = "In diesem Kanal";
+"voice.emptyRoom" = "Noch ist niemand in diesem Kanal.";
+"voice.mic.mute" = "Stummschalten";
+"voice.mic.unmute" = "Mikrofon einschalten";
+"voice.output.enable" = "Lautsprecher einschalten";
+"voice.output.disable" = "Lautsprecher ausschalten";
+"voice.screen.start" = "Bildschirm teilen";
+"voice.screen.stop" = "Freigabe beenden";
+"voice.micBlocked" = "Das Mikrofon kann nicht geöffnet werden, während der Lautsprecher ausgeschaltet ist.";
+"voice.status.idle" = "Nicht verbunden";
+"voice.status.joining" = "Beitreten…";
+"voice.status.connecting" = "Verbindung wird hergestellt…";
+"voice.status.live" = "Verbunden";
+"voice.status.muted" = "Mikrofon aus";
+"voice.status.deafened" = "Lautsprecher aus";
+"voice.status.failed" = "Verbindung fehlgeschlagen";
+"voice.state.joined" = "Beigetreten";
+"voice.state.live" = "Verbunden";
+"voice.state.muted" = "Mikrofon aus";
+"voice.state.deafened" = "Lautsprecher aus";
+"voice.state.screenSharing" = "Bildschirm wird geteilt";
+"voice.remoteStreams" = "Eingehendes Video";
+"voice.remoteCamera" = "Kamera";
+"voice.notice.movedOrRemoved" = "Du wurdest aus dem Sprachkanal entfernt.";
+"voice.error.notInCall" = "Tritt zuerst einem Sprachkanal bei.";
+"voice.error.micBlockedByDeafen" = "Schalte den Lautsprecher ein, bevor du das Mikrofon öffnest.";
+"voice.error.screenShareNotAllowed" = "Du hast hier keine Berechtigung, den Bildschirm zu teilen.";
+"voice.error.screenShareUnavailable" = "Die Bildschirmfreigabe ist auf diesem Gerät derzeit nicht verfügbar.";
+"voice.error.transportFailed" = "Die Sprachverbindung ist fehlgeschlagen.";
+"voice.liveActivity.topic" = "Sprachkanal";
+"voice.liveActivity.previewChannel" = "Lounge";
+"voice.liveActivity.previewTopic" = "Vorschau mit Beispieldaten";
+
+/* Mitglieder */
+"members.online" = "Online";
+"members.offline" = "Offline";
+"members.noRoles" = "Keine Rollen";
+
+/* Einstellungen */
+"settings.language" = "Sprache";
+"settings.languageHint" = "Diese Version unterstützt Englisch, Vereinfachtes Chinesisch, Spanisch, Französisch und Deutsch.";
+"settings.liveActivity" = "Dynamic Island";
+"settings.liveActivityStart" = "Eine Live-Aktivität testen";
+"settings.liveActivityStop" = "Vorschau beenden";
+"settings.liveActivityHint" = "Während eines echten Anrufs zeigt die Dynamic Island den Kanal und die Teilnehmeranzahl an.";
+"settings.connection" = "Verbindung";
+"settings.server" = "Server";
+"settings.account" = "Konto";
+"settings.disconnect" = "Trennen";
+"settings.disconnectHint" = "Verlässt den Server und kehrt zur Anmeldeseite zurück.";
+"settings.about" = "Über diese Version";
+"settings.aboutBody" = "Erste Funktionsversion: Anmeldung, Kanäle, Nachrichten, Reaktionen, Sprache mit Mikrofonsteuerung, Bildschirmfreigabe und fünf Sprachen. Datei-Uploads, Threads, Plugins und Moderationsansichten folgen noch.";
+
+/* Allgemein */
+"common.save" = "Speichern";
+"common.cancel" = "Abbrechen";
