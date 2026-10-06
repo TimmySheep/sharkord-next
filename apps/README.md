@@ -5,7 +5,7 @@
 | 目录 | 平台 | 技术栈 | 上游可构建 | 本机已构建 |
 | --- | --- | --- | --- | --- |
 | `apps/macos` | macOS 14+ | Swift 6 + SwiftUI（SwiftPM） | ✅ | ✅ 已验证 |
-| `apps/windows` | Windows 10 1809+ | C# + WinUI 3（.NET 8） | `Core` 跨平台；`App` 仅 Windows | Core ✅；App ❌（未构建） |
+| `apps/windows` | Windows 10 1809+ | C# + WinUI 3（.NET 8） | `Core` 跨平台；`App` 仅 Windows | Core ✅；App ✅（已构建，未运行） |
 
 设计与证据见 [`docs/NATIVE_STRATEGY.md`](../docs/NATIVE_STRATEGY.md) 与 [`ROADMAP.md`](../ROADMAP.md)。
 两者都**不使用 Electron、不内嵌 WebView**，直接与网页端同一套服务器通信（tRPC over WebSocket + 明文 HTTP）。
@@ -68,9 +68,12 @@ Windows 是 `TrpcProtocol.cs` / `TrpcWebSocketClient.cs`。消息 HTML 的解析
 
 ### 2.1 阻塞性（当前无法绕过）
 
-1. **Windows 的 WinUI 3 界面未编译、未运行。** Windows App SDK 只能在 Windows 上构建，macOS 上无法验证。
-   `Sharkord.App` 是一个常规 WinUI 3 外壳，但**没有在任何机器上构建过**，其 `Microsoft.WindowsAppSDK`
-   版本号是占位值。它必须在 Windows 机器或 CI 上首次构建并修正。
+1. **Windows 的 WinUI 3 界面已构建，但从未运行、未走查。** 2026-10-07 在 Windows 11（build 26200，x64，
+   .NET SDK 8.0.425）上 `dotnet build -p:Platform=x64` **通过，0 警告 0 错误**，产出 `Sharkord.App.exe`；
+   `dotnet test` **12/12 通过**。但没有人启动过它，窗口外观与交互完全未验收。
+   `Microsoft.WindowsAppSDK 1.6.240923002` 与 `Microsoft.Windows.SDK.BuildTools 10.0.26100.1742`
+   是可还原、可构建的真实固定版本，不是占位值。构建前提是 `-p:Platform=x64` 不能省
+   （csproj 声明 `Platforms=x64;ARM64`，默认 `AnyCPU` 不在列表内会报 `OutputPath` 未设置）。
 2. **Windows 无语音。** C# 没有任何 mediasoup 客户端；需要 P/Invoke `libmediasoupclient`（MSVC + libwebrtc）
    或在 C# WebRTC 之上重写 mediasoup 协议。这是策略文档里的 1 号风险，尚未开始预研。
 3. **macOS 界面没有逐屏人工验收。** 只做了编译、单测与协议层端到端，没有对窗口外观、键盘/鼠标交互逐屏走查。
@@ -119,6 +122,17 @@ cd apps/windows && dotnet build src/Sharkord.Core/Sharkord.Core.csproj
 dotnet test tests/Sharkord.Core.Tests/Sharkord.Core.Tests.csproj
 ```
 
+WinUI 3 外壳只能在 Windows 上构建（XAML 编译器 `XamlCompiler.exe` 是 Windows 可执行文件，
+随 `Microsoft.WindowsAppSDK` 分发，构建期由 MSBuild 调用）。不需要 Visual Studio，纯 `dotnet build` 即可：
+
+```powershell
+# Windows（x64）
+cd apps/windows
+dotnet build src/Sharkord.App/Sharkord.App.csproj -p:Platform=x64
+```
+
+`-p:Platform=x64` 是必需的，见 [`apps/windows/README.md`](windows/README.md)。
+
 对真实服务器的端到端测试（会注册用户并发消息、建分类频道角色表情邀请，请指向一次性实例）：
 
 ```bash
@@ -156,5 +170,6 @@ cd apps/macos && swift run SharkordMac
 - macOS：Xcode 27 / Swift 6.4（本机已有，直接复用）。无第三方 Swift 依赖；i18n 资源是
   `apps/client/src/i18n/locales` 的逐字节拷贝，放在 `apps/macos/Resources/locales`。
 - Windows Core：.NET SDK 8.0（本机用官方 `dotnet-install.sh` 装到 `~/.dotnet`，无需 sudo）。
-  `Sharkord.App` 另需 Windows App SDK，仅 Windows 可还原。
+  `Sharkord.App` 另需 Windows App SDK（由 NuGet 还原，无需单独安装 Windows SDK）；实际构建是在一台
+  Windows 11 机器上用官方 `dotnet-install.ps1` 装 .NET SDK 8.0.425 到 `%USERPROFILE%\.dotnet` 完成的。
 - 两者都不进入 Bun workspace：`apps/macos` 与 `apps/windows` 下没有 `package.json`，`bun.lock` 不受影响。

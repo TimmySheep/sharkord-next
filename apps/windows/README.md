@@ -6,7 +6,9 @@ over WebSocket plus the plain HTTP endpoints.
 
 **Build reality:** WinUI 3 / Windows App SDK is Windows-only and cannot be built on macOS.
 `Sharkord.Core` is a plain `net8.0` library and is compiled and tested on macOS; `Sharkord.App`
-is the WinUI 3 shell and must be built on Windows.
+is the WinUI 3 shell and must be built on Windows. It **has** been built there: on
+2026-10-07 `dotnet build -p:Platform=x64` produced `Sharkord.App.exe` with 0 warnings and
+0 errors on Windows 11 (build 26200, x64, .NET SDK 8.0.425), and `dotnet test` passed 12/12.
 
 ## Layout
 
@@ -27,13 +29,22 @@ apps/windows/
 
 ## Build
 
-On Windows (with the .NET 8 SDK and the Windows App SDK):
+On Windows, with the .NET 8 SDK installed (the Windows App SDK itself comes from NuGet, so
+no Visual Studio and no separate Windows SDK install are needed):
 
 ```powershell
 cd apps/windows
-dotnet build Sharkord.sln
-dotnet run --project src/Sharkord.App
+dotnet build src/Sharkord.App/Sharkord.App.csproj -p:Platform=x64
+dotnet test tests/Sharkord.Core.Tests/Sharkord.Core.Tests.csproj
 ```
+
+`-p:Platform=x64` is required, not optional. `Sharkord.App.csproj` declares
+`Platforms=x64;ARM64`, so the default `AnyCPU` is not in that list and the build fails with
+an unset `OutputPath`. Pass `-p:Platform=ARM64` on an ARM machine.
+
+Copying the sources over with `tar` from macOS pulls in `._*` AppleDouble sidecars, which the
+SDK-style `**/*.cs` glob then tries to compile. Set `COPYFILE_DISABLE=1` on the sending side.
+Windows `tar.exe` also wants `C:/Users/...`, not `/c/Users/...`.
 
 On macOS or Linux only the core is buildable, which is what CI does for the shared logic:
 
@@ -67,13 +78,17 @@ them end to end against a real server):
 - Reconnect with the `[1, 2, 4, 8, 8]s` backoff.
 
 `Sharkord.App` is a conventional WinUI 3 shell (connect form, channel list, message list,
-composer) wired to `SharkordSession`. **It has not been compiled or run**, because it needs
-Windows.
+composer) wired to `SharkordSession`. It **compiles clean on Windows** (0 warnings, 0 errors).
+It has not been *run* or visually reviewed yet, and the shell only exposes a slice of what
+`SharkordSession` already supports.
 
 ## What is not here yet
 
-- **The WinUI 3 app is unbuilt and unverified.** Windows App SDK is Windows-only; the
-  package version in `Sharkord.App.csproj` is a placeholder and must be pinned on Windows.
+- **The WinUI 3 app compiles but has never been run.** It builds clean on Windows
+  (`dotnet build -p:Platform=x64`, 0 warnings, 0 errors) but nobody has launched it or
+  reviewed the UI. `Microsoft.WindowsAppSDK` is pinned at `1.6.240923002` and
+  `Microsoft.Windows.SDK.BuildTools` at `10.0.26100.1742`; both restore and build as
+  declared, so they are not placeholders needing replacement.
 - **Voice.** No C# mediasoup client exists; this is strategy document risk #1 and is gated
   on a separate `libmediasoupclient` P/Invoke spike.
 - **Plugins.** Needs a WebView2 host.
@@ -93,6 +108,6 @@ The full, per-feature status and limitation list is in [`../README.md`](../READM
 
 - The tRPC WebSocket envelope is an implementation detail of `@trpc/client` v11. It is
   isolated in `TrpcProtocol.cs` / `TrpcWebSocketClient.cs` and pinned by tests.
-- The Windows App SDK version in `Sharkord.App.csproj` is a placeholder; pin it to whatever
-  the Windows machine has.
+- The Windows App SDK and Windows SDK BuildTools versions in `Sharkord.App.csproj` are
+  pinned and verified to build. Bump them deliberately, not automatically.
 - `apps/windows` has no `package.json`, so Bun workspaces ignore it.
