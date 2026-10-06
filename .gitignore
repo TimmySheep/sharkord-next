@@ -5,3 +5,11 @@
 /DockerCenas
 /experiments
 .direnv/
+/logs/
+
+# native clients
+.DS_Store
+apps/macos/.build/
+apps/macos/*.xcodeproj/xcuserdata/
+apps/windows/**/bin/
+apps/windows/**/obj/

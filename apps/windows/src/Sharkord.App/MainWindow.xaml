@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Sharkord.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="Sharkord">
+
+    <Grid Padding="24">
+        <StackPanel
+            x:Name="ConnectPanel"
+            Width="360"
+            Spacing="12"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <TextBlock Text="Sharkord" FontSize="28" FontWeight="Bold" />
+            <TextBlock Text="Native Windows client" Opacity="0.6" />
+            <TextBox x:Name="HostBox" Header="Server address" PlaceholderText="localhost:4991" />
+            <TextBox x:Name="IdentityBox" Header="Identity" />
+            <PasswordBox x:Name="PasswordBox" Header="Password" />
+            <PasswordBox x:Name="ServerPasswordBox" Header="Server password (optional)" />
+            <TextBox x:Name="InviteBox" Header="Invite code (optional)" />
+            <Button
+                x:Name="ConnectButton"
+                Content="Connect"
+                Style="{StaticResource AccentButtonStyle}"
+                Click="OnConnectClick" />
+            <ProgressRing x:Name="ConnectProgress" IsActive="False" />
+            <TextBlock x:Name="ConnectError" Foreground="Red" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Grid x:Name="ChatPanel" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock
+                    x:Name="ServerNameText"
+                    FontWeight="SemiBold"
+                    FontSize="16"
+                    Margin="0,0,0,8" />
+                <ListView
+                    x:Name="ChannelList"
+                    Grid.Row="1"
+                    DisplayMemberPath="Name"
+                    SelectionChanged="OnChannelSelected" />
+            </Grid>
+
+            <Grid Grid.Column="1" Margin="16,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock x:Name="ChannelTitle" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,8" />
+
+                <ListView x:Name="MessageList" Grid.Row="1">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <Grid Grid.Row="2" ColumnSpacing="8" Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox
+                        x:Name="ComposerBox"
+                        PlaceholderText="Message"
+                        KeyDown="OnComposerKeyDown" />
+                    <Button
+                        Grid.Column="1"
+                        Content="Send"
+                        Style="{StaticResource AccentButtonStyle}"
+                        Click="OnSendClick" />
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
