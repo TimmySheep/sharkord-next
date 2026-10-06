@@ -80,9 +80,14 @@ A wrist-first push-to-talk client: join one voice channel, tap to talk, hear the
 one channel at a time. Declared as intent — **not** as a feature promise, because the platform question
 below is unanswered and its answer decides whether this ships at all.
 
+**Design work proceeds in parallel; the spike gates the claim.** The interface and its state machine do not
+depend on the platform answer, and they are portable to iOS, so they are built alongside W1. What W1 gates is
+the claim: nothing here is described as working until the measurement says so.
+
 | Item | Status |
 | --- | --- |
 | W1: **watchOS networking spike on real hardware** — on a current watchOS, does a single audio-session activation get revoked ~36 s later (Apple defect **FB24377808**), does timer-based renewal hold a session through an hour of real two-way audio, and what does that cost in battery | 🧪 |
+| W1b (parallel, independent of W1): **watchOS interface and state machine** — channel list, in-channel push-to-talk, honest **reconnecting** and **degraded** states, and the audio engine behind a swappable interface so the simulator runs the UI with a stub. Built now, portable to iOS | 📋 |
 | W2: architecture decision — a server-side ingest bridge (mediasoup `PlainTransport`, the same path FFmpeg/GStreamer sources use) versus a WebRTC stack on the watch, including the transport-encryption consequence either way | 🧪 |
 | W3: minimal client — join, push-to-talk, leave, against a real server | 📋 |
 | Decide whether the client can exist at all, and record the answer here either way | 🧪 |

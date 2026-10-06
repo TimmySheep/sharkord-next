@@ -54,8 +54,10 @@ activation and does not restore itself, so the session has to be renewed on a ti
 exists — re-activate before the deadline and the revocation is rescheduled, in the reporter's measurements
 without disturbing the path or the open connection — but it has **not** been validated with real audio and
 has **not** been retested since watchOS 27 shipped. Whether a persistent voice session is defensible on
-watchOS is the first thing this project measures, **on real hardware, before any UI is written**. If the
-answer is no, this README will say so instead of shipping something that stutters every half minute.
+watchOS is measured **on real hardware**, and that measurement gates any claim that voice works. The interface
+and design work proceeds **in parallel** — it does not depend on the answer and is portable to iOS either way
+— but nothing here is described as working until the measurement says so. If the answer is no, this README
+will say so instead of shipping something that stutters every half minute.
 Design, primary-source evidence and the spike plan: [`docs/APPLE_WATCH.md`](docs/APPLE_WATCH.md)
 
 ### Not doing: Android

@@ -152,9 +152,11 @@ a decision rather than a default: `PlainTransport` carries **unencrypted** RTP, 
 live inside a tunnel (WireGuard/Tailscale) or the audio must be wrapped with SRTP. That is a privacy
 question, not a performance one, and it will be settled in W2.
 
-## 5. The spike: three numbers, on real hardware, before any UI
+## 5. The spike: three numbers, on real hardware
 
-The first work item is not a client. It is a measurement, because everything else depends on it.
+The measurement gates the **claim**, not the design work. The interface and its state machine are built in
+parallel — they do not depend on the answer and are portable to iOS — but nothing is described as working
+until the three numbers below exist.
 
 | # | Measurement | Method |
 | --- | --- | --- |

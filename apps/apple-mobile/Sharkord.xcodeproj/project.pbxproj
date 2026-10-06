@@ -1,0 +1,499 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 71;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		BB0000000000000000000001 /* SharkordApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000001 /* SharkordApp.swift */; };
+		BB0000000000000000000002 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000002 /* DesignSystem.swift */; };
+		BB0000000000000000000003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000003 /* Models.swift */; };
+		BB0000000000000000000004 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000004 /* AppModel.swift */; };
+		BB0000000000000000000005 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000005 /* RootView.swift */; };
+		BB0000000000000000000006 /* ConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000006 /* ConnectView.swift */; };
+		BB0000000000000000000007 /* WorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000007 /* WorkspaceView.swift */; };
+		BB0000000000000000000008 /* ChannelListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000008 /* ChannelListView.swift */; };
+		BB0000000000000000000009 /* ChannelDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000009 /* ChannelDetailView.swift */; };
+		BB000000000000000000000A /* MembersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000000A /* MembersView.swift */; };
+		BB000000000000000000000B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000000B /* SettingsView.swift */; };
+		BB000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000000C /* Assets.xcassets */; };
+		BB000000000000000000000D /* LiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000000D /* LiveActivityAttributes.swift */; };
+		BB000000000000000000000E /* LiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000000E /* LiveActivityController.swift */; };
+		BB000000000000000000000F /* LiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000000D /* LiveActivityAttributes.swift */; };
+		BB0000000000000000000010 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000002 /* DesignSystem.swift */; };
+		BB0000000000000000000011 /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000000F /* LiveActivityWidget.swift */; };
+		BB0000000000000000000012 /* SharkordLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = FD0000000000000000000002 /* SharkordLiveActivity.appex */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C00000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 700000000000000000000002 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 700000000000000000000003;
+			remoteInfo = SharkordLiveActivity;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		800000000000000000000004 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BB0000000000000000000012 /* SharkordLiveActivity.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		FB0000000000000000000001 /* SharkordApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharkordApp.swift; sourceTree = "<group>"; };
+		FB0000000000000000000002 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		FB0000000000000000000003 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		FB0000000000000000000004 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		FB0000000000000000000005 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		FB0000000000000000000006 /* ConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectView.swift; sourceTree = "<group>"; };
+		FB0000000000000000000007 /* WorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceView.swift; sourceTree = "<group>"; };
+		FB0000000000000000000008 /* ChannelListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelListView.swift; sourceTree = "<group>"; };
+		FB0000000000000000000009 /* ChannelDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelDetailView.swift; sourceTree = "<group>"; };
+		FB000000000000000000000A /* MembersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MembersView.swift; sourceTree = "<group>"; };
+		FB000000000000000000000B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		FB000000000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FB000000000000000000000D /* LiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityAttributes.swift; sourceTree = "<group>"; };
+		FB000000000000000000000E /* LiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
+		FB000000000000000000000F /* LiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
+		FB0000000000000000000010 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FD0000000000000000000001 /* Sharkord.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sharkord.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD0000000000000000000002 /* SharkordLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SharkordLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		800000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		800000000000000000000006 /* Extension Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		600000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				600000000000000000000002 /* Sharkord */,
+				600000000000000000000007 /* SharkordLiveActivity */,
+				600000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		600000000000000000000002 /* Sharkord */ = {
+			isa = PBXGroup;
+			children = (
+				FB0000000000000000000001 /* SharkordApp.swift */,
+				FB0000000000000000000005 /* RootView.swift */,
+				FB0000000000000000000004 /* AppModel.swift */,
+				FB0000000000000000000003 /* Models.swift */,
+				FB0000000000000000000002 /* DesignSystem.swift */,
+				600000000000000000000006 /* Activities */,
+				600000000000000000000004 /* Onboarding */,
+				600000000000000000000005 /* Workspace */,
+				FB000000000000000000000C /* Assets.xcassets */,
+			);
+			path = Sharkord;
+			sourceTree = "<group>";
+		};
+		600000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FD0000000000000000000001 /* Sharkord.app */,
+				FD0000000000000000000002 /* SharkordLiveActivity.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		600000000000000000000004 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				FB0000000000000000000006 /* ConnectView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		600000000000000000000005 /* Workspace */ = {
+			isa = PBXGroup;
+			children = (
+				FB0000000000000000000007 /* WorkspaceView.swift */,
+				FB0000000000000000000008 /* ChannelListView.swift */,
+				FB0000000000000000000009 /* ChannelDetailView.swift */,
+				FB000000000000000000000A /* MembersView.swift */,
+				FB000000000000000000000B /* SettingsView.swift */,
+			);
+			path = Workspace;
+			sourceTree = "<group>";
+		};
+		600000000000000000000006 /* Activities */ = {
+			isa = PBXGroup;
+			children = (
+				FB000000000000000000000D /* LiveActivityAttributes.swift */,
+				FB000000000000000000000E /* LiveActivityController.swift */,
+			);
+			path = Activities;
+			sourceTree = "<group>";
+		};
+		600000000000000000000007 /* SharkordLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				FB000000000000000000000F /* LiveActivityWidget.swift */,
+				FB0000000000000000000010 /* Info.plist */,
+			);
+			path = SharkordLiveActivity;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		700000000000000000000001 /* Sharkord */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000002 /* Build configuration list for PBXNativeTarget "Sharkord" */;
+			buildPhases = (
+				800000000000000000000001 /* Sources */,
+				800000000000000000000002 /* Frameworks */,
+				800000000000000000000003 /* Resources */,
+				800000000000000000000004 /* Embed App Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C00000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = Sharkord;
+			productName = Sharkord;
+			productReference = FD0000000000000000000001 /* Sharkord.app */;
+			productType = "com.apple.product-type.application";
+		};
+		700000000000000000000003 /* SharkordLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000003 /* Build configuration list for PBXNativeTarget "SharkordLiveActivity" */;
+			buildPhases = (
+				800000000000000000000005 /* Extension Sources */,
+				800000000000000000000006 /* Extension Frameworks */,
+				800000000000000000000007 /* Extension Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SharkordLiveActivity;
+			productName = SharkordLiveActivity;
+			productReference = FD0000000000000000000002 /* SharkordLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		700000000000000000000002 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					700000000000000000000001 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					700000000000000000000003 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+				};
+			};
+			buildConfigurationList = A00000000000000000000001 /* Build configuration list for PBXProject "Sharkord" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 600000000000000000000001;
+			productRefGroup = 600000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				700000000000000000000001 /* Sharkord */,
+				700000000000000000000003 /* SharkordLiveActivity */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		800000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB000000000000000000000C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		800000000000000000000007 /* Extension Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		800000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB0000000000000000000001 /* SharkordApp.swift in Sources */,
+				BB0000000000000000000002 /* DesignSystem.swift in Sources */,
+				BB0000000000000000000003 /* Models.swift in Sources */,
+				BB0000000000000000000004 /* AppModel.swift in Sources */,
+				BB0000000000000000000005 /* RootView.swift in Sources */,
+				BB0000000000000000000006 /* ConnectView.swift in Sources */,
+				BB0000000000000000000007 /* WorkspaceView.swift in Sources */,
+				BB0000000000000000000008 /* ChannelListView.swift in Sources */,
+				BB0000000000000000000009 /* ChannelDetailView.swift in Sources */,
+				BB000000000000000000000A /* MembersView.swift in Sources */,
+				BB000000000000000000000B /* SettingsView.swift in Sources */,
+				BB000000000000000000000D /* LiveActivityAttributes.swift in Sources */,
+				BB000000000000000000000E /* LiveActivityController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		800000000000000000000005 /* Extension Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB0000000000000000000011 /* LiveActivityWidget.swift in Sources */,
+				BB000000000000000000000F /* LiveActivityAttributes.swift in Sources */,
+				BB0000000000000000000010 /* DesignSystem.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C00000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 700000000000000000000003 /* SharkordLiveActivity */;
+			targetProxy = C00000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		900000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		900000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+			};
+			name = Release;
+		};
+		900000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Sharkord;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Sharkord 使用麦克风进行语音频道通话；默认静音，可随时关闭。";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		900000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Sharkord;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Sharkord 使用麦克风进行语音频道通话；默认静音，可随时关闭。";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		900000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SharkordLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		900000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SharkordLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios.LiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A00000000000000000000001 /* Build configuration list for PBXProject "Sharkord" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				900000000000000000000001 /* Debug */,
+				900000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000000000000000000002 /* Build configuration list for PBXNativeTarget "Sharkord" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				900000000000000000000003 /* Debug */,
+				900000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000000000000000000003 /* Build configuration list for PBXNativeTarget "SharkordLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				900000000000000000000005 /* Debug */,
+				900000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 700000000000000000000002 /* Project object */;
+}
