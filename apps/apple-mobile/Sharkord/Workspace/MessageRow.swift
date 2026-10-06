@@ -16,8 +16,8 @@ struct MessageRow: View {
     private static let quickReactions = ["👍", "❤️", "😂", "🎉", "😮"]
 
     var body: some View {
-        HStack(alignment: .top, spacing: 11) {
-            AvatarView(name: authorName, diameter: 34)
+        HStack(alignment: .top, spacing: 12) {
+            AvatarView(name: authorName, diameter: 40)
 
             VStack(alignment: .leading, spacing: 4) {
                 header
@@ -30,6 +30,7 @@ struct MessageRow: View {
                 if !body.isEmpty {
                     Text(body)
                         .font(.body)
+                        .foregroundStyle(SharkordTheme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
                 }
@@ -99,21 +100,22 @@ struct MessageRow: View {
         HStack(spacing: 7) {
             Text(authorName)
                 .font(.subheadline.weight(.semibold))
+                .foregroundStyle(SharkordTheme.textPrimary)
 
             Text(MessageText.date(fromMilliseconds: message.createdAt), format: .dateTime.month().day().hour().minute())
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(SharkordTheme.textTertiary)
 
             if message.editedAt != nil {
                 Text(L10n.t("message.edited"))
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(SharkordTheme.textTertiary)
             }
 
             if message.pinned == true {
                 Image(systemName: "pin.fill")
                     .font(.caption2)
-                    .foregroundStyle(Color.sharkordBlueSoft)
+                    .foregroundStyle(SharkordTheme.accentSoft)
                     .accessibilityLabel(L10n.t("message.pinned"))
             }
         }
@@ -125,20 +127,20 @@ struct MessageRow: View {
         return HStack(spacing: 5) {
             Image(systemName: "arrowshape.turn.up.left")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(SharkordTheme.accentSoft)
 
             Text(name)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(SharkordTheme.textSecondary)
 
             Text(MessageText.plainText(fromHTML: reply.content))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(SharkordTheme.textSecondary)
                 .lineLimit(1)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 4)
-        .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .background(SharkordTheme.field, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 
     private func attachments(_ files: [SharkordFile]) -> some View {
@@ -168,12 +170,12 @@ struct MessageRow: View {
 
                         Text("\(group.count)")
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(group.mine ? Color.sharkordBlue : .secondary)
+                            .foregroundStyle(group.mine ? SharkordTheme.accentSoft : SharkordTheme.textSecondary)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(
-                        group.mine ? Color.sharkordBlue.opacity(0.14) : Color.primary.opacity(0.06),
+                        group.mine ? SharkordTheme.accent.opacity(0.28) : SharkordTheme.field,
                         in: Capsule()
                     )
                 }

@@ -98,3 +98,28 @@
 /* common */
 "common.save" = "保存";
 "common.cancel" = "取消";
+
+/* v2 design additions */
+"nav.voice" = "语音";
+"nav.chat" = "聊天";
+"nav.screenshare" = "屏幕共享";
+"voice.backToCall" = "回到通话";
+"voice.youTag" = "你";
+"voice.memberCount" = "%d 位成员";
+"voice.action.micOn" = "开启麦克风";
+"voice.action.micOff" = "关闭麦克风";
+"voice.action.speakerOn" = "开启扬声器";
+"voice.action.speakerOff" = "关闭扬声器";
+"chat.emptyTitle" = "当前会话还没有消息";
+"chat.emptyBody" = "只显示本次连接后由服务器送达的内容。";
+"chat.pickTitle" = "还没有打开的会话";
+"chat.pickBody" = "到「频道」选择一个文字频道或私信，再来这里聊天。";
+"connect.cardTitle" = "连接服务器";
+"connect.moreOptions" = "更多连接选项";
+"connect.fewerOptions" = "收起选项";
+"channel.searchPlaceholder" = "搜索频道或成员";
+"channel.currentMembers" = "当前频道成员";
+"screenshare.infoTitle" = "实时发现已接入";
+"screenshare.infoBody" = "列表与协商信令通过 Sharkord 服务器；画面媒体走 WebRTC/ICE P2P，不经服务器中继。";
+"screenshare.startHint" = "开始共享后，系统会采集本机画面并通过当前语音频道发送。本版本不共享系统音频。";
+"screenshare.myScreen" = "本机屏幕";

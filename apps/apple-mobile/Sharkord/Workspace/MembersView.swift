@@ -1,62 +1,82 @@
 import SharkordCore
 import SwiftUI
 
-/// Everyone on the server, with presence and role names.
-struct MembersView: View {
+/// The server member list shown at the bottom of the channels tab, with presence and role
+/// names. `query` narrows it while the search field is in use.
+struct MembersSection: View {
     @EnvironmentObject private var session: SharkordSession
 
-    private var online: [SharkordUser] {
-        session.users.filter { $0.status == .online }
-    }
+    var query: String = ""
 
-    private var offline: [SharkordUser] {
-        session.users.filter { $0.status != .online }
-    }
+    private var filtered: [SharkordUser] {
+        let users = query.isEmpty
+            ? session.users
+            : session.users.filter { $0.name.localizedCaseInsensitiveContains(query) }
 
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("\(L10n.t("members.online")) · \(online.count)") {
-                    ForEach(online) { user in
-                        memberRow(user)
-                    }
-                }
-
-                if !offline.isEmpty {
-                    Section("\(L10n.t("members.offline")) · \(offline.count)") {
-                        ForEach(offline) { user in
-                            memberRow(user)
-                        }
-                    }
-                }
+        return users.sorted { lhs, rhs in
+            if lhs.status == .online, rhs.status != .online {
+                return true
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle(L10n.t("nav.members"))
+            if lhs.status != .online, rhs.status == .online {
+                return false
+            }
+            return lhs.name < rhs.name
         }
     }
 
-    private func memberRow(_ user: SharkordUser) -> some View {
-        HStack(spacing: 11) {
-            AvatarView(name: user.name, diameter: 34)
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel(icon: "person.2", text: "\(L10n.t("nav.members")) · \(filtered.count)")
+
+            if filtered.isEmpty {
+                Text(L10n.t("members.offline"))
+                    .font(.subheadline)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .padding(.horizontal, 4)
+            } else {
+                VStack(spacing: 14) {
+                    ForEach(filtered) { user in
+                        MemberRow(user: user)
+                    }
+                }
+                .sharkordCard(cornerRadius: 22, padding: 16)
+            }
+        }
+    }
+}
+
+/// one member: avatar, name, role names and a presence dot.
+struct MemberRow: View {
+    @EnvironmentObject private var session: SharkordSession
+
+    let user: SharkordUser
+    var showsRoles = true
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AvatarView(name: user.name, diameter: 40)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(user.name)
-                    .font(.body.weight(.medium))
-
-                Text(roleNames(for: user))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(SharkordTheme.textPrimary)
                     .lineLimit(1)
+
+                if showsRoles {
+                    Text(roleNames(for: user))
+                        .font(.footnote)
+                        .foregroundStyle(SharkordTheme.textSecondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: 6)
 
             Circle()
-                .fill(user.status == .online ? Color.green : Color.secondary.opacity(0.35))
+                .fill(user.status == .online ? SharkordTheme.success : SharkordTheme.textTertiary)
                 .frame(width: 9, height: 9)
-                .accessibilityHidden(true)
+                .accessibilityLabel(user.status == .online ? L10n.t("members.online") : L10n.t("members.offline"))
         }
-        .padding(.vertical, 2)
     }
 
     private func roleNames(for user: SharkordUser) -> String {

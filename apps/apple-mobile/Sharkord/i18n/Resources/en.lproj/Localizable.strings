@@ -98,3 +98,28 @@
 /* common */
 "common.save" = "Save";
 "common.cancel" = "Cancel";
+
+/* v2 design additions */
+"nav.voice" = "Voice";
+"nav.chat" = "Chat";
+"nav.screenshare" = "Screen Share";
+"voice.backToCall" = "Back to call";
+"voice.youTag" = "You";
+"voice.memberCount" = "%d members";
+"voice.action.micOn" = "Turn on microphone";
+"voice.action.micOff" = "Turn off microphone";
+"voice.action.speakerOn" = "Turn on speaker";
+"voice.action.speakerOff" = "Turn off speaker";
+"chat.emptyTitle" = "No messages in this conversation yet";
+"chat.emptyBody" = "Only messages delivered by the server after this connection are shown.";
+"chat.pickTitle" = "No conversation open";
+"chat.pickBody" = "Pick a text channel or direct message under Channels, then chat here.";
+"connect.cardTitle" = "Connect to server";
+"connect.moreOptions" = "More connection options";
+"connect.fewerOptions" = "Fewer options";
+"channel.searchPlaceholder" = "Search channels or members";
+"channel.currentMembers" = "Members in this channel";
+"screenshare.infoTitle" = "Live discovery connected";
+"screenshare.infoBody" = "Lists and negotiation signaling go through the Sharkord server; video media travels WebRTC/ICE peer to peer and is not relayed by the server.";
+"screenshare.startHint" = "Once started the system captures this screen and sends it over the current voice channel. This version does not share system audio.";
+"screenshare.myScreen" = "This device's screen";

@@ -31,6 +31,8 @@
 		BB0000000000000000000016 /* MessageText.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000014 /* MessageText.swift */; };
 		BB0000000000000000000017 /* MessageRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000015 /* MessageRow.swift */; };
 		BB0000000000000000000018 /* VoiceRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000016 /* VoiceRoomView.swift */; };
+		BB000000000000000000001B /* ChatTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000001E /* ChatTabView.swift */; };
+		BB000000000000000000001C /* ScreenshareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000001F /* ScreenshareView.swift */; };
 		BB0000000000000000000019 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000017 /* Localizable.strings */; };
 		BB000000000000000000001A /* RemoteVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000001D /* RemoteVideoView.swift */; };
 /* End PBXBuildFile section */
@@ -82,6 +84,8 @@
 		FB0000000000000000000014 /* MessageText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageText.swift; sourceTree = "<group>"; };
 		FB0000000000000000000015 /* MessageRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRow.swift; sourceTree = "<group>"; };
 		FB0000000000000000000016 /* VoiceRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRoomView.swift; sourceTree = "<group>"; };
+		FB000000000000000000001E /* ChatTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTabView.swift; sourceTree = "<group>"; };
+		FB000000000000000000001F /* ScreenshareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshareView.swift; sourceTree = "<group>"; };
 		FB0000000000000000000018 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		FB0000000000000000000019 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		FB000000000000000000001A /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -160,9 +164,11 @@
 				FB0000000000000000000007 /* WorkspaceView.swift */,
 				FB0000000000000000000008 /* ChannelListView.swift */,
 				FB0000000000000000000009 /* ChannelDetailView.swift */,
+				FB000000000000000000001E /* ChatTabView.swift */,
 				FB0000000000000000000015 /* MessageRow.swift */,
 				FB0000000000000000000014 /* MessageText.swift */,
 				FB0000000000000000000016 /* VoiceRoomView.swift */,
+				FB000000000000000000001F /* ScreenshareView.swift */,
 				FB000000000000000000000A /* MembersView.swift */,
 				FB000000000000000000000B /* SettingsView.swift */,
 			);
@@ -344,6 +350,8 @@
 				BB0000000000000000000016 /* MessageText.swift in Sources */,
 				BB0000000000000000000017 /* MessageRow.swift in Sources */,
 				BB0000000000000000000018 /* VoiceRoomView.swift in Sources */,
+				BB000000000000000000001B /* ChatTabView.swift in Sources */,
+				BB000000000000000000001C /* ScreenshareView.swift in Sources */,
 				BB000000000000000000001A /* RemoteVideoView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

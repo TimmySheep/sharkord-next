@@ -12,6 +12,16 @@
 原生 iPhone/iPad 客户端，第一版功能。设计文档见
 [`docs/NATIVE_STRATEGY.md`](../../docs/NATIVE_STRATEGY.md)，目录形态按其 §3.1。
 
+## 设计
+
+视觉语言按 Timmy 提供的参考设计（`~/Downloads/example` 六张截图）重做，全深色：
+
+- 纯黑背景 + 深灰实心大圆角卡片（无描边、无毛玻璃），超大左对齐粗体标题。
+- 宝蓝大圆角主按钮（文字 + 右侧箭头）；通话控制为胶囊按钮（激活蓝 / 关扬声器红 / 禁用灰）+ 深红方形退出键。
+- 深蓝图标徽章、绿点状态胶囊、分段胶囊控件、胶囊输入框 + 圆形发送键。
+- 悬浮胶囊 Tab Bar（语音 / 频道 / 聊天 / 屏幕共享 / 设置），激活项蓝色 + 浅灰圆角高亮。
+- 令牌与组件集中在 `Sharkord/DesignSystem.swift`（`SharkordTheme`），全局强制深色（`RootView`）。
+
 ## 这一版能做什么
 
 | 功能 | 状态 |
@@ -26,7 +36,7 @@
 | 屏幕共享 | ReplayKit 采集 → WebRTC 视频轨 → `kind: screen` producer，权限校验 `SHARE_SCREEN`；远端画面在语音房间内渲染 |
 | 语言 | 英语、简体中文、西班牙语、法语、德语，设置内即时切换（不用重启） |
 | 灵动岛 | 通话时显示频道与人数；设置页保留示例预览按钮 |
-| iPad | NavigationSplitView 双栏；iPhone 底部 Tab + 通话控制条 |
+| iPad | NavigationSplitView 双栏；iPhone 悬浮胶囊 Tab Bar（语音/频道/聊天/屏幕共享/设置）+ 通话时三键控制条（其他 tab 为"回到通话"条） |
 
 ## 构建
 
@@ -60,9 +70,9 @@ Sharkord/
   SharkordApp.swift / RootView.swift    入口与路由
   AppModel.swift                        编排：会话 + 语音引擎 + 语言 + 灵动岛
   Models.swift                          视图本地模型
-  DesignSystem.swift                    玻璃卡片、品牌色、头像（沿用 webspeak-ios 的美学）
+  DesignSystem.swift                    设计令牌（SharkordTheme）与通用组件（卡片/按钮/胶囊/徽章/头像）
   Onboarding/ConnectView.swift          真实登录
-  Workspace/                            频道列表、消息、语音房间、成员、设置
+  Workspace/                            频道列表、聊天（分段：频道/私信）、语音房间、屏幕共享、成员、设置
   Voice/
     VoiceEngine.swift                   mediasoup 设备/传输/收发 + 麦克风保护规则
     RemoteVideoView.swift               远端视频/屏幕画面渲染
@@ -92,6 +102,7 @@ SharkordLiveActivity/                   灵动岛（widget 扩展）
 ## 验证状态
 
 - `xcodebuild`（scheme `Sharkord`，`generic/platform=iOS Simulator`，`CODE_SIGNING_ALLOWED=NO`）编译通过，
-  `Sharkord.app/PlugIns/SharkordLiveActivity.appex` 正常嵌入并校验。
-- **本机未安装 iOS Simulator runtime，因此没有运行时验收**：通话、屏幕共享、灵动岛均为编译期验证，
+  Swift 0 error 0 warning；`Sharkord.app/PlugIns/SharkordLiveActivity.appex` 正常嵌入并校验。
+- 五语言 `Localizable.strings` 共 107 键 × 5，`plutil -lint` 通过、键集一致。
+- **本机未安装 iOS Simulator runtime，因此没有运行时验收**：通话、屏幕共享、灵动岛、新视觉均为编译期验证，
   真机/模拟器实测待补。

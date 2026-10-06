@@ -1,7 +1,7 @@
 import SharkordCore
 import SwiftUI
 
-/// The open channel: the message list with its composer for text channels, the voice
+/// The open conversation: the message list with its composer for text channels, the voice
 /// room panel for voice channels. Messages, unread state, typing indicators and reactions
 /// all come from the live session.
 struct ChannelDetailView: View {
@@ -32,7 +32,6 @@ struct ChannelDetailView: View {
     private var messageScreen: some View {
         VStack(spacing: 0) {
             messageList
-            Divider()
             composer
         }
     }
@@ -47,6 +46,7 @@ struct ChannelDetailView: View {
                         } label: {
                             Text(L10n.t("channel.loadOlder"))
                                 .font(.caption.weight(.medium))
+                                .foregroundStyle(SharkordTheme.accentSoft)
                                 .frame(maxWidth: .infinity)
                         }
                         .padding(.vertical, 9)
@@ -80,30 +80,26 @@ struct ChannelDetailView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 9) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 30))
-                .foregroundStyle(.secondary)
-
-            Text(L10n.t("channel.empty"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
+        EmptyStateView(
+            symbol: "bubble.left.and.bubble.right",
+            title: L10n.t("chat.emptyTitle"),
+            body_: L10n.t("chat.emptyBody")
+        )
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
+        .padding(.vertical, 40)
     }
 
     private var composer: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             if let replyTo {
                 HStack(spacing: 8) {
                     Image(systemName: "arrowshape.turn.up.left")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(SharkordTheme.accentSoft)
 
                     Text(MessageText.plainText(fromHTML: replyTo.content))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(SharkordTheme.textSecondary)
                         .lineLimit(1)
 
                     Spacer(minLength: 4)
@@ -113,41 +109,50 @@ struct ChannelDetailView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(SharkordTheme.textSecondary)
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 18)
             }
 
             if !typingNames.isEmpty {
                 Text(L10n.format("channel.typing", typingNames))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 14)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .padding(.horizontal, 18)
             }
 
             HStack(spacing: 10) {
                 TextField(L10n.t("channel.messagePlaceholder"), text: $draft, axis: .vertical)
                     .lineLimit(1...5)
+                    .font(.body)
+                    .foregroundStyle(SharkordTheme.textPrimary)
                     .textFieldStyle(.plain)
+                    .tint(SharkordTheme.accentSoft)
                     .focused($composerFocused)
                     .onChange(of: draft) { _, _ in
                         session.signalTyping(channelId: channelId)
                     }
 
                 Button(action: send) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 27))
-                        .foregroundStyle(canSend ? Color.sharkordBlue : Color.secondary.opacity(0.4))
+                    Image(systemName: "arrow.up")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            canSend ? SharkordTheme.accent : SharkordTheme.pillNeutral,
+                            in: Circle()
+                        )
                 }
                 .buttonStyle(.plain)
                 .disabled(!canSend)
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 10)
-            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(SharkordTheme.card, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .padding(.horizontal, 12)
+            .padding(.top, 8)
             .padding(.bottom, 10)
         }
     }

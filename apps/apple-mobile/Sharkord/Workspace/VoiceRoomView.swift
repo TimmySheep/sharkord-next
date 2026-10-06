@@ -1,9 +1,107 @@
 import SharkordCore
 import SwiftUI
 
-/// The screen for a voice channel: who is in it, what their mic/output state is, and the
-/// call controls. The microphone control is disabled while the output is off, and the
-/// reason is spelled out so the protection reads as intentional.
+/// The voice tab: the live call for the channel the device is in, or the voice channel
+/// picker when no call is active. The three call controls live in `VoiceControlsBar`
+/// pinned under this screen.
+struct VoiceTabView: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var session: SharkordSession
+    @EnvironmentObject private var voice: VoiceEngine
+
+    var body: some View {
+        if let channelId = voice.currentChannelId {
+            VoiceRoomView(channelId: channelId)
+        } else {
+            picker
+        }
+    }
+
+    private var picker: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                ScreenTitle(text: L10n.t("nav.voice"))
+
+                if let banner = model.banner {
+                    bannerView(banner)
+                }
+
+                if session.voiceChannels.isEmpty {
+                    EmptyStateView(
+                        symbol: "waveform",
+                        title: L10n.t("voice.emptyRoom"),
+                        body_: L10n.t("chat.pickBody")
+                    )
+                    .frame(maxWidth: .infinity)
+                } else {
+                    SectionLabel(icon: "waveform", text: L10n.t("nav.voiceChannels"))
+
+                    ForEach(session.voiceChannels) { channel in
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack(spacing: 13) {
+                                Image(systemName: "waveform")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(SharkordTheme.textSecondary)
+                                    .frame(width: 26)
+                                    .accessibilityHidden(true)
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(channel.name)
+                                        .font(.body.weight(.semibold))
+                                        .foregroundStyle(SharkordTheme.textPrimary)
+                                        .lineLimit(1)
+
+                                    if let topic = channel.topic, !topic.isEmpty {
+                                        Text(topic)
+                                            .font(.footnote)
+                                            .foregroundStyle(SharkordTheme.textSecondary)
+                                            .lineLimit(1)
+                                    }
+                                }
+
+                                Spacer(minLength: 8)
+
+                                Text("\(session.voiceParticipants(in: channel.id).count)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(SharkordTheme.textSecondary)
+                            }
+
+                            SharkordPrimaryButton(title: L10n.t("voice.join"), symbol: "phone.fill") {
+                                model.joinVoice(channel.id)
+                            }
+                        }
+                        .sharkordCard(cornerRadius: 24, padding: 17)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+        }
+    }
+
+    private func bannerView(_ text: String) -> some View {
+        Label {
+            Text(text)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(SharkordTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(SharkordTheme.danger)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .sharkordCard(cornerRadius: 18)
+    }
+}
+
+/// The live call screen for a voice channel: who is in it, what their mic/output state is,
+/// and any incoming screen or camera streams. The microphone pill in the control bar is
+/// disabled while the output is off, and the reason is spelled out here so the protection
+/// reads as intentional.
 struct VoiceRoomView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SharkordSession
@@ -14,44 +112,49 @@ struct VoiceRoomView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                if !voice.remoteVideoStreams.isEmpty {
-                    remoteStreams
+                header
+
+                if let banner = model.banner {
+                    bannerView(banner)
                 }
+
+                if !voice.canEnableMicrophone && isInThisCall {
+                    micBlockedNote
+                }
+
                 participants
-                controls
-            }
-            .padding(18)
-        }
-    }
 
-    private var remoteStreams: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            SectionEyebrow(title: L10n.t("voice.remoteStreams"))
+                if !voice.remoteVideoStreams.isEmpty {
+                    RemoteStreamList()
+                }
 
-            ForEach(voice.remoteVideoStreams) { stream in
-                RemoteVideoView(track: stream.track)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 210)
-                    .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
-                    .overlay(alignment: .bottomLeading) {
-                        Text(streamLabel(stream))
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(.black.opacity(0.55), in: Capsule())
-                            .padding(10)
+                if !isInThisCall {
+                    SharkordPrimaryButton(title: L10n.t("voice.join"), symbol: "phone.fill") {
+                        model.joinVoice(channelId)
                     }
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
         }
     }
 
-    private func streamLabel(_ stream: RemoteVideoStream) -> String {
-        let name = session.user(for: stream.remoteId)?.name ?? L10n.t("message.unknownAuthor")
-        let kind = stream.kind == .screen || stream.kind == .screenAudio
-            ? L10n.t("voice.screen.start")
-            : L10n.t("voice.remoteCamera")
-        return "\(name) · \(kind)"
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ScreenTitle(
+                text: channelName,
+                trailing: AnyView(StatusPill(text: L10n.t("members.online"), color: SharkordTheme.success))
+            )
+
+            Text(L10n.format("voice.memberCount", participantRows.count))
+                .font(.subheadline)
+                .foregroundStyle(SharkordTheme.textSecondary)
+        }
+    }
+
+    private var channelName: String {
+        session.channel(for: channelId)?.name ?? L10n.t("voice.call")
     }
 
     private var isInThisCall: Bool {
@@ -63,142 +166,119 @@ struct VoiceRoomView: View {
     }
 
     private var participants: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            SectionEyebrow(title: L10n.t("voice.participants"))
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                CardHeading(icon: "person.2", text: L10n.t("channel.currentMembers"))
+
+                Spacer()
+
+                Text("\(participantRows.count)")
+                    .font(.body)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+            }
 
             if participantRows.isEmpty {
                 Text(L10n.t("voice.emptyRoom"))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .padding(.vertical, 4)
             } else {
-                ForEach(participantRows) { participant in
-                    HStack(spacing: 11) {
-                        AvatarView(
-                            name: participant.user.name,
-                            diameter: 34,
-                            isSpeaking: participant.id == session.ownUserId && voice.microphoneOn
-                        )
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(participant.user.name)
-                                .font(.subheadline.weight(.medium))
-
-                            Text(stateText(participant.state))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer(minLength: 6)
-
-                        Image(systemName: participant.state.micMuted ? "mic.slash.fill" : "mic.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(participant.state.micMuted ? Color.secondary : Color.green)
-                            .accessibilityHidden(true)
-
-                        Image(systemName: participant.state.soundMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(participant.state.soundMuted ? Color.orange : Color.secondary)
-                            .accessibilityHidden(true)
+                VStack(spacing: 16) {
+                    ForEach(participantRows) { participant in
+                        participantRow(participant)
                     }
-                    .padding(11)
-                    .sharkordGlassCard(cornerRadius: 17)
                 }
             }
         }
+        .sharkordCard(cornerRadius: 24)
     }
 
-    private var controls: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionEyebrow(title: L10n.t("voice.controls"))
+    private func participantRow(_ participant: VoiceParticipant) -> some View {
+        let isSelf = participant.id == session.ownUserId
 
-            if !isInThisCall {
-                SharkordPrimaryButton(title: L10n.t("voice.join"), symbol: "phone.fill") {
-                    model.joinVoice(channelId)
-                }
-            } else {
-                HStack(spacing: 11) {
-                    controlTile(
-                        title: voice.microphoneOn ? L10n.t("voice.mic.mute") : L10n.t("voice.mic.unmute"),
-                        symbol: voice.microphoneOn ? "mic.fill" : "mic.slash.fill",
-                        tint: voice.microphoneOn ? .green : .primary,
-                        disabled: !voice.canEnableMicrophone
-                    ) {
-                        model.toggleMicrophone()
-                    }
+        return HStack(spacing: 12) {
+            AvatarView(
+                name: participant.user.name,
+                diameter: 42,
+                isSpeaking: isSelf && voice.microphoneOn
+            )
 
-                    controlTile(
-                        title: voice.deafened ? L10n.t("voice.output.enable") : L10n.t("voice.output.disable"),
-                        symbol: voice.deafened ? "speaker.slash.fill" : "speaker.wave.2.fill",
-                        tint: voice.deafened ? .orange : .primary,
-                        disabled: false
-                    ) {
-                        model.toggleDeafen()
-                    }
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 7) {
+                    Text(participant.user.name)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(SharkordTheme.textPrimary)
+                        .lineLimit(1)
 
-                    controlTile(
-                        title: voice.screenSharing ? L10n.t("voice.screen.stop") : L10n.t("voice.screen.start"),
-                        symbol: voice.screenSharing ? "rectangle.slash.fill" : "rectangle.on.rectangle.fill",
-                        tint: voice.screenSharing ? .sharkordBlueSoft : .primary,
-                        disabled: false
-                    ) {
-                        model.toggleScreenShare()
+                    if isSelf {
+                        Text(L10n.t("voice.youTag"))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(SharkordTheme.textSecondary)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(SharkordTheme.field, in: Capsule())
                     }
                 }
 
-                if !voice.canEnableMicrophone {
-                    Label {
-                        Text(L10n.t("voice.micBlocked"))
-                            .font(.footnote.weight(.medium))
-                            .fixedSize(horizontal: false, vertical: true)
-                    } icon: {
-                        Image(systemName: "hand.raised.fill")
-                            .font(.footnote.weight(.semibold))
-                    }
-                    .foregroundStyle(.orange)
-                    .padding(.horizontal, 13)
-                    .padding(.vertical, 9)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .sharkordGlassCard(cornerRadius: 16)
-                }
-
-                SharkordPrimaryButton(title: L10n.t("voice.leave"), symbol: "phone.down.fill") {
-                    model.leaveVoice()
-                }
-            }
-
-            if let banner = model.banner {
-                Text(banner)
+                Text(stateText(participant.state))
                     .font(.footnote)
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .lineLimit(1)
             }
+
+            Spacer(minLength: 6)
+
+            if participant.state.sharingScreen == true {
+                Image(systemName: "rectangle.on.rectangle.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(SharkordTheme.accentSoft)
+                    .accessibilityLabel(L10n.t("voice.state.screenSharing"))
+            }
+
+            Image(systemName: participant.state.micMuted ? "mic.slash.fill" : "mic.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(participant.state.micMuted ? SharkordTheme.danger : SharkordTheme.success)
+                .accessibilityHidden(true)
+
+            Image(systemName: participant.state.soundMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(participant.state.soundMuted ? SharkordTheme.danger : SharkordTheme.accentSoft)
+                .accessibilityHidden(true)
         }
     }
 
-    private func controlTile(
-        title: String,
-        symbol: String,
-        tint: Color,
-        disabled: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 7) {
-                Image(systemName: symbol)
-                    .font(.system(size: 18, weight: .semibold))
-
-                Text(title)
-                    .font(.caption2.weight(.medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity, minHeight: 76)
-            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
-            .foregroundStyle(tint)
+    private var micBlockedNote: some View {
+        Label {
+            Text(L10n.t("voice.micBlocked"))
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(SharkordTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "hand.raised.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(SharkordTheme.danger)
         }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .opacity(disabled ? 0.35 : 1)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .sharkordCard(cornerRadius: 18)
+    }
+
+    private func bannerView(_ text: String) -> some View {
+        Label {
+            Text(text)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(SharkordTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(SharkordTheme.danger)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .sharkordCard(cornerRadius: 18)
     }
 
     private func stateText(_ state: VoiceUserState) -> String {
@@ -212,5 +292,46 @@ struct VoiceRoomView: View {
             return L10n.t("voice.state.muted")
         }
         return L10n.t("voice.state.live")
+    }
+}
+
+/// incoming video: remote screen shares and cameras, labelled by owner and kind.
+struct RemoteStreamList: View {
+    @EnvironmentObject private var session: SharkordSession
+    @EnvironmentObject private var voice: VoiceEngine
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            CardHeading(
+                icon: "rectangle.on.rectangle.fill",
+                text: L10n.t("voice.remoteStreams"),
+                tint: SharkordTheme.accentSoft
+            )
+
+            ForEach(voice.remoteVideoStreams) { stream in
+                RemoteVideoView(track: stream.track)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 210)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(alignment: .bottomLeading) {
+                        Text(streamLabel(stream))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.55), in: Capsule())
+                            .padding(10)
+                    }
+            }
+        }
+        .sharkordCard(cornerRadius: 24)
+    }
+
+    private func streamLabel(_ stream: RemoteVideoStream) -> String {
+        let name = session.user(for: stream.remoteId)?.name ?? L10n.t("message.unknownAuthor")
+        let kind = stream.kind == .screen || stream.kind == .screenAudio
+            ? L10n.t("voice.screen.start")
+            : L10n.t("voice.remoteCamera")
+        return "\(name) · \(kind)"
     }
 }

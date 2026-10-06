@@ -18,6 +18,7 @@ struct RootView: View {
             }
         }
         .background(BrandBackground())
+        .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.18), value: model.isConnected)
     }
 
@@ -25,9 +26,10 @@ struct RootView: View {
         VStack(spacing: 16) {
             ProgressView()
                 .controlSize(.large)
+                .tint(SharkordTheme.accentSoft)
             Text(L10n.t("connect.connecting"))
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(SharkordTheme.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

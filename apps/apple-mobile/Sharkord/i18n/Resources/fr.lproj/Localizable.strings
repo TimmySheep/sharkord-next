@@ -98,3 +98,28 @@
 /* général */
 "common.save" = "Enregistrer";
 "common.cancel" = "Annuler";
+
+/* v2 design additions */
+"nav.voice" = "Voix";
+"nav.chat" = "Chat";
+"nav.screenshare" = "Écran";
+"voice.backToCall" = "Retour à l'appel";
+"voice.youTag" = "Toi";
+"voice.memberCount" = "%d membres";
+"voice.action.micOn" = "Activer le microphone";
+"voice.action.micOff" = "Couper le microphone";
+"voice.action.speakerOn" = "Activer le haut-parleur";
+"voice.action.speakerOff" = "Couper le haut-parleur";
+"chat.emptyTitle" = "Pas encore de messages dans cette conversation";
+"chat.emptyBody" = "Seuls les messages envoyés par le serveur après cette connexion sont affichés.";
+"chat.pickTitle" = "Aucune conversation ouverte";
+"chat.pickBody" = "Choisissez un canal de texte ou un message privé dans Canaux pour discuter ici.";
+"connect.cardTitle" = "Se connecter au serveur";
+"connect.moreOptions" = "Plus d'options de connexion";
+"connect.fewerOptions" = "Moins d'options";
+"channel.searchPlaceholder" = "Rechercher des canaux ou des membres";
+"channel.currentMembers" = "Membres dans ce canal";
+"screenshare.infoTitle" = "Détection en direct connectée";
+"screenshare.infoBody" = "Les listes et la signalisation de négociation passent par le serveur Sharkord ; la vidéo circule en WebRTC/ICE de pair à pair et n'est pas relayée par le serveur.";
+"screenshare.startHint" = "Au démarrage, le système capture cet écran et l'envoie sur le canal vocal actuel. Cette version ne partage pas l'audio du système.";
+"screenshare.myScreen" = "L'écran de cet appareil";

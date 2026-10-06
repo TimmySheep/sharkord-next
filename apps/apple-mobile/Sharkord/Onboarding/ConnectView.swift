@@ -12,42 +12,69 @@ struct ConnectView: View {
     @State private var identity = ""
     @State private var password = ""
     @State private var serverPassword = ""
+    @State private var showsAdvanced = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
-                fields
-                submit
+                connectCard
                 if let banner = model.banner {
                     bannerView(banner)
                 }
             }
-            .padding(22)
-            .frame(maxWidth: 520)
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
+            .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
         }
         .scrollBounceBehavior(.basedOnSize)
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Text("🦈")
-                .font(.system(size: 44))
-                .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Spacer()
+                languageButton
+            }
 
-            Text(L10n.t("connect.title"))
-                .font(.largeTitle.weight(.bold))
+            ScreenTitle(text: L10n.t("connect.title"))
 
             Text(L10n.t("connect.subtitle"))
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(SharkordTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private var fields: some View {
-        VStack(spacing: 15) {
+    private var languageButton: some View {
+        Menu {
+            ForEach(L10n.supportedLanguages, id: \.code) { language in
+                Button {
+                    model.setLanguage(language.code)
+                } label: {
+                    if model.language == language.code {
+                        Label(language.nativeName, systemImage: "checkmark")
+                    } else {
+                        Text(language.nativeName)
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "globe")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(SharkordTheme.accentSoft)
+                .frame(width: 56, height: 56)
+                .background(SharkordTheme.card, in: Circle())
+        }
+        .accessibilityLabel(L10n.t("settings.language"))
+    }
+
+    private var connectCard: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            CardHeading(icon: "server.rack", text: L10n.t("connect.cardTitle"))
+
             SharkordField(
                 title: L10n.t("connect.server"),
                 placeholder: L10n.t("connect.serverPlaceholder"),
@@ -71,32 +98,62 @@ struct ConnectView: View {
                 secure: true
             )
 
-            SharkordField(
-                title: L10n.t("connect.serverPassword"),
-                placeholder: L10n.t("connect.serverPasswordPlaceholder"),
-                symbol: "key",
-                text: $serverPassword,
-                secure: true
-            )
-        }
-    }
+            advancedToggle
 
-    private var submit: some View {
-        SharkordPrimaryButton(
-            title: L10n.t("connect.submit"),
-            symbol: "arrow.right",
-            enabled: canSubmit
-        ) {
-            model.banner = nil
-            Task {
-                await model.connect(
-                    host: host,
-                    identity: identity,
-                    password: password,
-                    serverPassword: serverPassword
+            if showsAdvanced {
+                SharkordField(
+                    title: L10n.t("connect.serverPassword"),
+                    placeholder: L10n.t("connect.serverPasswordPlaceholder"),
+                    symbol: "key",
+                    text: $serverPassword,
+                    secure: true
                 )
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            SharkordPrimaryButton(
+                title: L10n.t("connect.submit"),
+                symbol: "arrow.right",
+                enabled: canSubmit
+            ) {
+                model.banner = nil
+                Task {
+                    await model.connect(
+                        host: host,
+                        identity: identity,
+                        password: password,
+                        serverPassword: serverPassword
+                    )
+                }
             }
         }
+        .sharkordCard(cornerRadius: 28)
+    }
+
+    private var advancedToggle: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.16)) {
+                showsAdvanced.toggle()
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(SharkordTheme.accentSoft)
+
+                Text(showsAdvanced ? L10n.t("connect.fewerOptions") : L10n.t("connect.moreOptions"))
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(SharkordTheme.accentSoft)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .rotationEffect(.degrees(showsAdvanced ? 90 : 0))
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var canSubmit: Bool {
@@ -109,15 +166,16 @@ struct ConnectView: View {
         Label {
             Text(text)
                 .font(.footnote.weight(.medium))
+                .foregroundStyle(SharkordTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         } icon: {
-            Image(systemName: "exclamationmark.triangle")
+            Image(systemName: "exclamationmark.triangle.fill")
                 .font(.footnote.weight(.semibold))
+                .foregroundStyle(SharkordTheme.danger)
         }
-        .foregroundStyle(.orange)
-        .padding(.horizontal, 13)
-        .padding(.vertical, 11)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .sharkordGlassCard(cornerRadius: 16)
+        .sharkordCard(cornerRadius: 18)
     }
 }

@@ -2,81 +2,166 @@ import SharkordCore
 import SwiftUI
 
 /// Settings: language (five in this version), the Dynamic Island preview, the connection
-/// details and the disconnect action.
+/// details and the disconnect action. Every group is a card with a tinted heading.
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SharkordSession
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section(L10n.t("settings.language")) {
-                    Picker(L10n.t("settings.language"), selection: languageBinding) {
-                        ForEach(L10n.supportedLanguages, id: \.code) { language in
-                            Text(language.nativeName).tag(language.code)
-                        }
-                    }
-                    .pickerStyle(.menu)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                ScreenTitle(text: L10n.t("nav.settings"))
 
-                    Text(L10n.t("settings.languageHint"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                languageCard
+                liveActivityCard
+                connectionCard
+
+                SharkordSecondaryButton(
+                    title: L10n.t("settings.disconnect"),
+                    symbol: "rectangle.portrait.and.arrow.right",
+                    tint: SharkordTheme.danger,
+                    background: SharkordTheme.dangerDeep
+                ) {
+                    model.disconnect()
                 }
 
-                Section(L10n.t("settings.liveActivity")) {
-                    if model.liveActivityRunning {
-                        Button {
-                            model.stopPreviewLiveActivity()
-                        } label: {
-                            Label(L10n.t("settings.liveActivityStop"), systemImage: "stop.circle")
-                        }
-                    } else {
-                        Button {
-                            model.startPreviewLiveActivity()
-                        } label: {
-                            Label(L10n.t("settings.liveActivityStart"), systemImage: "island")
-                        }
-                    }
+                Text(L10n.t("settings.disconnectHint"))
+                    .font(.footnote)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
 
-                    Text(L10n.t("settings.liveActivityHint"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section(L10n.t("settings.connection")) {
-                    LabeledContent(L10n.t("settings.server"), value: model.serverDisplayName)
-
-                    if let user = session.ownUser {
-                        LabeledContent(L10n.t("settings.account"), value: user.name)
-                    }
-                }
-
-                Section {
-                    Button(role: .destructive) {
-                        model.disconnect()
-                    } label: {
-                        Label(L10n.t("settings.disconnect"), systemImage: "rectangle.portrait.and.arrow.right")
-                    }
-                } footer: {
-                    Text(L10n.t("settings.disconnectHint"))
-                }
-
-                Section(L10n.t("settings.about")) {
-                    Text(L10n.t("settings.aboutBody"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                aboutCard
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle(L10n.t("nav.settings"))
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
         }
     }
 
-    private var languageBinding: Binding<String> {
-        Binding(
-            get: { model.language },
-            set: { model.setLanguage($0) }
-        )
+    private var languageCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            CardHeading(icon: "globe", text: L10n.t("settings.language"), tint: SharkordTheme.accentSoft)
+
+            Menu {
+                ForEach(L10n.supportedLanguages, id: \.code) { language in
+                    Button {
+                        model.setLanguage(language.code)
+                    } label: {
+                        if model.language == language.code {
+                            Label(language.nativeName, systemImage: "checkmark")
+                        } else {
+                            Text(language.nativeName)
+                        }
+                    }
+                }
+            } label: {
+                HStack {
+                    Text(currentLanguageName)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(SharkordTheme.textPrimary)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(SharkordTheme.accentSoft)
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 52)
+                .background(SharkordTheme.field, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+
+            Text(L10n.t("settings.languageHint"))
+                .font(.footnote)
+                .foregroundStyle(SharkordTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .sharkordCard(cornerRadius: 24)
+    }
+
+    private var currentLanguageName: String {
+        L10n.supportedLanguages.first { $0.code == model.language }?.nativeName
+            ?? L10n.supportedLanguages[0].nativeName
+    }
+
+    private var liveActivityCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            CardHeading(
+                icon: "waveform",
+                text: L10n.t("settings.liveActivity"),
+                tint: SharkordTheme.accentSoft
+            )
+
+            if model.liveActivityRunning {
+                SharkordSecondaryButton(
+                    title: L10n.t("settings.liveActivityStop"),
+                    symbol: "stop.fill",
+                    tint: SharkordTheme.danger,
+                    background: SharkordTheme.dangerDeep
+                ) {
+                    model.stopPreviewLiveActivity()
+                }
+            } else {
+                SharkordSecondaryButton(
+                    title: L10n.t("settings.liveActivityStart"),
+                    symbol: "waveform",
+                    tint: SharkordTheme.accentSoft,
+                    background: SharkordTheme.field
+                ) {
+                    model.startPreviewLiveActivity()
+                }
+            }
+
+            Text(L10n.t("settings.liveActivityHint"))
+                .font(.footnote)
+                .foregroundStyle(SharkordTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .sharkordCard(cornerRadius: 24)
+    }
+
+    private var connectionCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            CardHeading(
+                icon: "network",
+                text: L10n.t("settings.connection"),
+                tint: SharkordTheme.accentSoft
+            )
+
+            infoRow(label: L10n.t("settings.server"), value: model.serverDisplayName)
+
+            if let user = session.ownUser {
+                infoRow(label: L10n.t("settings.account"), value: user.name)
+            }
+        }
+        .sharkordCard(cornerRadius: 24)
+    }
+
+    private func infoRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.body)
+                .foregroundStyle(SharkordTheme.textSecondary)
+
+            Spacer(minLength: 12)
+
+            Text(value)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(SharkordTheme.textPrimary)
+                .lineLimit(1)
+        }
+    }
+
+    private var aboutCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            CardHeading(icon: "info.circle", text: L10n.t("settings.about"), tint: SharkordTheme.accentSoft)
+
+            Text(L10n.t("settings.aboutBody"))
+                .font(.footnote)
+                .foregroundStyle(SharkordTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .sharkordCard(cornerRadius: 24)
     }
 }

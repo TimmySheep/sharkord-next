@@ -98,3 +98,28 @@
 /* Allgemein */
 "common.save" = "Speichern";
 "common.cancel" = "Abbrechen";
+
+/* v2 design additions */
+"nav.voice" = "Sprache";
+"nav.chat" = "Chat";
+"nav.screenshare" = "Bildschirm";
+"voice.backToCall" = "Zurück zum Anruf";
+"voice.youTag" = "Du";
+"voice.memberCount" = "%d Mitglieder";
+"voice.action.micOn" = "Mikrofon einschalten";
+"voice.action.micOff" = "Mikrofon ausschalten";
+"voice.action.speakerOn" = "Lautsprecher einschalten";
+"voice.action.speakerOff" = "Lautsprecher ausschalten";
+"chat.emptyTitle" = "Noch keine Nachrichten in diesem Gespräch";
+"chat.emptyBody" = "Es werden nur Nachrichten angezeigt, die der Server nach dieser Verbindung liefert.";
+"chat.pickTitle" = "Kein Gespräch geöffnet";
+"chat.pickBody" = "Wähle unter Kanäle einen Textkanal oder eine Direktnachricht und chatte hier.";
+"connect.cardTitle" = "Mit Server verbinden";
+"connect.moreOptions" = "Weitere Verbindungsoptionen";
+"connect.fewerOptions" = "Weniger Optionen";
+"channel.searchPlaceholder" = "Kanäle oder Mitglieder suchen";
+"channel.currentMembers" = "Mitglieder in diesem Kanal";
+"screenshare.infoTitle" = "Live-Erkennung verbunden";
+"screenshare.infoBody" = "Listen und Verhandlungssignalisierung laufen über den Sharkord-Server; Videomedien laufen WebRTC/ICE Peer-to-Peer und werden nicht vom Server weitergeleitet.";
+"screenshare.startHint" = "Nach dem Start zeichnet das System diesen Bildschirm auf und sendet ihn über den aktuellen Sprachkanal. Diese Version teilt keine Systemaudios.";
+"screenshare.myScreen" = "Bildschirm dieses Geräts";
