@@ -212,7 +212,13 @@ const getAllChannelUserPermissions = async (
   const roleIds = await getUserRoleIds(userId);
 
   const [allChannels, dmChannelIds] = await Promise.all([
-    db.select({ id: channels.id, isDm: channels.isDm }).from(channels),
+    db
+      .select({
+        id: channels.id,
+        isDm: channels.isDm,
+        private: channels.private
+      })
+      .from(channels),
     getDirectMessageChannelIdsForUser(userId)
   ]);
 
@@ -298,9 +304,12 @@ const getAllChannelUserPermissions = async (
       permissions[permissionType] = false;
     }
 
-    // dm channels have no granular permissions, membership decides everything.
-    // Resolved from one query above rather than one per dm channel in this loop
-    if (channel.isDm && dmChannelIdSet.has(channel.id)) {
+    // public channels grant every channel permission, matching channelUserCan.
+    // dm channels use membership instead of granular permissions.
+    if (
+      (!channel.isDm && !channel.private) ||
+      (channel.isDm && dmChannelIdSet.has(channel.id))
+    ) {
       for (const permissionType of allPermissionTypes) {
         permissions[permissionType] = true;
       }

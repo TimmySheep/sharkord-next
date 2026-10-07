@@ -561,8 +561,10 @@ private fun VoiceCallPanel(
 ) {
     val isInThisRoom = state.voiceChannelId == channel.id
     val participants = state.voiceUsersByChannel[channel.id].orEmpty()
-    val projectionPermitted = state.channelPermissions[channel.id.toString()]
-        ?.jsonObject?.get("permissions")?.jsonObject?.get("SHARE_SCREEN")?.jsonPrimitive?.booleanOrNull ?: false
+    val projectionPermitted =
+        !channel.isPrivate ||
+            state.channelPermissions[channel.id.toString()]
+                ?.jsonObject?.get("permissions")?.jsonObject?.get("SHARE_SCREEN")?.jsonPrimitive?.booleanOrNull == true
 
     Column(
         modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
