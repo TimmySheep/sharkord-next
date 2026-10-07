@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -13,11 +14,23 @@ public sealed partial class MainWindow : Window
     private readonly SharkordSession _session;
     private readonly ObservableCollection<ChannelItem> _channels = [];
     private readonly ObservableCollection<string> _messages = [];
+    private string? _languagePreference;
+    private bool _isUpdatingLanguagePicker;
 
     public MainWindow(SharkordSession session)
     {
         _session = session;
         InitializeComponent();
+
+        _languagePreference = ReadLanguagePreference();
+        if (_languagePreference is null)
+        {
+            L10n.UseSystemLanguage();
+        }
+        else
+        {
+            L10n.Language = _languagePreference;
+        }
 
         ChannelList.ItemsSource = _channels;
         MessageList.ItemsSource = _messages;
@@ -36,6 +49,7 @@ public sealed partial class MainWindow : Window
     private void ApplyLocalisation()
     {
         TaglineText.Text = L10n.T("tagline", ns: "windows");
+        RefreshLanguagePicker();
         HostBox.Header = L10n.T("serverAddress", ns: "windows");
         IdentityBox.Header = L10n.T("identityLabel", ns: "connect");
         PasswordBox.Header = L10n.T("passwordLabel", ns: "connect");
@@ -47,6 +61,101 @@ public sealed partial class MainWindow : Window
 
         // messages embed the localised system author name, so they have to be rebuilt too
         Refresh();
+    }
+
+    private void RefreshLanguagePicker()
+    {
+        _isUpdatingLanguagePicker = true;
+
+        try
+        {
+            LanguageBox.Header = L10n.T("languageLabel", ns: "windows");
+            LanguageBox.Items.Clear();
+            LanguageBox.Items.Add(new ComboBoxItem
+            {
+                Content = L10n.T("systemLanguage", ns: "windows"),
+                Tag = "system"
+            });
+
+            foreach (var language in L10n.SupportedLanguages)
+            {
+                LanguageBox.Items.Add(new ComboBoxItem { Content = language.NativeName, Tag = language.Code });
+            }
+
+            var selectedTag = _languagePreference ?? "system";
+            LanguageBox.SelectedItem = LanguageBox.Items
+                .OfType<ComboBoxItem>()
+                .First(item => string.Equals(item.Tag as string, selectedTag, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            _isUpdatingLanguagePicker = false;
+        }
+    }
+
+    private void OnLanguageSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isUpdatingLanguagePicker || LanguageBox.SelectedItem is not ComboBoxItem item)
+        {
+            return;
+        }
+
+        var selectedLanguage = item.Tag as string;
+        _languagePreference = selectedLanguage == "system" ? null : selectedLanguage;
+        SaveLanguagePreference(_languagePreference);
+
+        if (_languagePreference is null)
+        {
+            L10n.UseSystemLanguage();
+            return;
+        }
+
+        L10n.Language = _languagePreference;
+    }
+
+    private static string? ReadLanguagePreference()
+    {
+        try
+        {
+            if (!File.Exists(LanguagePreferencePath))
+            {
+                return null;
+            }
+
+            var saved = File.ReadAllText(LanguagePreferencePath).Trim();
+            if (saved.Equals("system", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            foreach (var language in L10n.SupportedLanguages)
+            {
+                if (language.Code.Equals(saved, StringComparison.OrdinalIgnoreCase))
+                {
+                    return language.Code;
+                }
+            }
+
+            return null;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Debug.WriteLine($"Could not read the saved language preference: {exception.Message}");
+            return null;
+        }
+    }
+
+    private static void SaveLanguagePreference(string? language)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(LanguagePreferencePath)!);
+            File.WriteAllText(LanguagePreferencePath, language ?? "system");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Debug.WriteLine($"Could not save the language preference: {exception.Message}");
+        }
     }
 
     private void OnSessionChanged()
@@ -167,6 +276,12 @@ public sealed partial class MainWindow : Window
             ConnectError.Text = exception.Message;
         }
     }
+
+    private static string LanguagePreferencePath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Sharkord",
+        "language"
+    );
 
     private sealed record ChannelItem(int Id, string Name);
 }

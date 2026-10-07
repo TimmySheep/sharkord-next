@@ -64,7 +64,7 @@ SHARKORD_IT_HOST=127.0.0.1:4992 dotnet test --filter LoginJoinSendAndReceive
 
 ## What works today (verified)
 
-`Sharkord.Core` builds clean and its tests pass with `dotnet test` on macOS (48 tests, two of
+`Sharkord.Core` builds clean and its tests pass with `dotnet test` on macOS (50 tests, two of
 them end to end against a real server):
 
 - tRPC WebSocket framing: `connectionParams` first frame, `?connectionParams=1`, one
@@ -80,21 +80,25 @@ them end to end against a real server):
 - Reconnect with the `[1, 2, 4, 8, 8]s` backoff.
 - Localisation: 10 languages (`en`, `de`, `es`, `fr`, `it`, `cs`, `ru`, `zh`, `zh-Hant`,
   `pt-BR`) with the same key layout the macOS client uses. The `windows` namespace holds the
-  seven labels the WinUI shell needs; `identityLabel`, `passwordLabel` and `connectBtn` are
+  nine labels the WinUI shell needs, including the language picker and system-default option;
+  `identityLabel`, `passwordLabel` and `connectBtn` are
   read from the shared `connect` namespace instead of being copied. The tables are embedded
-  in `Sharkord.Core.dll`, and `L10nTests` scans the window source so a hardcoded english
-  label or a renamed key fails the suite instead of surfacing as raw text at runtime.
+  in `Sharkord.Core.dll`. The picker stays available in the connect and chat views, offers
+  system language plus all ten locales, and persists explicit choices in
+  `%LOCALAPPDATA%\Sharkord\language`. `L10nTests` scans the window source so a hardcoded
+  english label or a renamed key fails the suite instead of surfacing as raw text at runtime.
 
 `Sharkord.App` is a conventional WinUI 3 shell (connect form, channel list, message list,
-composer) wired to `SharkordSession`. It **compiles clean on Windows** (0 warnings, 0 errors).
-It has not been *run* or visually reviewed yet, and the shell only exposes a slice of what
+composer and language picker) wired to `SharkordSession`. This language-picker revision
+**compiled on Windows 11 x64 in Release configuration** with 0 warnings and 0 errors. The
+app has not been launched or visually reviewed, and the shell only exposes a slice of what
 `SharkordSession` already supports.
 
 ## What is not here yet
 
-- **The WinUI 3 app compiles but has never been run.** It builds clean on Windows
-  (`dotnet build -p:Platform=x64`, 0 warnings, 0 errors) but nobody has launched it or
-  reviewed the UI. `Microsoft.WindowsAppSDK` is pinned at `1.6.240923002` and
+- **The WinUI 3 app has not been launched or visually reviewed.** The current revision
+  builds clean on Windows 11 x64, but compilation does not verify runtime interactions.
+  `Microsoft.WindowsAppSDK` is pinned at `1.6.240923002` and
   `Microsoft.Windows.SDK.BuildTools` at `10.0.26100.1742`; both restore and build as
   declared, so they are not placeholders needing replacement.
 - **Voice.** No C# mediasoup client exists; this is strategy document risk #1 and is gated

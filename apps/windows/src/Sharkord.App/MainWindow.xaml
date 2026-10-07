@@ -31,7 +31,7 @@
             <TextBlock x:Name="ConnectError" Foreground="Red" TextWrapping="Wrap" />
         </StackPanel>
 
-        <Grid x:Name="ChatPanel" Visibility="Collapsed">
+        <Grid x:Name="ChatPanel" Margin="0,56,0,0" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" />
                 <ColumnDefinition Width="*" />
@@ -87,5 +87,12 @@
                 </Grid>
             </Grid>
         </Grid>
+
+        <ComboBox
+            x:Name="LanguageBox"
+            Width="220"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            SelectionChanged="OnLanguageSelectionChanged" />
     </Grid>
 </Window>

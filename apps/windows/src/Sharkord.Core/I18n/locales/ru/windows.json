@@ -5,5 +5,7 @@
   "inviteCode": "Код приглашения (необязательно)",
   "messagePlaceholder": "Сообщение",
   "send": "Отправить",
-  "systemUser": "Система"
+  "systemUser": "Система",
+  "languageLabel": "Язык",
+  "systemLanguage": "Язык системы"
 }

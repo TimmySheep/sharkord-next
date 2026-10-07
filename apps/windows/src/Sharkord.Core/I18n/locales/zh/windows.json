@@ -5,5 +5,7 @@
   "inviteCode": "邀请码（可选）",
   "messagePlaceholder": "消息",
   "send": "发送",
-  "systemUser": "系统"
+  "systemUser": "系统",
+  "languageLabel": "语言",
+  "systemLanguage": "跟随系统"
 }

@@ -5,5 +5,7 @@
   "inviteCode": "Código de invitación (opcional)",
   "messagePlaceholder": "Mensaje",
   "send": "Enviar",
-  "systemUser": "Sistema"
+  "systemUser": "Sistema",
+  "languageLabel": "Idioma",
+  "systemLanguage": "Idioma del sistema"
 }

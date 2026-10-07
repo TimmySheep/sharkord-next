@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Sharkord.Core.I18n;
@@ -24,7 +25,9 @@ public class L10nTests
         "inviteCode",
         "messagePlaceholder",
         "send",
-        "systemUser"
+        "systemUser",
+        "languageLabel",
+        "systemLanguage"
     ];
 
     public static IEnumerable<object[]> Languages =>
@@ -79,6 +82,7 @@ public class L10nTests
     [InlineData("fr", "messagePlaceholder", "Message")]
     [InlineData("it", "send", "Invia")]
     [InlineData("ru", "systemUser", "Система")]
+    [InlineData("zh-Hant", "systemLanguage", "跟隨系統")]
     public void TranslatesPerLanguage(string language, string key, string expected)
     {
         L10n.Language = language;
@@ -174,6 +178,27 @@ public class L10nTests
     }
 
     [Fact]
+    public void CanPinTheSystemLanguageAsAnExplicitPreference()
+    {
+        var originalCulture = CultureInfo.CurrentUICulture;
+
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+            L10n.UseSystemLanguage();
+            L10n.Language = "en";
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de-DE");
+
+            Assert.Equal("en", L10n.Language);
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = originalCulture;
+            L10n.UseSystemLanguage();
+        }
+    }
+
+    [Fact]
     public void EveryStringTheWindowUsesResolves()
     {
         foreach (var (key, ns) in WindowCallSites())
@@ -192,6 +217,9 @@ public class L10nTests
         // another language, which only happens on a Windows machine
         var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
         var allowed = new[] { "Sharkord", "localhost:4991" };
+
+        Assert.Contains("x:Name=\"LanguageBox\"", xaml);
+        Assert.Contains("SelectionChanged=\"OnLanguageSelectionChanged\"", xaml);
 
         foreach (Match match in Regex.Matches(xaml, "(?:Text|Header|Content|PlaceholderText|Title)=\"([^\"]+)\""))
         {

@@ -5,5 +5,7 @@
   "inviteCode": "Einladungscode (optional)",
   "messagePlaceholder": "Nachricht",
   "send": "Senden",
-  "systemUser": "System"
+  "systemUser": "System",
+  "languageLabel": "Sprache",
+  "systemLanguage": "Systemsprache"
 }

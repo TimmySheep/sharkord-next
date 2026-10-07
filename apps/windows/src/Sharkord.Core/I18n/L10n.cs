@@ -54,13 +54,18 @@ public static class L10n
         {
             var canonical = Canonicalise(value);
 
-            if (canonical is null || canonical == Language)
+            if (canonical is null)
             {
                 return;
             }
 
+            var languageChanged = canonical != Language;
             _override = canonical;
-            LanguageChanged?.Invoke();
+
+            if (languageChanged)
+            {
+                LanguageChanged?.Invoke();
+            }
         }
     }
 

@@ -200,8 +200,8 @@ cd apps/macos && swift run SharkordMac
 ### 覆盖范围
 
 - **macOS**：9 个命名空间 × 10 语言，共 938 键/语言，含原生专属 `macos` 命名空间（18 键）。
-- **Windows**：2 个命名空间 × 10 语言。`windows` 命名空间 7 条是 WinUI 壳专有文案
-  （标语、服务器地址、服务器密码、邀请码、输入框占位、发送、系统消息作者），
+- **Windows**：2 个命名空间 × 10 语言。`windows` 命名空间 9 条是 WinUI 壳专有文案
+  （标语、服务器地址、服务器密码、邀请码、输入框占位、发送、系统消息作者、语言标签、跟随系统选项），
   另 3 条（`identityLabel` / `passwordLabel` / `connectBtn`）与网页端同名同义，直接读共享的
   `connect` 命名空间，不复制一份免得将来漂移。
 
@@ -228,15 +228,18 @@ Windows 的译表**内嵌在 `Sharkord.Core.dll`** 里（`EmbeddedResource`）�
 - macOS：`Locale.preferredLanguages` 精确匹配，再两字母回落，最后 `en`。中文单独处理，
   `zh-Hant` / `zh-TW` / `zh-HK` / `zh-MO` 落繁体，其余中文落简体。
   不这么做的话繁体用户会被两字母回落打到简体表。
-- Windows：`CultureInfo.CurrentUICulture`，同样的中文规则，`pt` 归到 `pt-BR`。
+- Windows：有常驻语言选择器，可选「跟随系统」或 10 种语言。手动选择保存在
+  `%LOCALAPPDATA%\Sharkord\language`，重启后保留；跟随系统时用 `CultureInfo.CurrentUICulture`，
+  同样的中文规则，`pt` 归到 `pt-BR`。
 
 ### 测试
 
 - macOS：`LocaleParityTests`（5）固定命名空间齐备与 UI 键存在性，`L10nTests`（10）固定查找、
   复数、占位符、回落与语言清单。合计 swift-testing 27 + XCTest 15 全过。
-- Windows：`L10nTests`（17）固定译表齐备、占位符、回落、语言清单，并扫描
+- Windows：`L10nTests` 固定译表齐备、占位符、回落、语言清单，并扫描
   `MainWindow.xaml` 确认没有硬编码文案、扫描 C# 调用点确认每个键都有定义。
-  Windows 机器编译不了的场景由这两个扫描兜住。`dotnet test` 48/48 全过。
+  另检查显式选择的语言不被当前系统语言覆盖；最新 `dotnet test` 50/50 全过。
+  WinUI 3 Release 构建已在 Windows 11 x64 实测，0 警告、0 错误；尚未启动应用做 GUI 验收。
 
 回落到英文的行为以前靠「某语言恰好缺某个键」当测试夹具，现在补齐后夹具没了，
 改用 `L10n` 的测试接缝（Swift `overrideStrings` / C# `OverrideStrings`）显式构造，

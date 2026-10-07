@@ -5,5 +5,7 @@
   "inviteCode": "Kód pozvánky (volitelný)",
   "messagePlaceholder": "Zpráva",
   "send": "Odeslat",
-  "systemUser": "Systém"
+  "systemUser": "Systém",
+  "languageLabel": "Jazyk",
+  "systemLanguage": "Jazyk systému"
 }
