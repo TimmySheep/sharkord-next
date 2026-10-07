@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.serialization.json.jsonObject
 
 class ProtocolModelsTest {
     @Test
@@ -42,5 +43,34 @@ class ProtocolModelsTest {
         assertEquals(listOf(8), producers.remoteScreenIds)
         assertTrue(producers.remoteVideoIds.isEmpty())
         assertFalse(producers.remoteAudioIds.contains(8))
+    }
+
+    @Test
+    fun decodesVoiceQualityLayersAndPermissionState() {
+        val result = SharkordApi.protocolJson.parseToJsonElement(
+            """{"producerId":"producer","consumerId":"consumer","consumerKind":"video","consumerRtpParameters":{},"consumerType":"simulcast","qualityLayers":[{"spatialLayer":0,"label":"Low"},{"spatialLayer":2,"label":"High"}]}"""
+        ).decode<ConsumeResult>()
+
+        assertEquals(listOf(0, 2), result.qualityLayers.map(VoiceQualityLayer::spatialLayer))
+        assertEquals(listOf("Low", "High"), result.qualityLayers.map(VoiceQualityLayer::label))
+
+        val state = SessionState(
+            ownUserId = 7,
+            users = listOf(User(id = 7, name = "viewer", roleIds = listOf(3))),
+            roles = listOf(Role(id = 3, name = "moderator", permissions = listOf("ENABLE_WEBCAM"))),
+            channels = listOf(
+                SharkordApi.protocolJson.parseToJsonElement(
+                    """{"id":42,"type":"VOICE","name":"room"}"""
+                ).decode<Channel>()
+            ),
+            channelPermissions = SharkordApi.protocolJson.parseToJsonElement(
+                """{"42":{"permissions":{"WEBCAM":true,"SHARE_SCREEN":false}}}"""
+            ).jsonObject
+        )
+
+        assertTrue(state.hasServerPermission("ENABLE_WEBCAM"))
+        assertFalse(state.hasServerPermission("SHARE_SCREEN"))
+        assertTrue(state.hasChannelPermission(42, "WEBCAM"))
+        assertFalse(state.hasChannelPermission(42, "SHARE_SCREEN"))
     }
 }

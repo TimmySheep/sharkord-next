@@ -1,7 +1,6 @@
 <resources>
     <string name="app_name">cove</string>
     <string name="connect_title">连接到你的服务器</string>
-    <string name="connect_subtitle">对话保留在你选择的服务器上。</string>
     <string name="server_address">服务器地址</string>
     <string name="identity">用户名或邮箱</string>
     <string name="password">密码</string>
@@ -27,9 +26,15 @@
     <string name="no_conversations">还没有私信</string>
     <string name="no_members">没有找到成员。</string>
     <string name="join_voice">加入语音</string>
+    <string name="voice_room">语音</string>
+    <string name="voice_chat">聊天</string>
     <string name="leave_voice">离开语音</string>
     <string name="microphone">麦克风</string>
     <string name="speaker">扬声器</string>
+    <string name="voice_control_mute_microphone">关闭麦克风</string>
+    <string name="voice_control_unmute_microphone">打开麦克风</string>
+    <string name="voice_control_disable_speaker">关闭扬声器</string>
+    <string name="voice_control_enable_speaker">打开扬声器</string>
     <string name="share_screen">共享屏幕</string>
     <string name="stop_sharing">停止共享</string>
     <string name="microphone_blocked">请先打开扬声器输出，再启用麦克风。</string>
@@ -39,6 +44,7 @@
     <string name="connection">连接信息</string>
     <string name="disconnect">断开连接</string>
     <string name="about">关于 cove</string>
+    <string name="app_version">版本 %1$s</string>
     <string name="http_warning">此服务器使用未加密连接，请避免在公共网络中登录。</string>
     <string name="cancel">取消</string>
     <string name="confirm_delete">删除这条消息？</string>
@@ -78,4 +84,35 @@
     <string name="screen_share_permission_required">你没有在此频道共享屏幕的权限。</string>
     <string name="screen_share_failed">无法共享屏幕。</string>
     <string name="voice_stream_failed">无法接收语音媒体流。</string>
+    <string name="search_messages">搜索消息</string>
+    <string name="search_messages_hint">至少输入两个字符</string>
+    <string name="searching">正在搜索…</string>
+    <string name="no_search_results">没有匹配的消息或文件。</string>
+    <string name="search_files">文件</string>
+    <string name="search_results_truncated">可能还有更多结果，请缩小搜索范围。</string>
+    <string name="attachment">附件</string>
+    <string name="thread">回复</string>
+    <string name="start_thread">开始讨论</string>
+    <string name="attach_file">添加附件</string>
+    <string name="remove_attachment">移除附件</string>
+    <string name="upload_failed">文件上传失败。</string>
+    <string name="file_too_large">此文件超过服务器允许的大小。</string>
+    <string name="open_attachment_failed">没有应用可以打开此附件。</string>
+    <string name="camera_permission_denied">共享视频需要摄像头权限。</string>
+    <string name="camera_control">摄像头</string>
+    <string name="screen_share_control">屏幕共享</string>
+    <string name="no_voice_participants">等待其他成员加入。</string>
+    <string name="camera_permission_required">你没有在此语音频道使用摄像头的权限。</string>
+    <string name="camera_unavailable">没有找到可用的摄像头。</string>
+    <string name="camera_start_failed">无法启动摄像头。</string>
+    <string name="start_camera">开启摄像头</string>
+    <string name="stop_camera">关闭摄像头</string>
+    <string name="switch_camera">切换摄像头</string>
+    <string name="video_quality">视频画质</string>
+    <string name="quality_auto">自动</string>
+    <string name="you">你</string>
+    <string name="remember_login">记住此账号并在下次自动登录</string>
+    <string name="quick_sign_in">使用已保存的账号继续</string>
+    <string name="forget_saved_login">忘记已保存的账号</string>
+    <string name="credential_storage_failed">无法更新安全保存的登录信息。</string>
 </resources>

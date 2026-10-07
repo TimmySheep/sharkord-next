@@ -1,7 +1,6 @@
 <resources>
     <string name="app_name">cove</string>
     <string name="connect_title">Mit deinem Server verbinden</string>
-    <string name="connect_subtitle">Deine Gespräche bleiben auf dem Server deiner Wahl.</string>
     <string name="server_address">Serveradresse</string>
     <string name="identity">Benutzername oder E-Mail</string>
     <string name="password">Passwort</string>
@@ -27,9 +26,15 @@
     <string name="no_conversations">Noch keine Unterhaltungen</string>
     <string name="no_members">Keine Mitglieder gefunden.</string>
     <string name="join_voice">Sprachkanal beitreten</string>
+    <string name="voice_room">Sprache</string>
+    <string name="voice_chat">Chat</string>
     <string name="leave_voice">Sprachkanal verlassen</string>
     <string name="microphone">Mikrofon</string>
     <string name="speaker">Lautsprecher</string>
+    <string name="voice_control_mute_microphone">Mikrofon stummschalten</string>
+    <string name="voice_control_unmute_microphone">Mikrofon einschalten</string>
+    <string name="voice_control_disable_speaker">Lautsprecher ausschalten</string>
+    <string name="voice_control_enable_speaker">Lautsprecher einschalten</string>
     <string name="share_screen">Bildschirm teilen</string>
     <string name="stop_sharing">Teilen beenden</string>
     <string name="microphone_blocked">Aktiviere die Lautsprecherausgabe, bevor du das Mikrofon einschaltest.</string>
@@ -39,6 +44,7 @@
     <string name="connection">Verbindung</string>
     <string name="disconnect">Verbindung trennen</string>
     <string name="about">Über cove</string>
+    <string name="app_version">Version %1$s</string>
     <string name="http_warning">Dieser Server nutzt eine unverschlüsselte Verbindung. Melde dich nicht über öffentliche Netzwerke an.</string>
     <string name="cancel">Abbrechen</string>
     <string name="confirm_delete">Diese Nachricht löschen?</string>
@@ -78,4 +84,35 @@
     <string name="screen_share_permission_required">Du darfst deinen Bildschirm in diesem Kanal nicht teilen.</string>
     <string name="screen_share_failed">Der Bildschirm konnte nicht geteilt werden.</string>
     <string name="voice_stream_failed">Der Sprachstream konnte nicht empfangen werden.</string>
+    <string name="search_messages">Nachrichten suchen</string>
+    <string name="search_messages_hint">Mindestens zwei Zeichen eingeben</string>
+    <string name="searching">Suche läuft…</string>
+    <string name="no_search_results">Keine passenden Nachrichten oder Dateien.</string>
+    <string name="search_files">Dateien</string>
+    <string name="search_results_truncated">Es gibt möglicherweise weitere Treffer. Verfeinere die Suche.</string>
+    <string name="attachment">Anhang</string>
+    <string name="thread">Antworten</string>
+    <string name="start_thread">Thread starten</string>
+    <string name="attach_file">Datei anhängen</string>
+    <string name="remove_attachment">Anhang entfernen</string>
+    <string name="upload_failed">Datei konnte nicht hochgeladen werden.</string>
+    <string name="file_too_large">Diese Datei ist größer als vom Server erlaubt.</string>
+    <string name="open_attachment_failed">Keine App kann diesen Anhang öffnen.</string>
+    <string name="camera_permission_denied">Zum Teilen von Video ist Kamerazugriff erforderlich.</string>
+    <string name="camera_control">Kamera</string>
+    <string name="screen_share_control">Bildschirm teilen</string>
+    <string name="no_voice_participants">Warte auf weitere Teilnehmer.</string>
+    <string name="camera_permission_required">Du darfst in diesem Sprachkanal keine Kamera verwenden.</string>
+    <string name="camera_unavailable">Keine verwendbare Kamera gefunden.</string>
+    <string name="camera_start_failed">Die Kamera konnte nicht gestartet werden.</string>
+    <string name="start_camera">Kamera starten</string>
+    <string name="stop_camera">Kamera ausschalten</string>
+    <string name="switch_camera">Kamera wechseln</string>
+    <string name="video_quality">Videoqualität</string>
+    <string name="quality_auto">Automatisch</string>
+    <string name="you">Du</string>
+    <string name="remember_login">Konto speichern und künftig automatisch anmelden</string>
+    <string name="quick_sign_in">Mit gespeichertem Konto fortfahren</string>
+    <string name="forget_saved_login">Gespeichertes Konto vergessen</string>
+    <string name="credential_storage_failed">Die sicher gespeicherten Anmeldedaten konnten nicht aktualisiert werden.</string>
 </resources>

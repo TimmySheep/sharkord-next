@@ -139,6 +139,7 @@ private fun ConversationList(
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
+            shape = MaterialTheme.shapes.large,
             label = { Text(stringResource(R.string.search_members)) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             singleLine = true,
@@ -229,6 +230,7 @@ private fun MemberPicker(
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
+            shape = MaterialTheme.shapes.large,
             label = { Text(stringResource(R.string.search_members)) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             singleLine = true,

@@ -111,6 +111,7 @@ private fun ChannelListPanel(
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
+            shape = MaterialTheme.shapes.large,
             label = { Text(stringResource(R.string.search_channels)) },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             singleLine = true,

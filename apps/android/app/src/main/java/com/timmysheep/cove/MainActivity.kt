@@ -17,12 +17,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             val model: CoveViewModel = viewModel()
             val state = model.state.collectAsStateWithLifecycle().value
+            val hasSavedLogin = model.hasSavedLogin.collectAsStateWithLifecycle().value
+            val credentialStorageFailed = model.credentialStorageFailed.collectAsStateWithLifecycle().value
 
             CoveTheme {
                 if (state.connected) {
                     WorkspaceScreen(state = state, model = model)
                 } else {
-                    ConnectScreen(state = state, onConnect = model::connect)
+                    ConnectScreen(
+                        state = state,
+                        hasSavedLogin = hasSavedLogin,
+                        credentialStorageFailed = credentialStorageFailed,
+                        onConnect = model::connect,
+                        onQuickConnect = model::connectSavedLogin,
+                        onForgetSavedLogin = model::forgetSavedLogin
+                    )
                 }
             }
         }

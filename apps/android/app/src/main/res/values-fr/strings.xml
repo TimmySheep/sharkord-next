@@ -1,7 +1,6 @@
 <resources>
     <string name="app_name">cove</string>
     <string name="connect_title">Connexion à votre serveur</string>
-    <string name="connect_subtitle">Vos conversations restent sur le serveur de votre choix.</string>
     <string name="server_address">Adresse du serveur</string>
     <string name="identity">Nom d’utilisateur ou e-mail</string>
     <string name="password">Mot de passe</string>
@@ -27,9 +26,15 @@
     <string name="no_conversations">Aucune conversation pour le moment</string>
     <string name="no_members">Aucun membre trouvé.</string>
     <string name="join_voice">Rejoindre le vocal</string>
+    <string name="voice_room">Vocal</string>
+    <string name="voice_chat">Discussion</string>
     <string name="leave_voice">Quitter le vocal</string>
     <string name="microphone">Microphone</string>
     <string name="speaker">Haut-parleur</string>
+    <string name="voice_control_mute_microphone">Couper le microphone</string>
+    <string name="voice_control_unmute_microphone">Activer le microphone</string>
+    <string name="voice_control_disable_speaker">Désactiver le haut-parleur</string>
+    <string name="voice_control_enable_speaker">Activer le haut-parleur</string>
     <string name="share_screen">Partager l’écran</string>
     <string name="stop_sharing">Arrêter le partage</string>
     <string name="microphone_blocked">Activez la sortie audio avant d’activer le microphone.</string>
@@ -39,6 +44,7 @@
     <string name="connection">Connexion</string>
     <string name="disconnect">Déconnexion</string>
     <string name="about">À propos de cove</string>
+    <string name="app_version">Version %1$s</string>
     <string name="http_warning">Ce serveur utilise une connexion non chiffrée. Évitez de vous connecter sur un réseau public.</string>
     <string name="cancel">Annuler</string>
     <string name="confirm_delete">Supprimer ce message ?</string>
@@ -78,4 +84,35 @@
     <string name="screen_share_permission_required">Vous n’avez pas l’autorisation de partager l’écran dans ce salon.</string>
     <string name="screen_share_failed">Impossible de partager l’écran.</string>
     <string name="voice_stream_failed">Impossible de recevoir le flux vocal.</string>
+    <string name="search_messages">Rechercher des messages</string>
+    <string name="search_messages_hint">Saisissez au moins deux caractères</string>
+    <string name="searching">Recherche…</string>
+    <string name="no_search_results">Aucun message ni fichier correspondant.</string>
+    <string name="search_files">Fichiers</string>
+    <string name="search_results_truncated">D’autres résultats sont peut-être disponibles. Affinez la recherche.</string>
+    <string name="attachment">Pièce jointe</string>
+    <string name="thread">Réponses</string>
+    <string name="start_thread">Démarrer un fil</string>
+    <string name="attach_file">Joindre un fichier</string>
+    <string name="remove_attachment">Supprimer la pièce jointe</string>
+    <string name="upload_failed">Échec de l’envoi du fichier.</string>
+    <string name="file_too_large">Ce fichier dépasse la taille autorisée par le serveur.</string>
+    <string name="open_attachment_failed">Aucune application ne peut ouvrir cette pièce jointe.</string>
+    <string name="camera_permission_denied">L’accès à la caméra est requis pour partager la vidéo.</string>
+    <string name="camera_control">Caméra</string>
+    <string name="screen_share_control">Partage d’écran</string>
+    <string name="no_voice_participants">En attente d’autres participants.</string>
+    <string name="camera_permission_required">Vous ne pouvez pas utiliser de caméra dans ce canal vocal.</string>
+    <string name="camera_unavailable">Aucune caméra utilisable n’a été trouvée.</string>
+    <string name="camera_start_failed">Impossible de démarrer la caméra.</string>
+    <string name="start_camera">Activer la caméra</string>
+    <string name="stop_camera">Désactiver la caméra</string>
+    <string name="switch_camera">Changer de caméra</string>
+    <string name="video_quality">Qualité vidéo</string>
+    <string name="quality_auto">Automatique</string>
+    <string name="you">Vous</string>
+    <string name="remember_login">Mémoriser ce compte et se connecter automatiquement</string>
+    <string name="quick_sign_in">Continuer avec le compte enregistré</string>
+    <string name="forget_saved_login">Oublier le compte enregistré</string>
+    <string name="credential_storage_failed">Les identifiants enregistrés de façon sécurisée n’ont pas pu être mis à jour.</string>
 </resources>

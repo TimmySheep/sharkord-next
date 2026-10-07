@@ -41,6 +41,10 @@ import org.mediasoup.droid.Producer
 import org.mediasoup.droid.RecvTransport
 import org.mediasoup.droid.SendTransport
 import org.mediasoup.droid.Transport
+import org.webrtc.Camera1Enumerator
+import org.webrtc.Camera2Enumerator
+import org.webrtc.CameraEnumerator
+import org.webrtc.CameraVideoCapturer
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
 import org.webrtc.EglBase
@@ -58,7 +62,8 @@ data class RemoteVideoTrack(
     val key: String,
     val remoteId: Int,
     val kind: String,
-    val track: VideoTrack
+    val track: VideoTrack,
+    val qualityLayers: List<com.timmysheep.cove.data.VoiceQualityLayer> = emptyList()
 )
 
 class CoveVoiceEngine(
@@ -68,8 +73,11 @@ class CoveVoiceEngine(
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mutex = Mutex()
+    private val producerMutex = Mutex()
+    private val cameraMutex = Mutex()
     private val screenShareMutex = Mutex()
     private val mutableVideoTracks = MutableStateFlow<List<RemoteVideoTrack>>(emptyList())
+    private val mutableLocalCameraTrack = MutableStateFlow<VideoTrack?>(null)
     private val consumers = mutableMapOf<String, Consumer>()
     private val consumerEvents = mutableListOf<Job>()
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -85,12 +93,18 @@ class CoveVoiceEngine(
     private var screenSource: VideoSource? = null
     private var screenTrack: VideoTrack? = null
     private var screenProducer: Producer? = null
+    private var cameraCapturer: CameraVideoCapturer? = null
+    private var cameraSource: VideoSource? = null
+    private var cameraTrack: VideoTrack? = null
+    private var cameraProducer: Producer? = null
+    private var cameraTextureHelper: SurfaceTextureHelper? = null
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
     private var eglBase: EglBase? = null
     private var microphoneWasEnabledBeforeDeafen = false
     private val pendingProduceKind = AtomicReference<String?>(null)
 
     val remoteVideoTracks: StateFlow<List<RemoteVideoTrack>> = mutableVideoTracks.asStateFlow()
+    val localCameraTrack: StateFlow<VideoTrack?> = mutableLocalCameraTrack.asStateFlow()
 
     suspend fun join(channelId: Int) {
         if (repository.state.value.voiceChannelId == channelId && device != null) return
@@ -145,12 +159,15 @@ class CoveVoiceEngine(
     }
 
     suspend fun leave() = screenShareMutex.withLock {
-        stopProducerObservers()
-        if (screenProducer != null) runCatching { repository.closeVoiceProducer("screen") }
-        closeMediaObjects()
-        audioManager.mode = AudioManager.MODE_NORMAL
-        stopVoiceService()
-        runCatching { repository.leaveVoice() }
+        cameraMutex.withLock {
+            stopProducerObservers()
+            if (screenProducer != null) runCatching { repository.closeVoiceProducer("screen") }
+            if (cameraProducer != null) runCatching { repository.closeVoiceProducer("video") }
+            closeMediaObjects()
+            audioManager.mode = AudioManager.MODE_NORMAL
+            stopVoiceService()
+            runCatching { repository.leaveVoice() }
+        }
     }
 
     suspend fun setMicrophoneEnabled(enabled: Boolean) {
@@ -166,7 +183,7 @@ class CoveVoiceEngine(
             runCatching { repository.updateVoiceState(micMuted = true) }
                 .onSuccess { repository.updateVoiceMediaState(microphoneEnabled = false) }
                 .onFailure { repository.setError(it.message ?: appContext.getString(R.string.microphone_mute_failed)) }
-            if (screenCapturer == null) syncVoiceService()
+            syncVoiceService()
             return
         }
 
@@ -176,14 +193,23 @@ class CoveVoiceEngine(
         }
 
         try {
-            startVoiceService()
+            when {
+                screenCapturer != null -> startScreenService()
+                cameraCapturer != null -> startCameraService()
+                else -> startVoiceService()
+            }
             val transport = requireNotNull(sendTransport)
             val track = microphoneTrack ?: createMicrophoneTrack().also { microphoneTrack = it }
             track.setEnabled(false)
             if (microphoneProducer == null) {
-                pendingProduceKind.set("audio")
-                microphoneProducer = transport.produce(producerListener, track, null, null, null)
-                pendingProduceKind.set(null)
+                microphoneProducer = producerMutex.withLock {
+                    pendingProduceKind.set("audio")
+                    try {
+                        transport.produce(producerListener, track, null, null, null)
+                    } finally {
+                        pendingProduceKind.set(null)
+                    }
+                }
             }
             track.setEnabled(true)
             repository.updateVoiceState(micMuted = false)
@@ -212,7 +238,11 @@ class CoveVoiceEngine(
                 syncVoiceService()
                 setSpeakerphoneEnabled(false)
             } else {
-                startCallService()
+                when {
+                    screenCapturer != null -> startScreenService()
+                    cameraCapturer != null -> startCameraService()
+                    else -> startCallService()
+                }
                 setSpeakerphoneEnabled(true)
                 consumers.values.forEach { if (it.kind == "audio") it.track?.setEnabled(true) }
                 repository.updateVoiceState(soundMuted = false)
@@ -228,16 +258,105 @@ class CoveVoiceEngine(
         }
     }
 
+    suspend fun setCameraEnabled(enabled: Boolean) = cameraMutex.withLock {
+        val channelId = repository.state.value.voiceChannelId ?: return@withLock
+        if (repository.state.value.cameraEnabled == enabled) return@withLock
+
+        if (!enabled) {
+            cameraTrack?.setEnabled(false)
+            cameraProducer?.close()
+            cameraProducer = null
+            stopCameraCapture()
+            runCatching { repository.closeVoiceProducer("video") }
+            runCatching { repository.updateVoiceState(webcamEnabled = false) }
+            repository.updateVoiceMediaState(cameraEnabled = false)
+            syncVoiceService()
+            return@withLock
+        }
+
+        if (!repository.canUseServerPermission("ENABLE_WEBCAM") ||
+            !repository.canUseChannelPermission(channelId, "WEBCAM")
+        ) {
+            repository.setError(appContext.getString(R.string.camera_permission_required))
+            return
+        }
+        if (appContext.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            repository.setError(appContext.getString(R.string.camera_permission_denied))
+            return
+        }
+
+        try {
+            startCameraService()
+            val factory = requireNotNull(peerConnectionFactory)
+            val transport = requireNotNull(sendTransport)
+            val base = eglBase ?: EglBase.create().also { eglBase = it }
+            val textureHelper = SurfaceTextureHelper.create("CoveCameraCapture", base.eglBaseContext)
+            cameraTextureHelper = textureHelper
+
+            val enumerator: CameraEnumerator = if (Camera2Enumerator.isSupported(appContext)) {
+                Camera2Enumerator(appContext)
+            } else {
+                Camera1Enumerator(true)
+            }
+            val deviceNames = enumerator.deviceNames
+            val cameraName = deviceNames.firstOrNull(enumerator::isFrontFacing)
+                ?: deviceNames.firstOrNull()
+                ?: throw IllegalStateException(appContext.getString(R.string.camera_unavailable))
+            val capturer = enumerator.createCapturer(cameraName, null)
+                ?: throw IllegalStateException(appContext.getString(R.string.camera_unavailable))
+            cameraCapturer = capturer
+
+            val source = factory.createVideoSource(false)
+            cameraSource = source
+            capturer.initialize(textureHelper, appContext, source.capturerObserver)
+            capturer.startCapture(640, 480, 24)
+
+            val track = factory.createVideoTrack("video-$channelId", source)
+            cameraTrack = track
+            track.setEnabled(true)
+            cameraProducer = producerMutex.withLock {
+                pendingProduceKind.set("video")
+                try {
+                    transport.produce(producerListener, track, null, null, null)
+                } finally {
+                    pendingProduceKind.set(null)
+                }
+            }
+            repository.updateVoiceState(webcamEnabled = true)
+            repository.updateVoiceMediaState(cameraEnabled = true)
+            mutableLocalCameraTrack.value = track
+        } catch (error: Throwable) {
+            pendingProduceKind.set(null)
+            cameraProducer?.close()
+            cameraProducer = null
+            stopCameraCapture()
+            runCatching { repository.closeVoiceProducer("video") }
+            runCatching { repository.updateVoiceState(webcamEnabled = false) }
+            repository.updateVoiceMediaState(cameraEnabled = false)
+            syncVoiceService()
+            if (error is CancellationException) throw error
+            repository.setError(error.message ?: appContext.getString(R.string.camera_start_failed))
+        }
+    }
+
+    fun switchCamera() {
+        val capturer = cameraCapturer ?: return
+        capturer.switchCamera(object : CameraVideoCapturer.CameraSwitchHandler {
+            override fun onCameraSwitchDone(isFrontCamera: Boolean) = Unit
+
+            override fun onCameraSwitchError(errorDescription: String) {
+                repository.setError(errorDescription)
+            }
+        })
+    }
+
     suspend fun startScreenShare(resultCode: Int, resultData: Intent?) = screenShareMutex.withLock {
         val channelId = repository.state.value.voiceChannelId ?: return@withLock
         if (resultCode != Activity.RESULT_OK || resultData == null) return@withLock
         if (screenCapturer != null || screenProducer != null) return@withLock
-        if (!repository.canUseChannelPermission(channelId, "SHARE_SCREEN")) {
-            repository.setError(appContext.getString(R.string.screen_share_permission_required))
-            return@withLock
-        }
 
         try {
+            // server authorization is authoritative; local permission snapshots can be stale.
             startScreenService()
             val factory = requireNotNull(peerConnectionFactory)
             val transport = requireNotNull(sendTransport)
@@ -256,9 +375,14 @@ class CoveVoiceEngine(
             capturer.startCapture(1280, 720, 15)
             val track = factory.createVideoTrack("screen-$channelId", source)
             screenTrack = track
-            pendingProduceKind.set("screen")
-            screenProducer = transport.produce(producerListener, track, null, null, null)
-            pendingProduceKind.set(null)
+            screenProducer = producerMutex.withLock {
+                pendingProduceKind.set("screen")
+                try {
+                    transport.produce(producerListener, track, null, null, null)
+                } finally {
+                    pendingProduceKind.set(null)
+                }
+            }
             repository.updateVoiceState(sharingScreen = true)
             repository.updateVoiceMediaState(sharingScreen = true)
         } catch (error: Throwable) {
@@ -371,7 +495,7 @@ class CoveVoiceEngine(
             val videoTrack = consumer.track as? VideoTrack
             if (videoTrack != null) {
                 mutableVideoTracks.value = mutableVideoTracks.value.filterNot { it.key == key } +
-                    RemoteVideoTrack(key, remoteId, kind, videoTrack)
+                    RemoteVideoTrack(key, remoteId, kind, videoTrack, result.qualityLayers)
             }
             repository.updateVoiceMediaState(consumedRemoteStreams = consumers.keys.toSet())
         } catch (error: Throwable) {
@@ -446,6 +570,19 @@ class CoveVoiceEngine(
         surfaceTextureHelper = null
     }
 
+    private fun stopCameraCapture() {
+        runCatching { cameraCapturer?.stopCapture() }
+        cameraCapturer?.dispose()
+        cameraCapturer = null
+        cameraTrack?.dispose()
+        cameraTrack = null
+        cameraSource?.dispose()
+        cameraSource = null
+        cameraTextureHelper?.dispose()
+        cameraTextureHelper = null
+        mutableLocalCameraTrack.value = null
+    }
+
     private fun closeMediaObjects() {
         microphoneTrack?.setEnabled(false)
         microphoneProducer?.close()
@@ -453,6 +590,9 @@ class CoveVoiceEngine(
         screenProducer?.close()
         screenProducer = null
         stopScreenCapture()
+        cameraProducer?.close()
+        cameraProducer = null
+        stopCameraCapture()
         consumers.values.forEach { consumer ->
             consumer.close()
         }
@@ -511,10 +651,38 @@ class CoveVoiceEngine(
         val intent = Intent(appContext, VoiceCallService::class.java)
             .setAction(VoiceCallService.ACTION_START_SCREEN)
             .putExtra(VoiceCallService.EXTRA_INCLUDE_MICROPHONE, microphoneGranted && repository.state.value.microphoneEnabled)
+            .putExtra(VoiceCallService.EXTRA_INCLUDE_CAMERA, cameraCapturer != null)
             .putExtra(VoiceCallService.EXTRA_FOREGROUND_RESULT_RECEIVER, resultReceiver)
         appContext.startForegroundService(intent)
         val started = withTimeoutOrNull(5_000) { foregroundReady.await() }
         if (started == null) throw IllegalStateException(appContext.getString(R.string.screen_share_failed))
+    }
+
+    private suspend fun startCameraService() {
+        val microphoneGranted = appContext.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val foregroundReady = CompletableDeferred<Unit>()
+        val resultReceiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
+            override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
+                if (resultCode == Activity.RESULT_OK) {
+                    foregroundReady.complete(Unit)
+                } else {
+                    foregroundReady.completeExceptionally(
+                        IllegalStateException(
+                            resultData?.getString(VoiceCallService.EXTRA_FOREGROUND_ERROR)
+                                ?: appContext.getString(R.string.camera_start_failed)
+                        )
+                    )
+                }
+            }
+        }
+        val intent = Intent(appContext, VoiceCallService::class.java)
+            .setAction(VoiceCallService.ACTION_START_CAMERA)
+            .putExtra(VoiceCallService.EXTRA_INCLUDE_MICROPHONE, microphoneGranted && repository.state.value.microphoneEnabled)
+            .putExtra(VoiceCallService.EXTRA_INCLUDE_PROJECTION, screenCapturer != null)
+            .putExtra(VoiceCallService.EXTRA_FOREGROUND_RESULT_RECEIVER, resultReceiver)
+        appContext.startForegroundService(intent)
+        val started = withTimeoutOrNull(5_000) { foregroundReady.await() }
+        if (started == null) throw IllegalStateException(appContext.getString(R.string.camera_start_failed))
     }
 
     private fun setSpeakerphoneEnabled(enabled: Boolean) {
@@ -531,16 +699,21 @@ class CoveVoiceEngine(
         }
     }
 
-    private fun syncVoiceService() {
+    private suspend fun syncVoiceService() {
         val currentState = repository.state.value
         if (
             currentState.voiceChannelId == null ||
-            (!currentState.microphoneEnabled && !currentState.speakerEnabled && screenCapturer == null)
+            (!currentState.microphoneEnabled && !currentState.speakerEnabled &&
+                screenCapturer == null && cameraCapturer == null)
         ) {
             stopVoiceService()
-        } else if (screenCapturer == null && currentState.microphoneEnabled) {
+        } else if (screenCapturer != null) {
+            startScreenService()
+        } else if (cameraCapturer != null) {
+            startCameraService()
+        } else if (currentState.microphoneEnabled) {
             startVoiceService()
-        } else if (screenCapturer == null) {
+        } else {
             startCallService()
         }
     }

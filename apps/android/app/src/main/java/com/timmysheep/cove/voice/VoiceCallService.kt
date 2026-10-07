@@ -44,6 +44,20 @@ class VoiceCallService : Service() {
                     if (intent.getBooleanExtra(EXTRA_INCLUDE_MICROPHONE, false)) {
                         types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
                     }
+                    if (intent.getBooleanExtra(EXTRA_INCLUDE_CAMERA, false)) {
+                        types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+                    }
+                    startForegroundFor(types)
+                }
+                ACTION_START_CAMERA -> {
+                    var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                    if (intent.getBooleanExtra(EXTRA_INCLUDE_MICROPHONE, false)) {
+                        types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                    }
+                    if (intent.getBooleanExtra(EXTRA_INCLUDE_PROJECTION, false)) {
+                        types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                    }
                     startForegroundFor(types)
                 }
             }
@@ -81,7 +95,10 @@ class VoiceCallService : Service() {
         const val ACTION_START_CALL = "com.timmysheep.cove.voice.START_CALL"
         const val ACTION_START_MICROPHONE = "com.timmysheep.cove.voice.START_MICROPHONE"
         const val ACTION_START_SCREEN = "com.timmysheep.cove.voice.START_SCREEN"
+        const val ACTION_START_CAMERA = "com.timmysheep.cove.voice.START_CAMERA"
         const val EXTRA_INCLUDE_MICROPHONE = "includeMicrophone"
+        const val EXTRA_INCLUDE_CAMERA = "includeCamera"
+        const val EXTRA_INCLUDE_PROJECTION = "includeProjection"
         const val EXTRA_FOREGROUND_RESULT_RECEIVER = "foregroundResultReceiver"
         const val EXTRA_FOREGROUND_ERROR = "foregroundError"
 

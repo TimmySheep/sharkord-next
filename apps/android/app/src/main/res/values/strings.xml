@@ -1,7 +1,6 @@
 <resources>
     <string name="app_name">cove</string>
     <string name="connect_title">Connect to your server</string>
-    <string name="connect_subtitle">Your conversations stay on the server you choose.</string>
     <string name="server_address">Server address</string>
     <string name="identity">Username or email</string>
     <string name="password">Password</string>
@@ -27,9 +26,15 @@
     <string name="no_conversations">No conversations yet</string>
     <string name="no_members">No members found.</string>
     <string name="join_voice">Join voice</string>
+    <string name="voice_room">Voice</string>
+    <string name="voice_chat">Chat</string>
     <string name="leave_voice">Leave voice</string>
     <string name="microphone">Microphone</string>
     <string name="speaker">Speaker</string>
+    <string name="voice_control_mute_microphone">Mute microphone</string>
+    <string name="voice_control_unmute_microphone">Unmute microphone</string>
+    <string name="voice_control_disable_speaker">Turn speaker off</string>
+    <string name="voice_control_enable_speaker">Turn speaker on</string>
     <string name="share_screen">Share screen</string>
     <string name="stop_sharing">Stop sharing</string>
     <string name="microphone_blocked">Turn on speaker output before enabling your microphone.</string>
@@ -39,6 +44,7 @@
     <string name="connection">Connection</string>
     <string name="disconnect">Disconnect</string>
     <string name="about">About cove</string>
+    <string name="app_version">Version %1$s</string>
     <string name="http_warning">This server uses an unencrypted connection. Avoid signing in over public networks.</string>
     <string name="cancel">Cancel</string>
     <string name="confirm_delete">Delete this message?</string>
@@ -78,4 +84,35 @@
     <string name="screen_share_permission_required">You do not have permission to share your screen in this channel.</string>
     <string name="screen_share_failed">Unable to share the screen.</string>
     <string name="voice_stream_failed">Unable to receive a voice stream.</string>
+    <string name="search_messages">Search messages</string>
+    <string name="search_messages_hint">Enter at least two characters</string>
+    <string name="searching">Searching…</string>
+    <string name="no_search_results">No matching messages or files.</string>
+    <string name="search_files">Files</string>
+    <string name="search_results_truncated">More results may be available. Refine your search.</string>
+    <string name="attachment">Attachment</string>
+    <string name="thread">Replies</string>
+    <string name="start_thread">Start a thread</string>
+    <string name="attach_file">Attach file</string>
+    <string name="remove_attachment">Remove attachment</string>
+    <string name="upload_failed">File upload failed.</string>
+    <string name="file_too_large">This file is larger than the server allows.</string>
+    <string name="open_attachment_failed">No app can open this attachment.</string>
+    <string name="camera_permission_denied">Camera permission is required to share video.</string>
+    <string name="camera_control">Camera</string>
+    <string name="screen_share_control">Screen share</string>
+    <string name="no_voice_participants">Waiting for other participants.</string>
+    <string name="camera_permission_required">You do not have permission to use a camera in this voice channel.</string>
+    <string name="camera_unavailable">No usable camera was found.</string>
+    <string name="camera_start_failed">Unable to start the camera.</string>
+    <string name="start_camera">Start camera</string>
+    <string name="stop_camera">Stop camera</string>
+    <string name="switch_camera">Switch camera</string>
+    <string name="video_quality">Video quality</string>
+    <string name="quality_auto">Automatic</string>
+    <string name="you">You</string>
+    <string name="remember_login">Remember this account and sign in automatically</string>
+    <string name="quick_sign_in">Continue with saved account</string>
+    <string name="forget_saved_login">Forget saved account</string>
+    <string name="credential_storage_failed">Secure sign-in details could not be updated.</string>
 </resources>

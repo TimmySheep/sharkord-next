@@ -39,6 +39,8 @@ import okhttp3.WebSocketListener
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -59,6 +61,8 @@ class SharkordApi {
     private val disconnectEvents = MutableSharedFlow<Throwable>(extraBufferCapacity = 1)
     private var socket: WebSocket? = null
     private var keepAliveJob: Job? = null
+    @Volatile private var uploadBaseUrl: HttpUrl? = null
+    @Volatile private var authToken: String? = null
     @Volatile private var explicitlyClosed = false
 
     val disconnections = disconnectEvents.asSharedFlow()
@@ -82,6 +86,8 @@ class SharkordApi {
 
     suspend fun connect(baseUrl: HttpUrl, token: String) {
         explicitlyClosed = false
+        uploadBaseUrl = baseUrl
+        authToken = token
         val ready = CompletableDeferred<Unit>()
         val request = Request.Builder().url(webSocketRequestUrl(baseUrl)).build()
 
@@ -134,6 +140,48 @@ class SharkordApi {
 
     suspend fun mutate(path: String, input: JsonElement? = null): JsonElement = request("mutation", path, input)
 
+    suspend fun upload(data: ByteArray, fileName: String, mimeType: String): TemporaryFile = withContext(Dispatchers.IO) {
+        val baseUrl = uploadBaseUrl ?: throw RpcException("Not connected", "DISCONNECTED")
+        val token = authToken ?: throw RpcException("Not connected", "DISCONNECTED")
+        val encodedName = URLEncoder.encode(fileName.trim(), StandardCharsets.UTF_8.name()).replace("+", "%20")
+        val request = Request.Builder()
+            .url(baseUrl.newBuilder().addPathSegment("upload").build())
+            .header("x-token", token)
+            .header("x-file-name", encodedName)
+            .header("x-file-type", mimeType)
+            .post(data.toRequestBody("application/octet-stream".toMediaType()))
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                val message = runCatching {
+                    protocolJson.parseToJsonElement(body).jsonObject["error"]?.jsonPrimitive?.contentOrNull
+                }.getOrNull()
+                throw IOException(message ?: "Upload failed (${response.code})")
+            }
+            protocolJson.parseToJsonElement(body).decode<TemporaryFile>()
+        }
+    }
+
+    fun publicFileUrl(file: MessageFile): String? {
+        val baseUrl = uploadBaseUrl ?: return null
+        val builder = baseUrl.newBuilder().addPathSegment("public").addPathSegment(file.name)
+        if (file._accessToken != null && file._accessTokenExpiresAt != null) {
+            builder.addQueryParameter("accessToken", file._accessToken)
+            builder.addQueryParameter("expires", file._accessTokenExpiresAt.toString())
+        }
+        return builder.build().toString()
+    }
+
+    suspend fun downloadPublicFile(url: String): ByteArray = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(url).get().build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("File preview failed (${response.code})")
+            response.body?.bytes() ?: throw IOException("File preview was empty")
+        }
+    }
+
     fun subscribe(path: String, input: JsonElement? = null): Flow<JsonElement> = callbackFlow {
         val id = nextId.getAndIncrement()
         val events = Channel<JsonElement>(Channel.BUFFERED)
@@ -175,6 +223,8 @@ class SharkordApi {
         keepAliveJob = null
         socket?.close(1000, "Client disconnected")
         socket = null
+        uploadBaseUrl = null
+        authToken = null
         failPending(RpcException("Connection closed", "DISCONNECTED"))
         closeSubscriptions(RpcException("Connection closed", "DISCONNECTED"))
     }
