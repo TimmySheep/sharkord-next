@@ -71,3 +71,13 @@ Pending final implementation summary.
 - Rebuilt `:app:assembleDebug` offline and verified the packaged launcher bitmap checksum
   matches the updated Android resource. Device launcher appearance still needs on-device
   confirmation because no `adb` device is available here.
+
+## Build cache cleanup and APK handoff
+
+- After user approval, moved `app/build` (273 MB) and the project-local `.gradle` cache
+  (4.3 MB) to `~/.Trash/2026-10-07-142909-cove-build/apps/android/`, preserving their
+  relative paths. Xcode DerivedData was left untouched because it contains caches for
+  unrelated projects.
+- Copied the verified 71 MB debug APK to `~/Downloads/cove-android-debug-2026-10-07.apk`
+  before moving build outputs. The source and delivered APK SHA-256 values match:
+  `b8568b64756b707234f784282bf0d7b34ba5e2ab1cb4afab2c1a569d5af67963`.
