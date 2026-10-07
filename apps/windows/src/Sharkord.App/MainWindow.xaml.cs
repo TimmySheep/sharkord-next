@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Sharkord.Core;
 using Sharkord.Core.I18n;
@@ -13,9 +14,30 @@ public sealed partial class MainWindow : Window
 {
     private readonly SharkordSession _session;
     private readonly ObservableCollection<ChannelItem> _channels = [];
-    private readonly ObservableCollection<string> _messages = [];
+    private readonly ObservableCollection<MessageItem> _messages = [];
     private string? _languagePreference;
     private bool _isUpdatingLanguagePicker;
+
+    private static readonly string[] QuickReactionShortcodes =
+    [
+        "thumbsup",
+        "heart",
+        "joy",
+        "tada",
+        "thinking_face",
+        "eyes"
+    ];
+
+    private static readonly IReadOnlyDictionary<string, string> ReactionGlyphs =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["thumbsup"] = "👍",
+            ["heart"] = "❤️",
+            ["joy"] = "😂",
+            ["tada"] = "🎉",
+            ["thinking_face"] = "🤔",
+            ["eyes"] = "👀"
+        };
 
     public MainWindow(SharkordSession session)
     {
@@ -194,7 +216,27 @@ public sealed partial class MainWindow : Window
                 var author = message.UserId is { } userId ? _session.User(userId)?.Name : null;
                 var text = MessageHtml.ToPlainText(message.Content ?? "");
                 var byline = author ?? L10n.T("systemUser", ns: "windows");
-                _messages.Add($"{byline}: {text}");
+                var reactions = _session
+                    .ReactionGroups(message)
+                    .Select(group =>
+                    {
+                        var display = ReactionGlyphs.TryGetValue(group.Emoji, out var glyph)
+                            ? glyph
+                            : $":{group.Emoji}:";
+
+                        return new ReactionItem(message.Id, group.Emoji, $"{display} {group.Count}", group.Mine);
+                    })
+                    .ToList();
+
+                _messages.Add(
+                    new MessageItem(
+                        message.Id,
+                        $"{byline}: {text}",
+                        reactions,
+                        L10n.T("addReaction", ns: "windows"),
+                        "+"
+                    )
+                );
             }
         }
     }
@@ -242,6 +284,54 @@ public sealed partial class MainWindow : Window
         await SendComposer();
     }
 
+    private async void OnReactionClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleButton button && button.DataContext is ReactionItem reaction)
+        {
+            await ToggleReactionAsync(reaction.MessageId, reaction.Emoji);
+        }
+    }
+
+    private void OnAddReactionClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || button.DataContext is not MessageItem message)
+        {
+            return;
+        }
+
+        var menu = new MenuFlyout();
+
+        foreach (var shortcode in QuickReactionShortcodes)
+        {
+            var item = new MenuFlyoutItem { Text = ReactionGlyphs[shortcode], Tag = shortcode };
+            item.Click += async (menuSender, _) =>
+            {
+                if (menuSender is MenuFlyoutItem selected && selected.Tag is string emoji)
+                {
+                    await ToggleReactionAsync(message.Id, emoji);
+                }
+            };
+            menu.Items.Add(item);
+        }
+
+        menu.ShowAt(button);
+    }
+
+    private async Task ToggleReactionAsync(int messageId, string emoji)
+    {
+        ChatErrorText.Text = "";
+
+        try
+        {
+            await _session.ToggleReactionAsync(messageId, emoji);
+        }
+        catch (Exception exception)
+        {
+            ChatErrorText.Text = exception.Message;
+            Refresh();
+        }
+    }
+
     private async void OnComposerKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Enter && !e.KeyStatus.IsMenuKeyDown)
@@ -266,6 +356,7 @@ public sealed partial class MainWindow : Window
         }
 
         ComposerBox.Text = string.Empty;
+        ChatErrorText.Text = "";
 
         try
         {
@@ -273,7 +364,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            ConnectError.Text = exception.Message;
+            ChatErrorText.Text = exception.Message;
         }
     }
 
@@ -283,5 +374,14 @@ public sealed partial class MainWindow : Window
         "language"
     );
 
+    private sealed record MessageItem(
+        int Id,
+        string Text,
+        IReadOnlyList<ReactionItem> Reactions,
+        string AddReactionLabel,
+        string AddReactionGlyph
+    );
+
+    private sealed record ReactionItem(int MessageId, string Emoji, string Label, bool Mine);
     private sealed record ChannelItem(int Id, string Name);
 }

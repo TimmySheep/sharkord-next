@@ -7,5 +7,6 @@
   "send": "傳送",
   "systemUser": "系統",
   "languageLabel": "語言",
-  "systemLanguage": "跟隨系統"
+  "systemLanguage": "跟隨系統",
+  "addReaction": "新增表情回應"
 }

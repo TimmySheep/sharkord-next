@@ -59,6 +59,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock x:Name="ChannelTitle" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,8" />
@@ -66,12 +67,42 @@
                 <ListView x:Name="MessageList" Grid.Row="1">
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                            <StackPanel Spacing="4" Padding="8,6">
+                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <ItemsControl ItemsSource="{Binding Reactions}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="4" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <ToggleButton
+                                                    AutomationProperties.Name="{Binding Label}"
+                                                    Content="{Binding Label}"
+                                                    IsChecked="{Binding Mine, Mode=OneWay}"
+                                                    Click="OnReactionClick" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <Button
+                                        AutomationProperties.Name="{Binding AddReactionLabel}"
+                                        Content="{Binding AddReactionGlyph}"
+                                        Click="OnAddReactionClick" />
+                                </StackPanel>
+                            </StackPanel>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
 
-                <Grid Grid.Row="2" ColumnSpacing="8" Margin="0,8,0,0">
+                <TextBlock
+                    x:Name="ChatErrorText"
+                    Grid.Row="2"
+                    Foreground="Red"
+                    TextWrapping="Wrap" />
+
+                <Grid Grid.Row="3" ColumnSpacing="8" Margin="0,8,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />

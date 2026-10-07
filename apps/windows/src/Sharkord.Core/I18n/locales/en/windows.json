@@ -7,5 +7,6 @@
   "send": "Send",
   "systemUser": "System",
   "languageLabel": "Language",
-  "systemLanguage": "System default"
+  "systemLanguage": "System default",
+  "addReaction": "Add reaction"
 }

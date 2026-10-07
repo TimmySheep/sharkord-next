@@ -64,7 +64,7 @@ SHARKORD_IT_HOST=127.0.0.1:4992 dotnet test --filter LoginJoinSendAndReceive
 
 ## What works today (verified)
 
-`Sharkord.Core` builds clean and its tests pass with `dotnet test` on macOS (50 tests, two of
+`Sharkord.Core` builds clean and its tests pass with `dotnet test` on macOS (52 tests, two of
 them end to end against a real server):
 
 - tRPC WebSocket framing: `connectionParams` first frame, `?connectionParams=1`, one
@@ -79,8 +79,8 @@ them end to end against a real server):
   settings, read states and DM conversation opens.
 - Reconnect with the `[1, 2, 4, 8, 8]s` backoff.
 - Localisation: 10 languages (`en`, `de`, `es`, `fr`, `it`, `cs`, `ru`, `zh`, `zh-Hant`,
-  `pt-BR`) with the same key layout the macOS client uses. The `windows` namespace holds the
-  nine labels the WinUI shell needs, including the language picker and system-default option;
+  `pt-BR`) with the same key layout the macOS client uses. The `windows` namespace holds ten
+  WinUI-only labels, including the language picker, system-default option and reaction action;
   `identityLabel`, `passwordLabel` and `connectBtn` are
   read from the shared `connect` namespace instead of being copied. The tables are embedded
   in `Sharkord.Core.dll`. The picker stays available in the connect and chat views, offers
@@ -89,10 +89,12 @@ them end to end against a real server):
   english label or a renamed key fails the suite instead of surfacing as raw text at runtime.
 
 `Sharkord.App` is a conventional WinUI 3 shell (connect form, channel list, message list,
-composer and language picker) wired to `SharkordSession`. This language-picker revision
-**compiled on Windows 11 x64 in Release configuration** with 0 warnings and 0 errors. The
-app has not been launched or visually reviewed, and the shell only exposes a slice of what
-`SharkordSession` already supports.
+composer, reactions and language picker) wired to `SharkordSession`. The language-picker
+revision **compiled on Windows 11 x64 in Release configuration** with 0 warnings and 0 errors.
+The newer reaction controls are implemented in the current source but still need a Windows
+rebuild. They render reaction chips, toggle existing reactions and offer six common reactions;
+other reaction shortcodes remain visible as `:shortcode:` text. The app has not been launched or
+visually reviewed, and the shell only exposes a slice of what `SharkordSession` already supports.
 
 ## What is not here yet
 
@@ -104,8 +106,8 @@ app has not been launched or visually reviewed, and the shell only exposes a sli
 - **Voice.** No C# mediasoup client exists; this is strategy document risk #1 and is gated
   on a separate `libmediasoupclient` P/Invoke spike.
 - **Plugins.** Needs a WebView2 host.
-- **The WinUI views do not yet surface** reactions, edit/delete, reply, typing, attachments
-  or DMs, even though the session layer supports them.
+- **The WinUI views do not yet surface** edit/delete, reply, typing, attachments or DMs,
+  even though the session layer supports them.
 - **The admin and settings surface is macOS-only for now.** Categories/channels management,
   roles, emojis, invites, user administration, server settings, pins, threads, search and
   the voice control plane are implemented in `SharkordCore` (Swift) and not in

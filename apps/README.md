@@ -14,7 +14,7 @@
 
 ## 一、已实现并实测的能力
 
-下表状态以「本机实测通过」为准，不是「写完代码」。macOS 端 41 个测试、Windows Core 端 12 个测试全部通过；
+下表状态以「本机实测通过」为准，不是「写完代码」。macOS 端 43 个测试、Windows Core 端 52 个测试全部通过；
 macOS 其中 6 个、Windows Core 其中 2 个是打**真实服务器**的端到端测试。
 
 | 能力 | 服务端接口 | macOS | Windows Core |
@@ -68,9 +68,10 @@ Windows 是 `TrpcProtocol.cs` / `TrpcWebSocketClient.cs`。消息 HTML 的解析
 
 ### 2.1 阻塞性（当前无法绕过）
 
-1. **Windows 的 WinUI 3 界面已构建，但从未运行、未走查。** 2026-10-07 在 Windows 11（build 26200，x64，
-   .NET SDK 8.0.425）上 `dotnet build -p:Platform=x64` **通过，0 警告 0 错误**，产出 `Sharkord.App.exe`；
-   `dotnet test` **12/12 通过**。但没有人启动过它，窗口外观与交互完全未验收。
+1. **Windows 的 WinUI 3 界面已构建，但从未启动、未走查。** 2026-10-07 在 Windows 11（build 26200，x64，
+   .NET SDK 8.0.425）上 Release `dotnet build -p:Platform=x64` **通过，0 警告 0 错误**；
+   当时的 `dotnet test` **50/50 通过**。之后 Core 测试增至 52/52 并通过；最新新增的回应 UI
+   尚未在 Windows 重建，窗口外观与交互也仍未验收。
    `Microsoft.WindowsAppSDK 1.6.240923002` 与 `Microsoft.Windows.SDK.BuildTools 10.0.26100.1742`
    是可还原、可构建的真实固定版本，不是占位值。构建前提是 `-p:Platform=x64` 不能省
    （csproj 声明 `Platforms=x64;ARM64`，默认 `AnyCPU` 不在列表内会报 `OutputPath` 未设置）。
@@ -91,7 +92,7 @@ Windows 是 `TrpcProtocol.cs` / `TrpcWebSocketClient.cs`。消息 HTML 的解析
 | **全局快捷键 / 按键通话** | macOS `CGEventTap`（需辅助功能权限）、Windows `RegisterHotKey` / 低级钩子，均未做。 |
 | **欢迎对话框 / 服务器密码对话框** | 用「资料」设置页与连接页的密码输入近似实现，没有做成独立的模态对话框与倒计时流程。 |
 | **外观** | 主题（深色 token 固定）、字号调节、无障碍（VoiceOver / 讲述人）未做。 |
-| **打包与签名** | macOS 是 `swift run` 的裸可执行文件，未产出签名/公证的 `.app`、无 `Info.plist`、无 Sparkle 更新；Windows 未产出 MSIX。 |
+| **打包与签名** | 已发布 macOS ARM64 开发 DMG（ad-hoc 签名、未公证）和 Windows x64 自包含便携 ZIP（未签名、不是 MSIX）；均无自动更新。 |
 
 ### 2.3 已知工程风险
 
@@ -102,7 +103,7 @@ Windows 是 `TrpcProtocol.cs` / `TrpcWebSocketClient.cs`。消息 HTML 的解析
    协议契约（`packages/protocol`）来消除重复。
 3. **`Sharkord.Core` 的令牌持久化。** Core 只持有令牌；Windows 端真正落盘需要 DPAPI（`ProtectedData`），
    macOS 已用钥匙串。DPAPI 尚未接入。
-4. **打包与签名。** macOS 目前是 `swift run` 的裸可执行文件，未产出签名/公证的 `.app`；Windows 未产出 MSIX。
+4. **打包与签名。** 当前 GitHub 预览包不是面向公众的正式签名版本：macOS 未公证，Windows 未代码签名且不是 MSIX。
 5. **消息 HTML 词表是复刻，不是共享实现。** 网页端的 `prepare-message-html` / `linkify-html` /
    `message-sanitizer` 是 TS，Swift 端 `MessageHTML.swift` 是逐条复刻。上游改词表时原生端不会自动跟上，
    只能靠 `MessageHTMLTests` 里那 12 个对拍用例先红。这是最可能静默漂移的地方。

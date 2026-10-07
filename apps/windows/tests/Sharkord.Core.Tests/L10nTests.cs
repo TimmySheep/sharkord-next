@@ -7,9 +7,9 @@ using Xunit;
 namespace Sharkord.Core.Tests;
 
 /// <summary>
-/// Guards the localisation tables and, more importantly, that the WinUI shell actually uses
-/// them. A Windows 11 build cannot run on the machines this repo is developed on, so these
-/// tests are the only check that the window renders something other than hardcoded english.
+/// guards the localisation tables and, more importantly, that the WinUI shell actually uses
+/// them. These Core tests run cross-platform; the WinUI runtime is not loaded by the test
+/// host, so source-contract checks do not replace a visual launch test.
 ///
 /// Every test here mutates process-wide state in <see cref="L10n"/>, so they stay in a
 /// single class on purpose: xunit runs the members of one class sequentially but runs
@@ -27,7 +27,8 @@ public class L10nTests
         "send",
         "systemUser",
         "languageLabel",
-        "systemLanguage"
+        "systemLanguage",
+        "addReaction"
     ];
 
     public static IEnumerable<object[]> Languages =>
@@ -83,6 +84,7 @@ public class L10nTests
     [InlineData("it", "send", "Invia")]
     [InlineData("ru", "systemUser", "Система")]
     [InlineData("zh-Hant", "systemLanguage", "跟隨系統")]
+    [InlineData("de", "addReaction", "Reaktion hinzufügen")]
     public void TranslatesPerLanguage(string language, string key, string expected)
     {
         L10n.Language = language;
@@ -231,6 +233,19 @@ public class L10nTests
 
             Assert.Contains(match.Groups[1].Value, allowed);
         }
+    }
+
+    [Fact]
+    public void WinUiMessageTemplateWiresReactionDisplayAndActions()
+    {
+        var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
+        var code = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml.cs"));
+
+        Assert.Contains("ItemsSource=\"{Binding Reactions}\"", xaml);
+        Assert.Contains("Click=\"OnReactionClick\"", xaml);
+        Assert.Contains("Click=\"OnAddReactionClick\"", xaml);
+        Assert.Contains(".ReactionGroups(message)", code);
+        Assert.Contains("_session.ToggleReactionAsync", code);
     }
 
     /// <summary>
