@@ -24,6 +24,11 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </Content>
+    <Content Include="Assets\cove-dark.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
     <Content Include="Assets\VoiceMedia\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -43,6 +48,9 @@
     <MakeDir Directories="$(PublishDir)Assets" />
     <Copy
       SourceFiles="$(MSBuildProjectDirectory)\Assets\cove.ico"
+      DestinationFolder="$(PublishDir)Assets" />
+    <Copy
+      SourceFiles="$(MSBuildProjectDirectory)\Assets\cove-dark.ico"
       DestinationFolder="$(PublishDir)Assets" />
   </Target>
 

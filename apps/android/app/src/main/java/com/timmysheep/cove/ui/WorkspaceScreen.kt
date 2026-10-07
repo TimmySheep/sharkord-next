@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -68,28 +69,47 @@ fun WorkspaceScreen(state: SessionState, model: CoveViewModel) {
     var destinationIndex by rememberSaveable { mutableIntStateOf(MainDestination.CHANNELS.ordinal) }
     var showMemberPicker by rememberSaveable { mutableStateOf(false) }
     var showSearch by rememberSaveable { mutableStateOf(false) }
+    var voiceRoomExpanded by rememberSaveable { mutableStateOf(false) }
+    var voiceChatOpen by rememberSaveable { mutableStateOf(false) }
     val destination = MainDestination.entries[destinationIndex.coerceIn(0, MainDestination.entries.lastIndex)]
     val selectedChannel = state.channels.firstOrNull { it.id == state.activeChannelId }
     val voiceChannel = state.voiceChannelId?.let { channelId ->
         state.channels.firstOrNull { it.id == channelId }
     }
-    val channelDetail = destination == MainDestination.CHANNELS && selectedChannel != null && !selectedChannel.isDm
+    val channelForDetail = if (voiceChatOpen) voiceChannel ?: selectedChannel else selectedChannel
+    val voiceRoomVisible = voiceRoomExpanded && voiceChannel != null && !voiceChatOpen
+    val channelDetail = destination == MainDestination.CHANNELS && channelForDetail != null && !channelForDetail.isDm
     val messageDetail = destination == MainDestination.MESSAGES && selectedChannel?.isDm == true
-    val inDetail = !showSearch && (channelDetail || messageDetail)
-    val activeVoiceRoomIsVisible = !showSearch &&
-        destination == MainDestination.CHANNELS &&
-        selectedChannel?.id == state.voiceChannelId
+    val inDetail = !showSearch && !voiceRoomVisible && (channelDetail || messageDetail)
     val snackbarHostState = remember { SnackbarHostState() }
     val microphonePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) model.setMicrophoneEnabled(true)
         else Toast.makeText(context, R.string.microphone_permission_denied, Toast.LENGTH_LONG).show()
     }
 
+    LaunchedEffect(state.voiceChannelId) {
+        if (state.voiceChannelId != null) {
+            voiceRoomExpanded = true
+            voiceChatOpen = false
+        } else {
+            voiceRoomExpanded = false
+        }
+    }
+
+    LaunchedEffect(state.connected) {
+        if (!state.connected) voiceChatOpen = false
+    }
+
+    BackHandler(enabled = voiceRoomVisible) { voiceRoomExpanded = false }
+    BackHandler(enabled = voiceChatOpen) {
+        voiceChatOpen = false
+        if (state.voiceChannelId == null) model.closeChannel()
+    }
+    BackHandler(enabled = inDetail && !voiceChatOpen) { model.closeChannel() }
     BackHandler(enabled = showSearch) {
         showSearch = false
         model.clearSearch()
     }
-    BackHandler(enabled = inDetail) { model.closeChannel() }
 
     LaunchedEffect(state.error) {
         state.error?.let { message ->
@@ -101,12 +121,16 @@ fun WorkspaceScreen(state: SessionState, model: CoveViewModel) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val wideLayout = maxWidth >= 840.dp
         Row(modifier = Modifier.fillMaxSize()) {
-            if (wideLayout) {
+            if (wideLayout && !voiceRoomVisible) {
                 NavigationRail {
                     MainDestination.entries.forEach { item ->
                         NavigationRailItem(
                             selected = destination == item,
-                            onClick = { selectDestination(item, selectedChannel, model) { destinationIndex = it.ordinal } },
+                            onClick = {
+                                voiceRoomExpanded = false
+                                voiceChatOpen = false
+                                selectDestination(item, selectedChannel, model) { destinationIndex = it.ordinal }
+                            },
                             icon = { Icon(item.icon, contentDescription = null) },
                             label = { Text(stringResource(item.label)) }
                         )
@@ -123,10 +147,11 @@ fun WorkspaceScreen(state: SessionState, model: CoveViewModel) {
                                 Text(
                                     text = when {
                                         showSearch -> stringResource(R.string.search_messages)
-                                        inDetail -> selectedChannel?.name.orEmpty()
+                                        voiceRoomVisible -> voiceChannel?.name.orEmpty()
+                                        inDetail -> channelForDetail?.name.orEmpty()
                                         else -> stringResource(destination.label)
                                     },
-                                    style = if (inDetail) {
+                                    style = if (inDetail || voiceRoomVisible) {
                                         MaterialTheme.typography.headlineSmall
                                     } else {
                                         MaterialTheme.typography.titleLarge
@@ -135,11 +160,21 @@ fun WorkspaceScreen(state: SessionState, model: CoveViewModel) {
                                 )
                             },
                             navigationIcon = {
-                                if (showSearch || inDetail) {
+                                if (voiceRoomVisible) {
+                                    IconButton(onClick = { voiceRoomExpanded = false }) {
+                                        Icon(
+                                            Icons.Default.KeyboardArrowDown,
+                                            contentDescription = stringResource(R.string.collapse_voice_room)
+                                        )
+                                    }
+                                } else if (showSearch || inDetail) {
                                     IconButton(onClick = {
                                         if (showSearch) {
                                             showSearch = false
                                             model.clearSearch()
+                                        } else if (voiceChatOpen) {
+                                            voiceChatOpen = false
+                                            if (state.voiceChannelId == null) model.closeChannel()
                                         } else {
                                             model.closeChannel()
                                         }
@@ -152,12 +187,23 @@ fun WorkspaceScreen(state: SessionState, model: CoveViewModel) {
                                 }
                             },
                             actions = {
-                                if (!showSearch) {
+                                if (voiceRoomVisible && voiceChannel != null) {
+                                    IconButton(onClick = {
+                                        destinationIndex = MainDestination.CHANNELS.ordinal
+                                        voiceChatOpen = true
+                                        model.selectChannel(voiceChannel.id)
+                                    }) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.Chat,
+                                            contentDescription = stringResource(R.string.voice_chat)
+                                        )
+                                    }
+                                } else if (!showSearch && !voiceRoomVisible) {
                                     IconButton(onClick = { showSearch = true }) {
                                         Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search_messages))
                                     }
                                 }
-                                if (!showSearch && destination == MainDestination.MESSAGES && !messageDetail) {
+                                if (!showSearch && !voiceRoomVisible && destination == MainDestination.MESSAGES && !messageDetail) {
                                     IconButton(onClick = {
                                         model.closeChannel()
                                         destinationIndex = MainDestination.MESSAGES.ordinal
@@ -169,13 +215,17 @@ fun WorkspaceScreen(state: SessionState, model: CoveViewModel) {
                             },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
                         )
-                        if (state.voiceChannelId != null && !activeVoiceRoomIsVisible) {
+                        if (state.voiceChannelId != null && !voiceRoomVisible) {
                             VoiceQuickControlsBar(
                                 channelName = voiceChannel?.name
                                     ?: stringResource(R.string.voice_call_notification_title),
                                 microphoneEnabled = state.microphoneEnabled,
                                 speakerEnabled = state.speakerEnabled,
                                 microphoneControlEnabled = state.speakerEnabled || state.microphoneEnabled,
+                                onOpenVoiceRoom = {
+                                    voiceChatOpen = false
+                                    voiceRoomExpanded = true
+                                },
                                 onToggleMicrophone = {
                                     if (state.microphoneEnabled) {
                                         model.setMicrophoneEnabled(false)
@@ -196,12 +246,16 @@ fun WorkspaceScreen(state: SessionState, model: CoveViewModel) {
                     }
                 },
                 bottomBar = {
-                    if (!wideLayout) {
+                    if (!wideLayout && !voiceRoomVisible) {
                         NavigationBar {
                             MainDestination.entries.forEach { item ->
                                 NavigationBarItem(
                                     selected = destination == item,
-                                    onClick = { selectDestination(item, selectedChannel, model) { destinationIndex = it.ordinal } },
+                                    onClick = {
+                                        voiceRoomExpanded = false
+                                        voiceChatOpen = false
+                                        selectDestination(item, selectedChannel, model) { destinationIndex = it.ordinal }
+                                    },
                                     icon = { Icon(item.icon, contentDescription = null) },
                                     label = { Text(stringResource(item.label)) }
                                 )
@@ -212,12 +266,21 @@ fun WorkspaceScreen(state: SessionState, model: CoveViewModel) {
                 snackbarHost = { SnackbarHost(snackbarHostState) }
             ) { padding ->
                 Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                    if (showSearch) {
+                    if (voiceRoomVisible && voiceChannel != null) {
+                        ChannelChatScreen(
+                            state = state,
+                            model = model,
+                            channel = voiceChannel,
+                            voiceRoomOnly = true
+                        )
+                    } else if (showSearch) {
                         MessageSearchScreen(
                             state = state,
                             model = model,
                             onOpenMessage = { result ->
                                 showSearch = false
+                                voiceChatOpen = false
+                                voiceRoomExpanded = false
                                 destinationIndex = MainDestination.CHANNELS.ordinal
                                 if (result.parentMessageId != null) {
                                     model.openThread(result.parentMessageId, result.channelId)
@@ -227,6 +290,8 @@ fun WorkspaceScreen(state: SessionState, model: CoveViewModel) {
                             },
                             onOpenFile = { result: SearchFile ->
                                 showSearch = false
+                                voiceChatOpen = false
+                                voiceRoomExpanded = false
                                 destinationIndex = MainDestination.CHANNELS.ordinal
                                 model.openMessage(result.messageId)
                             }
@@ -235,7 +300,7 @@ fun WorkspaceScreen(state: SessionState, model: CoveViewModel) {
                         MainDestination.CHANNELS -> ChannelDestination(
                             state = state,
                             model = model,
-                            selectedChannel = selectedChannel?.takeUnless { it.isDm }
+                            selectedChannel = channelForDetail?.takeUnless { it.isDm }
                         )
                         MainDestination.MESSAGES -> DirectMessagesDestination(
                             state = state,

@@ -24,10 +24,12 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,8 +56,17 @@ fun ChannelDestination(
     selectedChannel: Channel?
 ) {
     var query by rememberSaveable { mutableStateOf("") }
+    var voicePreviewChannelId by rememberSaveable { mutableStateOf<Int?>(null) }
     val matches = remember(state.channels, query) {
         state.channels.filter { !it.isDm && it.name.contains(query.trim(), ignoreCase = true) }
+    }
+    val onChannelSelected: (Int) -> Unit = { channelId ->
+        val channel = state.channels.firstOrNull { it.id == channelId }
+        if (channel?.type == ChannelType.VOICE) {
+            voicePreviewChannelId = channelId
+        } else {
+            model.selectChannel(channelId)
+        }
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -66,7 +77,7 @@ fun ChannelDestination(
                     channels = matches,
                     query = query,
                     onQueryChange = { query = it },
-                    onChannelSelected = model::selectChannel,
+                    onChannelSelected = onChannelSelected,
                     modifier = Modifier.width(340.dp).fillMaxHeight()
                 )
                 VerticalDivider()
@@ -88,10 +99,26 @@ fun ChannelDestination(
                 channels = matches,
                 query = query,
                 onQueryChange = { query = it },
-                onChannelSelected = model::selectChannel,
+                onChannelSelected = onChannelSelected,
                 modifier = Modifier.fillMaxSize()
             )
         }
+    }
+
+    state.channels.firstOrNull { it.id == voicePreviewChannelId }?.let { channel ->
+        VoiceChannelPreviewSheet(
+            channel = channel,
+            state = state,
+            onDismiss = { voicePreviewChannelId = null },
+            onJoin = {
+                voicePreviewChannelId = null
+                model.joinVoice(channel.id)
+            },
+            onOpenChat = {
+                voicePreviewChannelId = null
+                model.selectChannel(channel.id)
+            }
+        )
     }
 }
 

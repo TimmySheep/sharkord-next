@@ -28,6 +28,7 @@
     <string name="join_voice">Sprachkanal beitreten</string>
     <string name="voice_room">Sprache</string>
     <string name="voice_chat">Chat</string>
+    <string name="collapse_voice_room">Sprachansicht einklappen</string>
     <string name="leave_voice">Sprachkanal verlassen</string>
     <string name="microphone">Mikrofon</string>
     <string name="speaker">Lautsprecher</string>
@@ -102,6 +103,7 @@
     <string name="camera_control">Kamera</string>
     <string name="screen_share_control">Bildschirm teilen</string>
     <string name="no_voice_participants">Warte auf weitere Teilnehmer.</string>
+    <string name="voice_preview_empty">Noch ist niemand da. Tritt bei, wenn du sprechen möchtest.</string>
     <string name="camera_permission_required">Du darfst in diesem Sprachkanal keine Kamera verwenden.</string>
     <string name="camera_unavailable">Keine verwendbare Kamera gefunden.</string>
     <string name="camera_start_failed">Die Kamera konnte nicht gestartet werden.</string>

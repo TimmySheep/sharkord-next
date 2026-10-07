@@ -1,155 +1,115 @@
 import SharkordCore
 import SwiftUI
 
-/// App shell once connected: the floating capsule tab bar on iPhone, a split view on iPad,
-/// and the call bar pinned above the tab bar whenever the device is in a voice channel.
+/// app shell with native tabs for channels, direct messages and settings.
 struct WorkspaceView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SharkordSession
     @EnvironmentObject private var voice: VoiceEngine
-    @Environment(\.horizontalSizeClass) private var sizeClass
 
-    enum Tab: Int, CaseIterable {
-        case voice, channels, chat, screenShare, settings
-
-        var title: String {
-            switch self {
-            case .voice: return L10n.t("nav.voice")
-            case .channels: return L10n.t("nav.channels")
-            case .chat: return L10n.t("nav.chat")
-            case .screenShare: return L10n.t("nav.screenshare")
-            case .settings: return L10n.t("nav.settings")
-            }
-        }
-
-        var symbol: String {
-            switch self {
-            case .voice: return "waveform"
-            case .channels: return "point.3.connected.trianglepath.dotted"
-            case .chat: return "bubble.left.and.bubble.right.fill"
-            case .screenShare: return "rectangle.on.rectangle.fill"
-            case .settings: return "slider.horizontal.3"
-            }
-        }
+    private enum Tab: Hashable {
+        case channels
+        case directMessages
+        case settings
     }
 
-    @State private var tab: Tab = .channels
+    @State private var selectedTab: Tab = .channels
+    @State private var channelPath: [Int] = []
+    @State private var isSearchPresented = false
 
     var body: some View {
-        Group {
-            if sizeClass == .regular {
-                splitView
-            } else {
-                phoneContent
+        TabView(selection: $selectedTab) {
+            NavigationStack(path: $channelPath) {
+                ChannelListView()
+                    .navigationDestination(for: Int.self) { channelId in
+                        ChannelDetailView(channelId: channelId)
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button {
+                                isSearchPresented = true
+                            } label: {
+                                Image(systemName: "magnifyingglass")
+                            }
+                            .accessibilityLabel(L10n.t("search.title"))
+                        }
+                    }
             }
+            .tabItem {
+                Label(L10n.t("nav.channels"), systemImage: "point.3.connected.trianglepath.dotted")
+            }
+            .tag(Tab.channels)
+
+            DirectMessagesView()
+                .tabItem {
+                    Label(L10n.t("nav.directMessages"), systemImage: "bubble.left.and.bubble.right")
+                }
+                .tag(Tab.directMessages)
+
+            NavigationStack {
+                SettingsView()
+            }
+            .tabItem {
+                Label(L10n.t("nav.settings"), systemImage: "slider.horizontal.3")
+            }
+            .tag(Tab.settings)
         }
+        .tint(SharkordTheme.accentSoft)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarBackground(SharkordTheme.background, for: .tabBar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             callBar
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if sizeClass != .regular {
-                tabBar
-                    .padding(.horizontal, 12)
-                    .padding(.top, 6)
-                    .padding(.bottom, 8)
-            }
-        }
         .background(BrandBackground())
-    }
-
-    private var splitView: some View {
-        NavigationSplitView {
-            ChannelListView()
-                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 380)
-        } detail: {
-            if let channelId = session.selectedChannelId {
-                ChannelDetailView(channelId: channelId)
-            } else {
-                EmptyStateView(
-                    symbol: "bubble.left.and.bubble.right",
-                    title: L10n.t("chat.pickTitle"),
-                    body_: L10n.t("chat.pickBody")
-                )
+        .sheet(isPresented: $isSearchPresented) {
+            NavigationStack {
+                MessageSearchView(onOpenMessage: openSearchMessage)
             }
         }
     }
 
-    private var phoneContent: some View {
-        Group {
-            switch tab {
-            case .voice:
-                VoiceTabView()
-            case .channels:
-                ChannelListView(
-                    onOpenTextChannel: { _ in
-                        tab = .chat
-                    },
-                    onOpenVoiceChannel: { _ in
-                        tab = .voice
-                    }
-                )
-            case .chat:
-                ChatTabView()
-            case .screenShare:
-                ScreenshareView()
-            case .settings:
-                SettingsView()
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var tabBar: some View {
-        HStack(spacing: 2) {
-            ForEach(Tab.allCases, id: \.rawValue) { item in
-                let isActive = item == tab
-
-                Button {
-                    tab = item
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: item.symbol)
-                            .font(.system(size: 21, weight: .semibold))
-
-                        Text(item.title)
-                            .font(.system(size: 10, weight: .semibold))
-                    }
-                    .foregroundStyle(isActive ? SharkordTheme.accentSoft : SharkordTheme.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 58)
-                    .background(
-                        isActive ? AnyShapeStyle(SharkordTheme.pillNeutral) : AnyShapeStyle(Color.clear),
-                        in: RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(item.title)
-                .accessibilityAddTraits(isActive ? [.isSelected] : [])
-            }
-        }
-        .padding(6)
-        .background(SharkordTheme.field, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
-    }
-
-    /// above the tab bar: the three call pills on the voice tab (and on iPad), the compact
-    /// return bar on every other tab, nothing at all when the device is not in a call.
+    /// keeps call controls available without adding another destination to the tab bar.
     @ViewBuilder
     private var callBar: some View {
-        if voice.currentChannelId != nil {
-            if tab == .voice && sizeClass != .regular {
+        if let channelId = voice.currentChannelId {
+            if selectedTab == .channels && channelPath.last == channelId {
                 VoiceControlsBar()
                     .padding(.horizontal, 12)
                     .padding(.top, 8)
-            } else if sizeClass != .regular {
+            } else {
                 BackToCallBar {
-                    tab = .voice
+                    selectedTab = .channels
+                    channelPath = [channelId]
                 }
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
-            } else {
-                VoiceControlsBar()
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
+            }
+        }
+    }
+
+    private func openSearchMessage(_ channelId: Int, _ messageId: Int) {
+        selectedTab = .channels
+        channelPath = [channelId]
+
+        Task {
+            do {
+                let message = try await session.getMessage(messageId: messageId)
+                if let parentMessageId = message.parentMessageId {
+                    await session.jumpTo(messageId: parentMessageId, channelId: channelId)
+                    model.pendingMessageNavigation = PendingMessageNavigation(
+                        channelId: channelId,
+                        messageId: parentMessageId
+                    )
+                    model.pendingThreadParentId = parentMessageId
+                } else {
+                    await session.jumpTo(messageId: message.id, channelId: channelId)
+                    model.pendingMessageNavigation = PendingMessageNavigation(
+                        channelId: channelId,
+                        messageId: message.id
+                    )
+                }
+            } catch {
+                model.banner = error.localizedDescription
             }
         }
     }
@@ -232,6 +192,6 @@ struct BackToCallBar: View {
               let channel = session.channel(for: channelId) else {
             return ""
         }
-        return "#\(channel.name)"
+        return channel.name
     }
 }

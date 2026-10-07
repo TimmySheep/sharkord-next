@@ -13,6 +13,7 @@ struct ConnectView: View {
     @State private var password = ""
     @State private var serverPassword = ""
     @State private var showsAdvanced = false
+    @State private var showsDiagnostics = false
 
     var body: some View {
         ScrollView {
@@ -22,6 +23,15 @@ struct ConnectView: View {
                 if let banner = model.banner {
                     bannerView(banner)
                 }
+                Button {
+                    showsDiagnostics = true
+                } label: {
+                    Label(L10n.t("settings.viewLogs"), systemImage: "doc.text")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(SharkordTheme.accentSoft)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -30,6 +40,11 @@ struct ConnectView: View {
             .frame(maxWidth: .infinity)
         }
         .scrollBounceBehavior(.basedOnSize)
+        .sheet(isPresented: $showsDiagnostics) {
+            NavigationStack {
+                DiagnosticsLogView()
+            }
+        }
     }
 
     private var header: some View {
@@ -40,11 +55,6 @@ struct ConnectView: View {
             }
 
             ScreenTitle(text: L10n.t("connect.title"))
-
-            Text(L10n.t("connect.subtitle"))
-                .font(.subheadline)
-                .foregroundStyle(SharkordTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

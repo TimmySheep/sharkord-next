@@ -1,5 +1,6 @@
 package com.timmysheep.cove.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -33,6 +34,7 @@ fun VoiceQuickControlsBar(
     microphoneEnabled: Boolean,
     speakerEnabled: Boolean,
     microphoneControlEnabled: Boolean,
+    onOpenVoiceRoom: () -> Unit,
     onToggleMicrophone: () -> Unit,
     onToggleSpeaker: () -> Unit,
     onLeave: () -> Unit,
@@ -53,7 +55,7 @@ fun VoiceQuickControlsBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).clickable(onClick = onOpenVoiceRoom),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Text(

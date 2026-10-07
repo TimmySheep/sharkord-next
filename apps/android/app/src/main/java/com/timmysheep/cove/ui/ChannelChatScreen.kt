@@ -13,8 +13,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -76,8 +74,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
@@ -141,7 +137,12 @@ private data class PendingAttachment(val id: String, val name: String)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun ChannelChatScreen(state: SessionState, model: CoveViewModel, channel: Channel) {
+fun ChannelChatScreen(
+    state: SessionState,
+    model: CoveViewModel,
+    channel: Channel,
+    voiceRoomOnly: Boolean = false
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val uploadFailedText = stringResource(R.string.upload_failed)
@@ -153,7 +154,6 @@ fun ChannelChatScreen(state: SessionState, model: CoveViewModel, channel: Channe
     val remoteVideoTracks by model.remoteVideoTracks.collectAsState()
     val localCameraTrack by model.localCameraTrack.collectAsState()
     val listState = rememberLazyListState()
-    val voicePagerState = rememberPagerState(pageCount = { 2 })
     var draft by rememberSaveable(channel.id) { mutableStateOf("") }
     var replyingTo by remember { mutableStateOf<Message?>(null) }
     var actionMessage by remember { mutableStateOf<Message?>(null) }
@@ -206,10 +206,6 @@ fun ChannelChatScreen(state: SessionState, model: CoveViewModel, channel: Channe
 
     LaunchedEffect(channel.id) {
         if (messages.isNotEmpty()) listState.scrollToItem(messages.lastIndex)
-    }
-
-    LaunchedEffect(channel.id) {
-        voicePagerState.scrollToPage(0)
     }
 
     LaunchedEffect(channel.id, messages.lastOrNull()?.id) {
@@ -357,31 +353,13 @@ fun ChannelChatScreen(state: SessionState, model: CoveViewModel, channel: Channe
 
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
         if (channel.type == ChannelType.VOICE) {
-            PrimaryTabRow(selectedTabIndex = voicePagerState.currentPage) {
-                Tab(
-                    selected = voicePagerState.currentPage == 0,
-                    onClick = { coroutineScope.launch { voicePagerState.animateScrollToPage(0) } },
-                    text = { Text(stringResource(R.string.voice_room)) }
-                )
-                Tab(
-                    selected = voicePagerState.currentPage == 1,
-                    onClick = { coroutineScope.launch { voicePagerState.animateScrollToPage(1) } },
-                    text = { Text(stringResource(R.string.voice_chat)) }
-                )
+            if (voiceRoomOnly) {
+                voicePanel(Modifier.weight(1f).fillMaxWidth())
+            } else {
+                Column(modifier = Modifier.weight(1f).fillMaxWidth(), content = conversation)
             }
 
-            HorizontalPager(
-                state = voicePagerState,
-                modifier = Modifier.weight(1f).fillMaxWidth()
-            ) { page ->
-                if (page == 0) {
-                    voicePanel(Modifier.fillMaxSize())
-                } else {
-                    Column(modifier = Modifier.fillMaxSize(), content = conversation)
-                }
-            }
-
-            if (state.voiceChannelId == channel.id) {
+            if (voiceRoomOnly && state.voiceChannelId == channel.id) {
                 HorizontalDivider()
                 voiceControls(Modifier.fillMaxWidth())
             }
@@ -1135,27 +1113,24 @@ private fun VoiceControlsBar(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            VoiceLabeledControl(
+            VoiceIconControl(
                 modifier = Modifier.weight(1f),
-                label = stringResource(R.string.microphone),
                 contentDescription = stringResource(if (state.microphoneEnabled) R.string.microphone else R.string.muted),
                 icon = if (state.microphoneEnabled) Icons.Default.Mic else Icons.Default.MicOff,
                 active = state.microphoneEnabled,
                 enabled = state.speakerEnabled || state.microphoneEnabled,
                 onClick = onToggleMicrophone
             )
-            VoiceLabeledControl(
+            VoiceIconControl(
                 modifier = Modifier.weight(1f),
-                label = stringResource(R.string.speaker),
                 contentDescription = stringResource(R.string.speaker),
                 icon = if (state.speakerEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                 active = state.speakerEnabled,
                 enabled = true,
                 onClick = onToggleSpeaker
             )
-            VoiceLabeledControl(
+            VoiceIconControl(
                 modifier = Modifier.weight(1f),
-                label = stringResource(R.string.camera_control),
                 contentDescription = stringResource(if (state.cameraEnabled) R.string.stop_camera else R.string.start_camera),
                 icon = if (state.cameraEnabled) Icons.Default.Videocam else Icons.Default.VideocamOff,
                 active = state.cameraEnabled,
@@ -1165,18 +1140,16 @@ private fun VoiceControlsBar(
                 auxiliaryIcon = Icons.Default.FlipCameraAndroid,
                 auxiliaryContentDescription = stringResource(R.string.switch_camera)
             )
-            VoiceLabeledControl(
+            VoiceIconControl(
                 modifier = Modifier.weight(1f),
-                label = stringResource(R.string.screen_share_control),
                 contentDescription = stringResource(if (state.sharingScreen) R.string.stop_sharing else R.string.share_screen),
                 icon = Icons.AutoMirrored.Filled.ScreenShare,
                 active = state.sharingScreen,
                 enabled = true,
                 onClick = if (state.sharingScreen) onStopScreenShare else onStartScreenShare
             )
-            VoiceLabeledControl(
+            VoiceIconControl(
                 modifier = Modifier.weight(1f),
-                label = stringResource(R.string.leave_voice),
                 contentDescription = stringResource(R.string.leave_voice),
                 icon = Icons.Default.CallEnd,
                 active = false,
@@ -1189,9 +1162,8 @@ private fun VoiceControlsBar(
 }
 
 @Composable
-private fun VoiceLabeledControl(
+private fun VoiceIconControl(
     modifier: Modifier = Modifier,
-    label: String,
     contentDescription: String,
     icon: ImageVector,
     active: Boolean,
@@ -1255,13 +1227,6 @@ private fun VoiceLabeledControl(
                 }
             }
         }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (danger) colors.error else if (active) colors.primary else colors.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }
 

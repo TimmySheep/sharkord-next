@@ -25,9 +25,10 @@
     <string name="search_members">搜索成员</string>
     <string name="no_conversations">还没有私信</string>
     <string name="no_members">没有找到成员。</string>
-    <string name="join_voice">加入语音</string>
+    <string name="join_voice">加入语音频道</string>
     <string name="voice_room">语音</string>
     <string name="voice_chat">聊天</string>
+    <string name="collapse_voice_room">收起语音页面</string>
     <string name="leave_voice">离开语音</string>
     <string name="microphone">麦克风</string>
     <string name="speaker">扬声器</string>
@@ -102,6 +103,7 @@
     <string name="camera_control">摄像头</string>
     <string name="screen_share_control">屏幕共享</string>
     <string name="no_voice_participants">等待其他成员加入。</string>
+    <string name="voice_preview_empty">这里暂时没人，准备好聊天时就加入吧。</string>
     <string name="camera_permission_required">你没有在此语音频道使用摄像头的权限。</string>
     <string name="camera_unavailable">没有找到可用的摄像头。</string>
     <string name="camera_start_failed">无法启动摄像头。</string>

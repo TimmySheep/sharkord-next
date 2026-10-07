@@ -74,6 +74,9 @@
   "categoryDeleted": "Category deleted",
   "failedDeleteCategory": "Failed to delete category",
   "userVolume": "User volume",
+  "screenShareAudioVolume": "Screen share audio volume",
+  "muteAudio": "Mute audio",
+  "unmuteAudio": "Unmute audio",
   "microphone": "Microphone",
   "noiseSuppression": "Noise suppression"
 }

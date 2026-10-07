@@ -261,3 +261,14 @@ builds are in scope; device-level acceptance is for the user.
 - Synchronized Android, iPhone, and Live Activity to `1.12`, build `13`; Apple Watch remains at
   `1.8`, build `9` in the local worktree. This GitHub sync includes Android progress and iPhone/Live
   Activity version settings; Watch and other platform changes remain local.
+
+## iOS and Watch Xcode simulator build fix, version 1.13
+
+- Added `.awaitingServerPassword` to the iPhone root view's session-phase routing, resolving the
+  incomplete-switch compile error.
+- iPhone Simulator Debug build for iPhone 18 Pro and Watch Simulator Debug build for Apple Watch
+  Ultra 4 (49mm) both passed. The 68 Watch `Undefined symbol` diagnostics from Xcode did not
+  reproduce in the command-line Watch build, so their exact origin remains unconfirmed. Simulator
+  apps were not launched for visual testing.
+- Synchronized Android, iPhone, and Live Activity to `1.13`, build `14`; Apple Watch is now `1.9`,
+  build `10`.

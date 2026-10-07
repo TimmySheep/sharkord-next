@@ -10,6 +10,8 @@
 	<string>cove</string>
 	<key>CFBundleIconFile</key>
 	<string>cove.icns</string>
+	<key>CFBundleIconName</key>
+	<string>Cove</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.timmysheep.cove</string>
 	<key>CFBundleInfoDictionaryVersion</key>

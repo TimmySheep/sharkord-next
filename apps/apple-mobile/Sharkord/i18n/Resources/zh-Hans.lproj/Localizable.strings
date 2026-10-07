@@ -1,18 +1,23 @@
 /* Sharkord iOS - 简体中文 */
 
 /* connect */
-"connect.title" = "登录 Sharkord";
-"connect.subtitle" = "填写服务器地址与账号。此版本连接真实服务器：消息、语音、屏幕共享都是真的。";
+"connect.title" = "登录 cove";
 "connect.server" = "服务器地址";
 "connect.serverPlaceholder" = "https://chat.example.com";
 "connect.identity" = "账号";
 "connect.identityPlaceholder" = "你的账号";
 "connect.password" = "密码";
 "connect.passwordPlaceholder" = "你的密码";
-"connect.serverPassword" = "服务器密码（可选）";
-"connect.serverPasswordPlaceholder" = "仅当服务器要求时填写";
+"connect.serverPassword" = "服务器密码";
+"connect.serverPasswordPlaceholder" = "可选";
 "connect.submit" = "连接";
 "connect.connecting" = "正在连接…";
+"connect.rememberLogin" = "记住此账号并在下次自动登录";
+"connect.quickSignIn" = "使用已保存的账号快速登录";
+"connect.forgetSavedLogin" = "删除已保存账号";
+"connect.credentialStorageFailed" = "无法更新安全保存的登录信息。";
+"connect.serverPasswordRequired" = "需要服务器密码";
+"connect.joinServer" = "进入服务器";
 
 /* navigation */
 "nav.channels" = "频道";
@@ -20,6 +25,12 @@
 "nav.settings" = "设置";
 "nav.directMessages" = "私信";
 "nav.voiceChannels" = "语音频道";
+"dm.newMessage" = "新建私信";
+"dm.searchMembers" = "搜索成员";
+"dm.emptyTitle" = "还没有私聊";
+"dm.emptyBody" = "从当前服务器成员中选择一位，开始私聊。";
+"dm.noMembers" = "没有找到成员";
+"dm.openFailed" = "无法开始私聊";
 
 /* channels and messages */
 "channel.loadOlder" = "加载更早的消息";
@@ -39,6 +50,7 @@
 
 /* voice */
 "voice.call" = "语音";
+"voice.openChat" = "打开频道聊天";
 "voice.join" = "加入语音";
 "voice.leave" = "离开语音";
 "voice.controls" = "通话控制";
@@ -70,6 +82,14 @@
 "voice.error.micBlockedByDeafen" = "请先打开扬声器，再打开麦克风。";
 "voice.error.screenShareNotAllowed" = "你没有在此频道共享屏幕的权限。";
 "voice.error.screenShareUnavailable" = "此设备当前无法共享屏幕。";
+"voice.error.cameraNotAllowed" = "你没有在此语音频道使用摄像头的权限。";
+"voice.error.cameraAccessRequired" = "请在系统设置中允许 Cove 使用摄像头以共享视频。";
+"voice.error.cameraUnavailable" = "此设备没有可用的摄像头。";
+"voice.camera.title" = "摄像头";
+"voice.camera.start" = "开启摄像头";
+"voice.camera.stop" = "关闭摄像头";
+"voice.camera.switch" = "切换摄像头";
+"voice.quality.auto" = "自动画质";
 "voice.error.transportFailed" = "语音连接失败。";
 "voice.liveActivity.topic" = "语音频道";
 "voice.liveActivity.previewChannel" = "大厅";
@@ -82,7 +102,7 @@
 
 /* settings */
 "settings.language" = "语言";
-"settings.languageHint" = "此版本支持英语、简体中文、西班牙语、法语和德语。";
+"settings.developer" = "开发";
 "settings.liveActivity" = "灵动岛";
 "settings.liveActivityStart" = "预览灵动岛";
 "settings.liveActivityStop" = "停止预览";
@@ -91,13 +111,34 @@
 "settings.server" = "服务器";
 "settings.account" = "账号";
 "settings.disconnect" = "断开连接";
-"settings.disconnectHint" = "离开服务器，返回登录界面。";
-"settings.about" = "关于此版本";
-"settings.aboutBody" = "第一个功能版本：登录、频道、消息、表情回应、带开关麦的语音、屏幕共享与五种语言。文件上传、子线程、插件与管理界面等仍待后续版本。";
+"settings.diagnostics" = "诊断日志";
+"settings.viewLogs" = "查看日志";
+"settings.exportLogs" = "导出日志";
+"settings.shareLogs" = "分享日志文件";
+"settings.noLogs" = "暂无日志。";
+"settings.exportFailed" = "无法生成日志导出文件。";
 
 /* common */
 "common.save" = "保存";
 "common.cancel" = "取消";
+"common.done" = "完成";
+"message.thread" = "打开子线程";
+"message.replyCount" = "%d 条回复";
+"message.attachFile" = "添加附件";
+"message.removeAttachment" = "移除附件";
+"message.attachmentLimit" = "已达到服务器允许的附件数量上限。";
+"message.fileTooLarge" = "此文件超过服务器允许的大小。";
+"message.previewFailed" = "无法加载图片预览。";
+"search.title" = "搜索消息";
+"search.placeholder" = "搜索消息和文件";
+"search.searching" = "正在搜索…";
+"search.noResults" = "没有找到结果";
+"search.tryAnother" = "请尝试其他搜索词。";
+"search.messages" = "消息";
+"search.files" = "文件";
+"search.truncated" = "可能还有更多结果，请缩小搜索范围。";
+"search.minimumLength" = "请输入至少两个字符进行搜索。";
+"search.attachment" = "附件";
 
 /* v2 design additions */
 "nav.voice" = "语音";
@@ -117,11 +158,11 @@
 "connect.cardTitle" = "连接服务器";
 "connect.moreOptions" = "更多连接选项";
 "connect.fewerOptions" = "收起选项";
-"channel.searchPlaceholder" = "搜索频道或成员";
+"channel.searchPlaceholder" = "搜索频道";
 "channel.currentMembers" = "当前频道成员";
 "screenshare.infoTitle" = "实时发现已接入";
 "screenshare.infoBody" = "列表与协商信令通过 Sharkord 服务器；画面媒体走 WebRTC/ICE P2P，不经服务器中继。";
-"screenshare.startHint" = "开始共享后，系统会采集本机画面并通过当前语音频道发送。本版本不共享系统音频。";
+"screenshare.startHint" = "当前版本只能通过语音频道共享 Cove 应用画面，不会采集其他应用或 iOS 主屏幕。";
 "screenshare.myScreen" = "本机屏幕";
 
 /* watch (Apple Watch 对讲) */

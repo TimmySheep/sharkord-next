@@ -74,6 +74,9 @@
   "categoryDeleted": "Kategorie byla odstraněna",
   "failedDeleteCategory": "Kategorii se odstranit nepodařilo",
   "userVolume": "Hlasitost uživatele",
+  "screenShareAudioVolume": "Hlasitost zvuku sdílení obrazovky",
+  "muteAudio": "Ztlumit zvuk",
+  "unmuteAudio": "Zapnout zvuk",
   "microphone": "Mikrofon",
   "noiseSuppression": "Potlačení šumu"
 }

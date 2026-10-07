@@ -1,27 +1,37 @@
 import SwiftUI
 import UIKit
 
-/// Visual language for the app: pure black canvas, flat dark cards with large continuous
-/// corners, royal blue call-to-action bars, tinted icon badges and pill controls. The app
-/// is dark only, so these are fixed colours instead of adaptive ones.
+/// adaptive platform surfaces with the existing blue accent and rounded controls.
 enum SharkordTheme {
-    static let background = Color.black
-    static let card = Color(red: 0.11, green: 0.11, blue: 0.12)
-    static let field = Color(red: 0.17, green: 0.17, blue: 0.18)
-    static let pillNeutral = Color(red: 0.23, green: 0.23, blue: 0.24)
-    static let segmentActive = Color(red: 0.39, green: 0.39, blue: 0.40)
+    static let background = Color(uiColor: .systemBackground)
+    static let card = Color(uiColor: .secondarySystemGroupedBackground)
+    static let field = Color(uiColor: .tertiarySystemGroupedBackground)
+    static let pillNeutral = Color(uiColor: .tertiarySystemFill)
+    static let segmentActive = Color(uiColor: .systemGray)
 
     static let accent = Color(red: 0.17, green: 0.36, blue: 0.91)
     static let accentSoft = Color(red: 0.36, green: 0.55, blue: 1.0)
     static let danger = Color(red: 0.88, green: 0.32, blue: 0.32)
-    static let dangerDeep = Color(red: 0.36, green: 0.17, blue: 0.17)
+    static let dangerDeep = Color(uiColor: UIColor { traits in
+        if traits.userInterfaceStyle == .dark {
+            return UIColor(red: 0.36, green: 0.17, blue: 0.17, alpha: 1)
+        }
+
+        return UIColor(red: 1, green: 0.91, blue: 0.91, alpha: 1)
+    })
     static let success = Color(red: 0.20, green: 0.78, blue: 0.35)
 
-    static let badgeBackground = Color(red: 0.12, green: 0.16, blue: 0.28)
+    static let badgeBackground = Color(uiColor: UIColor { traits in
+        if traits.userInterfaceStyle == .dark {
+            return UIColor(red: 0.12, green: 0.16, blue: 0.28, alpha: 1)
+        }
 
-    static let textPrimary = Color.white
-    static let textSecondary = Color(red: 0.60, green: 0.60, blue: 0.62)
-    static let textTertiary = Color(red: 0.39, green: 0.39, blue: 0.40)
+        return UIColor(red: 0.89, green: 0.92, blue: 1, alpha: 1)
+    })
+
+    static let textPrimary = Color.primary
+    static let textSecondary = Color.secondary
+    static let textTertiary = Color(uiColor: .tertiaryLabel)
 }
 
 extension Color {

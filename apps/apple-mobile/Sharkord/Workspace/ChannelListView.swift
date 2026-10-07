@@ -1,32 +1,16 @@
 import SharkordCore
 import SwiftUI
 
-/// The channels tab: search, direct messages, text channels grouped by category, voice
-/// channels with live member rows, and the server member list. Everything is real session
-/// state, unread counts included.
+/// the channels tab: categorized text channels and voice channels.
 struct ChannelListView: View {
-    @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SharkordSession
-
-    var onOpenTextChannel: ((Int) -> Void)?
-    var onOpenVoiceChannel: ((Int) -> Void)?
 
     @State private var query = ""
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                ScreenTitle(text: L10n.t("nav.channels"))
-
+            VStack(alignment: .leading, spacing: 12) {
                 searchField
-
-                if !dmChannels.isEmpty {
-                    section(icon: "person.crop.circle", title: L10n.t("nav.directMessages")) {
-                        ForEach(dmChannels) { channel in
-                            textChannelRow(channel)
-                        }
-                    }
-                }
 
                 ForEach(session.categories) { category in
                     let channels = textChannels(in: category)
@@ -48,13 +32,14 @@ struct ChannelListView: View {
                     }
                 }
 
-                MembersSection(query: query)
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.immediately)
+        .navigationTitle(L10n.t("nav.channels"))
+        .navigationBarTitleDisplayMode(.large)
     }
 
     private var searchField: some View {
@@ -81,17 +66,13 @@ struct ChannelListView: View {
         title: String,
         @ViewBuilder rows: () -> some View
     ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 7) {
             SectionLabel(icon: icon, text: title)
             rows()
         }
     }
 
     // MARK: filtering
-
-    private var dmChannels: [SharkordChannel] {
-        session.directMessageChannels.filter(matches)
-    }
 
     private func textChannels(in category: SharkordCategory) -> [SharkordChannel] {
         session.channels(in: category).filter { $0.type == .text && matches($0) }
@@ -109,28 +90,22 @@ struct ChannelListView: View {
         if channel.name.localizedCaseInsensitiveContains(query) {
             return true
         }
-        if let topic = channel.topic, topic.localizedCaseInsensitiveContains(query) {
-            return true
-        }
-        return channel.isDm && (session.directMessagePartner(for: channel)?.name ?? "")
-            .localizedCaseInsensitiveContains(query)
+        return channel.topic?.localizedCaseInsensitiveContains(query) == true
     }
 
     // MARK: rows
 
     private func textChannelRow(_ channel: SharkordChannel) -> some View {
-        Button {
-            open(channel)
-        } label: {
+        NavigationLink(value: channel.id) {
             HStack(spacing: 13) {
-                Image(systemName: channel.isDm ? "person.crop.circle" : "number")
+                Image(systemName: "number")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(SharkordTheme.textSecondary)
                     .frame(width: 26)
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(channel.isDm ? dmName(for: channel) : channel.name)
+                    Text(channel.name)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(SharkordTheme.textPrimary)
                         .lineLimit(1)
@@ -154,19 +129,22 @@ struct ChannelListView: View {
                         .background(SharkordTheme.accent, in: Capsule())
                 }
             }
-            .sharkordCard(cornerRadius: 22, padding: 16)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(
+                session.selectedChannelId == channel.id ? SharkordTheme.field : Color.clear,
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(channel.isDm ? dmName(for: channel) : channel.name)
+        .accessibilityLabel(channel.name)
     }
 
     private func voiceChannelCard(_ channel: SharkordChannel) -> some View {
         let joined = session.isInVoice(channel.id)
         let participants = session.voiceParticipants(in: channel.id)
 
-        return Button {
-            open(channel)
-        } label: {
+        return NavigationLink(value: channel.id) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 13) {
                     Image(systemName: "waveform")
@@ -203,7 +181,7 @@ struct ChannelListView: View {
                     }
                 }
 
-                if joined && !participants.isEmpty {
+                if !participants.isEmpty {
                     VStack(spacing: 12) {
                         ForEach(participants) { participant in
                             voiceParticipantRow(participant)
@@ -212,7 +190,12 @@ struct ChannelListView: View {
                     .padding(.leading, 39)
                 }
             }
-            .sharkordCard(cornerRadius: 24, padding: 17)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                joined ? SharkordTheme.field : Color.clear,
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
         }
         .buttonStyle(.plain)
         .accessibilityLabel(channel.name)
@@ -250,22 +233,5 @@ struct ChannelListView: View {
                     .accessibilityLabel(L10n.t("voice.state.screenSharing"))
             }
         }
-    }
-
-    private func open(_ channel: SharkordChannel) {
-        if channel.type == .voice {
-            model.selectChannel(channel.id)
-            onOpenVoiceChannel?(channel.id)
-        } else {
-            model.selectChannel(channel.id)
-            onOpenTextChannel?(channel.id)
-        }
-    }
-
-    private func dmName(for channel: SharkordChannel) -> String {
-        guard let partner = session.directMessagePartner(for: channel) else {
-            return channel.name
-        }
-        return partner.name
     }
 }

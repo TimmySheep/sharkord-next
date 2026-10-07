@@ -17,33 +17,83 @@ struct WatchConnectView: View {
                         .multilineTextAlignment(.center)
                 }
 
+                if model.hasSavedLogin {
+                    Button {
+                        Task {
+                            await model.connectSavedLogin()
+                        }
+                    } label: {
+                        Text(L10n.t("connect.quickSignIn"))
+                            .font(.caption.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(model.isConnecting)
+
+                    Button(L10n.t("connect.forgetSavedLogin")) {
+                        model.forgetSavedLogin()
+                    }
+                    .font(.caption2)
+                    .buttonStyle(.plain)
+                    .disabled(model.isConnecting)
+                }
+
                 WatchCard {
                     VStack(spacing: 8) {
                         field(L10n.t("connect.server"), text: $model.server, placeholder: L10n.t("connect.serverPlaceholder"), secure: false)
                         field(L10n.t("connect.identity"), text: $model.identity, placeholder: L10n.t("connect.identityPlaceholder"), secure: false)
                         field(L10n.t("connect.password"), text: $model.password, placeholder: L10n.t("connect.passwordPlaceholder"), secure: true)
-                        field(L10n.t("connect.serverPassword"), text: $model.serverPassword, placeholder: L10n.t("connect.serverPasswordPlaceholder"), secure: true)
+                        field(
+                            L10n.t(model.needsServerPassword ? "connect.serverPasswordRequired" : "connect.serverPassword"),
+                            text: $model.serverPassword,
+                            placeholder: L10n.t("connect.serverPasswordPlaceholder"),
+                            secure: true
+                        )
                     }
                 }
+
+                Toggle(L10n.t("connect.rememberLogin"), isOn: $model.remembersLogin)
+                    .font(.caption2)
+                    .tint(WatchTheme.accent)
 
                 Button {
                     Task {
                         await model.connect()
                     }
                 } label: {
-                    Text(model.isConnecting ? L10n.t("connect.connecting") : L10n.t("connect.submit"))
-                        .font(.body.weight(.semibold))
-                        .frame(maxWidth: .infinity)
+                    Group {
+                        if model.isConnecting {
+                            Text(L10n.t("connect.connecting"))
+                        } else {
+                            Text(model.needsServerPassword ? L10n.t("connect.joinServer") : L10n.t("connect.submit"))
+                        }
+                    }
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(WatchTheme.accent)
-                .disabled(model.isConnecting)
+                .disabled(model.isConnecting || (model.needsServerPassword && model.serverPassword.isEmpty))
 
                 if let connectError = model.connectError {
                     Text(connectError)
                         .font(.caption2)
                         .foregroundStyle(WatchTheme.danger)
                         .multilineTextAlignment(.center)
+                }
+
+                if let credentialWarning = model.credentialWarning {
+                    Text(credentialWarning)
+                        .font(.caption2)
+                        .foregroundStyle(WatchTheme.danger)
+                        .multilineTextAlignment(.center)
+                }
+
+                NavigationLink {
+                    WatchDiagnosticsView()
+                } label: {
+                    Label(L10n.t("settings.viewLogs"), systemImage: "doc.text")
+                        .font(.caption.weight(.semibold))
                 }
             }
             .padding(.horizontal, 6)

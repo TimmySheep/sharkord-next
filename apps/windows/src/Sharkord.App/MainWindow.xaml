@@ -8,7 +8,7 @@
     mc:Ignorable="d"
     Title="cove">
 
-    <Grid Padding="24">
+    <Grid x:Name="RootGrid" Padding="24">
         <StackPanel
             x:Name="ConnectPanel"
             Width="360"

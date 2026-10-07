@@ -11,6 +11,9 @@ enum VoiceError: LocalizedError {
     case microphoneBlockedByDeafen
     case screenShareNotAllowed
     case screenShareUnavailable
+    case cameraNotAllowed
+    case cameraAccessRequired
+    case cameraUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -22,6 +25,12 @@ enum VoiceError: LocalizedError {
             return L10n.t("voice.error.screenShareNotAllowed")
         case .screenShareUnavailable:
             return L10n.t("voice.error.screenShareUnavailable")
+        case .cameraNotAllowed:
+            return L10n.t("voice.error.cameraNotAllowed")
+        case .cameraAccessRequired:
+            return L10n.t("voice.error.cameraAccessRequired")
+        case .cameraUnavailable:
+            return L10n.t("voice.error.cameraUnavailable")
         }
     }
 }
@@ -49,6 +58,9 @@ final class VoiceEngine: ObservableObject {
     @Published private(set) var microphoneOn = false
     @Published private(set) var deafened = false
     @Published private(set) var screenSharing = false
+    @Published private(set) var cameraOn = false
+    @Published private(set) var cameraStarting = false
+    @Published private(set) var localCameraTrack: RTCVideoTrack?
     @Published private(set) var currentChannelId: Int?
     @Published private(set) var consumedRemoteIds: Set<String> = []
     @Published private(set) var remoteVideoStreams: [RemoteVideoStream] = []
@@ -60,8 +72,15 @@ final class VoiceEngine: ObservableObject {
     private var sendTransport: SendTransport?
     private var receiveTransport: ReceiveTransport?
     private var microphoneProducer: Producer?
+    private var cameraProducer: Producer?
+    private var cameraCapturer: RTCCameraVideoCapturer?
+    private var cameraSource: RTCVideoSource?
+    private var cameraTrack: RTCVideoTrack?
+    private var cameraDevice: AVCaptureDevice?
     private var screenProducer: Producer?
     private var screenCapturer: ScreenShareCapturer?
+    private var screenShareOperationID: UUID?
+    private var screenShareCaptureError: String?
     private var consumers: [String: Consumer] = [:]
 
     /// `SendTransportDelegate.onProduce` reports the media kind, not the stream kind the
@@ -136,6 +155,7 @@ final class VoiceEngine: ObservableObject {
             configureAudioSession()
             microphoneOn = false
             screenSharing = false
+            cameraOn = false
             callState = .connected
 
             await reconcileProducers()
@@ -153,14 +173,19 @@ final class VoiceEngine: ObservableObject {
 
         currentChannelId = nil
 
-        if screenSharing {
+        if screenSharing || screenCapturer != nil || screenProducer != nil {
             await stopScreenShare()
+        }
+        if cameraOn || cameraProducer != nil || cameraCapturer != nil {
+            await stopCamera()
         }
 
         microphoneProducer?.close()
         microphoneProducer = nil
         screenProducer?.close()
         screenProducer = nil
+        cameraProducer?.close()
+        cameraProducer = nil
 
         consumers.values.forEach { $0.close() }
         consumers.removeAll()
@@ -174,6 +199,8 @@ final class VoiceEngine: ObservableObject {
         device = nil
         pendingProduceKinds.removeAll()
         microphoneOn = false
+        cameraOn = false
+        localCameraTrack = nil
         micWasOnBeforeDeafen = false
 
         try? await session.leaveVoice()
@@ -229,14 +256,169 @@ final class VoiceEngine: ObservableObject {
         }
     }
 
+    // MARK: - camera
+
+    func startCamera() async throws {
+        guard let channelId = currentChannelId, let transport = sendTransport else {
+            throw VoiceError.notInCall
+        }
+        guard !cameraOn, !cameraStarting, cameraProducer == nil, cameraCapturer == nil else {
+            return
+        }
+        cameraStarting = true
+        defer { cameraStarting = false }
+        guard session.hasPermission(.enableWebcam), session.hasChannelPermission(channelId, .webcam) else {
+            throw VoiceError.cameraNotAllowed
+        }
+        try await requestCameraAccess()
+
+        guard let device = preferredCamera(position: .front),
+              let format = preferredCameraFormat(for: device) else {
+            throw VoiceError.cameraUnavailable
+        }
+
+        let source = factory.videoSource()
+        let capturer = RTCCameraVideoCapturer(delegate: source)
+        do {
+            try await startCapture(capturer, device: device, format: format)
+            let track = factory.videoTrack(with: source, trackId: "video-\(channelId)")
+            pendingProduceKinds.append(.video)
+            let producer = try transport.createProducer(
+                for: track,
+                encodings: nil,
+                codecOptions: nil,
+                codec: nil,
+                appData: nil
+            )
+            try await session.updateVoiceState(webcamEnabled: true)
+            cameraSource = source
+            cameraCapturer = capturer
+            cameraTrack = track
+            cameraDevice = device
+            cameraProducer = producer
+            localCameraTrack = track
+            cameraOn = true
+        } catch {
+            pendingProduceKinds.removeAll { $0 == .video }
+            await stopCapture(capturer)
+            try? await session.closeProducer(kind: .video)
+            try? await session.updateVoiceState(webcamEnabled: false)
+            throw error
+        }
+    }
+
+    func stopCamera() async {
+        let producer = cameraProducer
+        cameraProducer = nil
+        cameraOn = false
+        localCameraTrack = nil
+
+        producer?.close()
+        if producer != nil {
+            try? await session.closeProducer(kind: .video)
+        }
+        try? await session.updateVoiceState(webcamEnabled: false)
+
+        if let cameraCapturer {
+            await stopCapture(cameraCapturer)
+        }
+        cameraCapturer = nil
+        cameraTrack = nil
+        cameraSource = nil
+        cameraDevice = nil
+    }
+
+    func switchCamera() async throws {
+        guard let cameraCapturer, let currentDevice = cameraDevice else {
+            throw VoiceError.cameraUnavailable
+        }
+        guard let nextDevice = RTCCameraVideoCapturer.captureDevices().first(where: {
+            $0.position != currentDevice.position
+        }), let format = preferredCameraFormat(for: nextDevice) else {
+            throw VoiceError.cameraUnavailable
+        }
+        guard let previousFormat = preferredCameraFormat(for: currentDevice) else {
+            throw VoiceError.cameraUnavailable
+        }
+        await stopCapture(cameraCapturer)
+        do {
+            try await startCapture(cameraCapturer, device: nextDevice, format: format)
+            self.cameraDevice = nextDevice
+        } catch {
+            try? await startCapture(cameraCapturer, device: currentDevice, format: previousFormat)
+            throw error
+        }
+    }
+
+    private func requestCameraAccess() async throws {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            return
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            guard granted else {
+                throw VoiceError.cameraAccessRequired
+            }
+        default:
+            throw VoiceError.cameraAccessRequired
+        }
+    }
+
+    private func preferredCamera(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
+        let devices = RTCCameraVideoCapturer.captureDevices()
+        return devices.first(where: { $0.position == position }) ?? devices.first
+    }
+
+    private func preferredCameraFormat(for device: AVCaptureDevice) -> AVCaptureDevice.Format? {
+        RTCCameraVideoCapturer.supportedFormats(for: device)
+            .filter { format in
+                format.videoSupportedFrameRateRanges.contains { $0.maxFrameRate >= 24 }
+            }
+            .min { left, right in
+                let leftDimensions = CMVideoFormatDescriptionGetDimensions(left.formatDescription)
+                let rightDimensions = CMVideoFormatDescriptionGetDimensions(right.formatDescription)
+                let leftDistance = abs(Int(leftDimensions.width * leftDimensions.height) - 1280 * 720)
+                let rightDistance = abs(Int(rightDimensions.width * rightDimensions.height) - 1280 * 720)
+                return leftDistance < rightDistance
+            }
+    }
+
+    private func startCapture(
+        _ capturer: RTCCameraVideoCapturer,
+        device: AVCaptureDevice,
+        format: AVCaptureDevice.Format
+    ) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            capturer.startCapture(with: device, format: format, fps: 24) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+    }
+
+    private func stopCapture(_ capturer: RTCCameraVideoCapturer) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            capturer.stopCapture {
+                continuation.resume()
+            }
+        }
+    }
+
     // MARK: - screen share
 
+    /// replaykit's in-app capture is limited to cove; full-device broadcasting needs a broadcast upload extension.
     func startScreenShare() async throws {
         guard let channelId = currentChannelId, let transport = sendTransport else {
             throw VoiceError.notInCall
         }
+        guard screenShareOperationID == nil, screenCapturer == nil, screenProducer == nil else {
+            return
+        }
 
-        guard session.hasChannelPermission(channelId, .shareScreen) else {
+        guard session.hasPermission(.shareScreen), session.hasChannelPermission(channelId, .shareScreen) else {
             throw VoiceError.screenShareNotAllowed
         }
 
@@ -244,6 +426,9 @@ final class VoiceEngine: ObservableObject {
             throw VoiceError.screenShareUnavailable
         }
 
+        let operationID = UUID()
+        screenShareOperationID = operationID
+        screenShareCaptureError = nil
         let source = factory.videoSource()
         let capturer = ScreenShareCapturer(delegate: source)
         screenCapturer = capturer
@@ -254,7 +439,21 @@ final class VoiceEngine: ObservableObject {
         do {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 recorder.startCapture(
-                    handler: { [weak capturer] sampleBuffer, sampleType, _ in
+                    handler: { [weak self, weak capturer] sampleBuffer, sampleType, error in
+                        if let error {
+                            let message = error.localizedDescription
+                            Task { @MainActor [weak self] in
+                                guard let self, self.screenShareOperationID == operationID else {
+                                    return
+                                }
+                                self.lastErrorMessage = message
+                                self.screenShareCaptureError = message
+                                if self.screenSharing {
+                                    await self.stopScreenShare()
+                                }
+                            }
+                            return
+                        }
                         guard sampleType == .video else {
                             return
                         }
@@ -269,8 +468,17 @@ final class VoiceEngine: ObservableObject {
                     }
                 )
             }
+            guard screenShareOperationID == operationID else {
+                return
+            }
         } catch {
+            guard screenShareOperationID == operationID else {
+                return
+            }
+            _ = await stopReplayKitCapture()
             screenCapturer = nil
+            screenShareOperationID = nil
+            screenShareCaptureError = nil
             throw error
         }
 
@@ -286,32 +494,70 @@ final class VoiceEngine: ObservableObject {
                 appData: nil
             )
             screenProducer = producer
-            screenSharing = true
             try await session.updateVoiceState(sharingScreen: true)
+            guard screenShareOperationID == operationID else {
+                producer.close()
+                if screenShareOperationID == nil {
+                    let cleanupID = UUID()
+                    screenShareOperationID = cleanupID
+                    try? await session.closeProducer(kind: .screen)
+                    try? await session.updateVoiceState(sharingScreen: false)
+                    if screenShareOperationID == cleanupID {
+                        screenShareOperationID = nil
+                    }
+                }
+                return
+            }
+            if let captureError = screenShareCaptureError {
+                throw NSError(
+                    domain: "CoveScreenCapture",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: captureError]
+                )
+            }
+            screenSharing = true
         } catch {
             pendingProduceKinds.removeAll { $0 == .screen }
-            recorder.stopCapture()
+            _ = await stopReplayKitCapture()
+            screenProducer?.close()
+            screenProducer = nil
             screenCapturer = nil
+            screenSharing = false
+            screenShareOperationID = nil
+            screenShareCaptureError = nil
+            try? await session.closeProducer(kind: .screen)
+            try? await session.updateVoiceState(sharingScreen: false)
             throw error
         }
     }
 
     func stopScreenShare() async {
-        guard screenSharing || screenProducer != nil else {
+        guard screenSharing || screenProducer != nil || screenCapturer != nil else {
             return
         }
 
-        RPScreenRecorder.shared().stopCapture()
+        let stopID = UUID()
+        screenShareOperationID = stopID
+        screenSharing = false
+        screenShareCaptureError = nil
+        let hadCapture = screenCapturer != nil
         screenCapturer = nil
+        let producer = screenProducer
+        screenProducer = nil
 
-        if screenProducer != nil {
-            screenProducer?.close()
-            screenProducer = nil
+        if hadCapture {
+            _ = await stopReplayKitCapture()
+        }
+
+        if let producer {
+            producer.close()
             try? await session.closeProducer(kind: .screen)
         }
 
-        screenSharing = false
         try? await session.updateVoiceState(sharingScreen: false)
+        if screenShareOperationID == stopID {
+            screenShareOperationID = nil
+        }
     }
 
     // MARK: - consumers
@@ -393,7 +639,13 @@ final class VoiceEngine: ObservableObject {
         consumedRemoteIds.insert(key)
 
         if consumer.kind == .video, let videoTrack = consumer.track as? RTCVideoTrack {
-            let stream = RemoteVideoStream(id: key, remoteId: remoteId, kind: kind, track: videoTrack)
+            let stream = RemoteVideoStream(
+                id: key,
+                remoteId: remoteId,
+                kind: kind,
+                track: videoTrack,
+                qualityLayers: result.qualityLayers ?? []
+            )
             remoteVideoStreams.removeAll { $0.id == key }
             remoteVideoStreams.append(stream)
         }
@@ -402,6 +654,18 @@ final class VoiceEngine: ObservableObject {
     private func setRemoteAudioEnabled(_ enabled: Bool) {
         for consumer in consumers.values where consumer.kind == .audio {
             consumer.track.isEnabled = enabled
+        }
+    }
+
+    func setQuality(for stream: RemoteVideoStream, spatialLayer: Int?) async {
+        do {
+            try await session.setConsumerQuality(
+                remoteId: stream.remoteId,
+                kind: stream.kind,
+                spatialLayer: spatialLayer
+            )
+        } catch {
+            lastErrorMessage = error.localizedDescription
         }
     }
 
@@ -441,6 +705,19 @@ final class VoiceEngine: ObservableObject {
             try audioSession.setActive(true)
         } catch {
             lastErrorMessage = error.localizedDescription
+        }
+    }
+
+    private func stopReplayKitCapture() async -> Error? {
+        let recorder = RPScreenRecorder.shared()
+        guard recorder.isRecording else {
+            return nil
+        }
+
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in
+            recorder.stopCapture { error in
+                continuation.resume(returning: error)
+            }
         }
     }
 }

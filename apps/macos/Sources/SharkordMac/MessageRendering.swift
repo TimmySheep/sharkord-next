@@ -132,6 +132,7 @@ struct MessageSpanView: View {
 
     let span: MessageSpan
     var emojiOnly: Bool = false
+    @State private var showsImageViewer = false
 
     var body: some View {
         switch span.content {
@@ -222,24 +223,30 @@ struct MessageSpanView: View {
     @ViewBuilder
     private func media(src: String, alt: String) -> some View {
         if let url = session.url(forPath: src) {
-            Link(destination: url) {
-                if src.lowercased().hasSuffix(".gif") || src.lowercased().hasSuffix(".png")
-                    || src.lowercased().hasSuffix(".jpg") || src.lowercased().hasSuffix(".jpeg")
-                    || src.lowercased().hasSuffix(".webp") {
-                    AsyncImage(url: url) { phase in
-                        if case .success(let image) = phase {
-                            image.resizable().scaledToFit()
-                        } else {
-                            placeholder(alt.isEmpty ? src : alt)
-                        }
-                    }
-                    .frame(maxWidth: 320, maxHeight: 260)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                } else {
-                    placeholder(alt.isEmpty ? src : alt)
-                }
+            Button {
+                showsImageViewer = true
+            } label: {
+                imageThumbnail(url: url, alt: alt, fallback: src)
+            }
+            .buttonStyle(.plain)
+            .help(L10n.t("imagePreviewOpen", ns: "macos"))
+            .sheet(isPresented: $showsImageViewer) {
+                ImageViewerView(imageURL: url, altText: alt)
             }
         }
+    }
+
+    @ViewBuilder
+    private func imageThumbnail(url: URL, alt: String, fallback: String) -> some View {
+        AsyncImage(url: url) { phase in
+            if case .success(let image) = phase {
+                image.resizable().scaledToFit()
+            } else {
+                placeholder(alt.isEmpty ? fallback : alt)
+            }
+        }
+        .frame(maxWidth: 320, maxHeight: 260)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private func placeholder(_ label: String) -> some View {
@@ -273,25 +280,32 @@ extension MessageSpan {
     }
 }
 
-/// Attachment chip: name, type and size, opening the file in the browser on click.
+/// Attachment chip: name, type and size, with native image preview and download actions.
 struct FileCardView: View {
     @EnvironmentObject private var session: SharkordSession
 
     let file: SharkordFile
     var onDelete: (() -> Void)?
+    @State private var showsImageViewer = false
 
     var body: some View {
         HStack(spacing: 10) {
             if isImage, let url = session.publicFileURL(for: file) {
-                AsyncImage(url: url) { phase in
-                    if case .success(let image) = phase {
-                        image.resizable().scaledToFill()
-                    } else {
-                        icon
+                Button {
+                    showsImageViewer = true
+                } label: {
+                    AsyncImage(url: url) { phase in
+                        if case .success(let image) = phase {
+                            image.resizable().scaledToFill()
+                        } else {
+                            icon
+                        }
                     }
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .buttonStyle(.plain)
+                .help(L10n.t("imagePreviewOpen", ns: "macos"))
             } else {
                 icon
             }
@@ -326,6 +340,11 @@ struct FileCardView: View {
         .padding(8)
         .frame(maxWidth: 260)
         .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 8))
+        .sheet(isPresented: $showsImageViewer) {
+            if let url = session.publicFileURL(for: file) {
+                ImageViewerView(imageURL: url, altText: file.originalName)
+            }
+        }
     }
 
     private var isImage: Bool {

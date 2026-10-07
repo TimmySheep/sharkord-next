@@ -29,6 +29,7 @@ extension SharkordSession {
         )
 
         ownUserPasswordSet = true
+        updateSavedLoginPassword(new)
     }
 
     /// `fileId` is a temporary upload id; passing nil removes the image.

@@ -17,6 +17,7 @@ struct MessageRowView: View {
     var onOpenThread: (SharkordMessage) -> Void
 
     @State private var hovering = false
+    @State private var showsDeleteConfirmation = false
 
     private var author: SharkordUser? {
         message.userId.flatMap { session.user(for: $0) }
@@ -54,6 +55,15 @@ struct MessageRowView: View {
 
                     content
 
+                    if !messageMedia.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(messageMedia) { media in
+                                MessageMediaPlayerView(media: media)
+                            }
+                        }
+                        .padding(.top, 2)
+                    }
+
                     if let files = message.files, !files.isEmpty {
                         HStack(spacing: 6) {
                             ForEach(files) { file in
@@ -89,6 +99,19 @@ struct MessageRowView: View {
             .contextMenu {
                 contextMenuItems
             }
+        }
+        .confirmationDialog(
+            L10n.t("deleteMessageTitle", ns: "common"),
+            isPresented: $showsDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.t("deleteLabel", ns: "common"), role: .destructive) {
+                deleteMessage()
+            }
+
+            Button(L10n.t("cancel", ns: "common"), role: .cancel) {}
+        } message: {
+            Text(L10n.t("deleteMessageConfirm", ns: "common"))
         }
     }
 
@@ -132,6 +155,24 @@ struct MessageRowView: View {
         } else {
             MessageBodyView(document: document, emojiOnly: MessageHTML.isEmojiOnly(html))
         }
+    }
+
+    private var messageMedia: [MessageMediaReference] {
+        let fileMedia = (message.files ?? []).compactMap { file in
+            MessageMediaReference.file(
+                fileExtension: file.fileExtension,
+                url: session.publicFileURL(for: file)
+            )
+        }
+        let metadataMedia = (message.metadata ?? []).compactMap { metadata in
+            MessageMediaReference.metadata(
+                kind: metadata.kind,
+                mediaType: metadata.mediaType,
+                url: session.url(forPath: metadata.url)
+            )
+        }
+
+        return MessageMediaReference.deduplicated(fileMedia + metadataMedia)
     }
 
     @ViewBuilder
@@ -228,7 +269,7 @@ struct MessageRowView: View {
 
             if canDelete {
                 Button(role: .destructive) {
-                    Task { try? await session.deleteMessage(message.id) }
+                    requestDeleteConfirmation()
                 } label: {
                     Image(systemName: "trash")
                 }
@@ -278,8 +319,18 @@ struct MessageRowView: View {
         if canDelete {
             Divider()
             Button(L10n.t("deleteLabel", ns: "sidebar"), role: .destructive) {
-                Task { try? await session.deleteMessage(message.id) }
+                requestDeleteConfirmation()
             }
+        }
+    }
+
+    private func requestDeleteConfirmation() {
+        showsDeleteConfirmation = true
+    }
+
+    private func deleteMessage() {
+        Task {
+            try? await session.deleteMessage(message.id)
         }
     }
 

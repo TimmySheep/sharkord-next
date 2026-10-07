@@ -74,6 +74,9 @@
   "categoryDeleted": "Kategorie gelöscht",
   "failedDeleteCategory": "Kategorie konnte nicht gelöscht werden",
   "userVolume": "Benutzerlautstärke",
+  "screenShareAudioVolume": "Lautstärke der Bildschirmfreigabe",
+  "muteAudio": "Audio stummschalten",
+  "unmuteAudio": "Audio einschalten",
   "microphone": "Mikrofon",
   "noiseSuppression": "Rauschunterdrückung"
 }

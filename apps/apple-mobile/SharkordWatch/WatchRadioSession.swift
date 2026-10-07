@@ -495,6 +495,8 @@ final class WatchRadioSession: ObservableObject {
             return
         }
 
+        DiagnosticsLogger.shared.info("watch.radio", "join requested")
+
         guard let transport else {
             state = .failed(L10n.t("watch.connectFirst"))
             return
@@ -513,7 +515,9 @@ final class WatchRadioSession: ObservableObject {
                 return
             }
             state = .listening
+            DiagnosticsLogger.shared.info("watch.radio", "joined and listening")
         } catch {
+            DiagnosticsLogger.shared.error("watch.radio", "join failed", error: error)
             state = .failed(error.localizedDescription)
             await transport.disconnect(channelId: channelId)
             currentChannelId = nil
@@ -585,6 +589,7 @@ final class WatchRadioSession: ObservableObject {
         }
 
         state = .leaving
+        DiagnosticsLogger.shared.info("watch.radio", "leave requested")
         pushToTalkRequest += 1
         audio.stopCapture()
         microphoneLevel = 0
@@ -594,6 +599,7 @@ final class WatchRadioSession: ObservableObject {
             try audio.deactivate()
         } catch {
             // the session is over either way; the next join reactivates it
+            DiagnosticsLogger.shared.warning("watch.audio", error.localizedDescription)
         }
 
         currentChannelId = nil
@@ -606,6 +612,7 @@ final class WatchRadioSession: ObservableObject {
         }
 
         state = .failed(message)
+        DiagnosticsLogger.shared.error("watch.radio", message)
         pushToTalkRequest += 1
         audio.stopCapture()
         microphoneLevel = 0

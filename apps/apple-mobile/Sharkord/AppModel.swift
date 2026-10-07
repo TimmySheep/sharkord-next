@@ -3,6 +3,11 @@ import Foundation
 import SharkordCore
 import SwiftUI
 
+struct PendingMessageNavigation: Equatable {
+    let channelId: Int
+    let messageId: Int
+}
+
 /// The single observable object the screens read. It owns the shared `SharkordSession`
 /// (server state and signalling), the `VoiceEngine` (media), and the small amount of UI
 /// state that is genuinely app local: language, banners and the Dynamic Island activity.
@@ -15,6 +20,8 @@ final class AppModel: ObservableObject {
 
     @Published var language: String = L10n.current
     @Published var banner: String?
+    @Published var pendingThreadParentId: Int?
+    @Published var pendingMessageNavigation: PendingMessageNavigation?
     @Published private(set) var liveActivityRunning = false
 
     private let liveActivityController = LiveActivityController()
@@ -24,6 +31,33 @@ final class AppModel: ObservableObject {
         let session = SharkordSession()
         self.session = session
         self.voice = VoiceEngine(session: session)
+
+        session.$phase
+            .dropFirst()
+            .sink { phase in
+                if case .failed(let message) = phase {
+                    DiagnosticsLogger.shared.error("session", message)
+                } else if case .connected = phase {
+                    DiagnosticsLogger.shared.info("session", "connected")
+                }
+            }
+            .store(in: &cancellables)
+
+        session.$lastError
+            .compactMap { $0 }
+            .removeDuplicates()
+            .sink { message in
+                DiagnosticsLogger.shared.error("session", message)
+            }
+            .store(in: &cancellables)
+
+        voice.$lastErrorMessage
+            .compactMap { $0 }
+            .removeDuplicates()
+            .sink { message in
+                DiagnosticsLogger.shared.error("voice", message)
+            }
+            .store(in: &cancellables)
 
         session.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
@@ -118,6 +152,7 @@ final class AppModel: ObservableObject {
             do {
                 try await voice.setMicrophoneEnabled(target)
             } catch {
+                DiagnosticsLogger.shared.error("voice", "microphone change failed", error: error)
                 banner = error.localizedDescription
             }
         }
@@ -130,6 +165,7 @@ final class AppModel: ObservableObject {
             do {
                 try await voice.setDeafened(target)
             } catch {
+                DiagnosticsLogger.shared.error("voice", "speaker change failed", error: error)
                 banner = error.localizedDescription
             }
         }
@@ -144,6 +180,33 @@ final class AppModel: ObservableObject {
                     try await voice.startScreenShare()
                 }
             } catch {
+                DiagnosticsLogger.shared.error("voice", "screen share action failed", error: error)
+                banner = error.localizedDescription
+            }
+        }
+    }
+
+    func toggleCamera() {
+        Task {
+            do {
+                if voice.cameraOn {
+                    await voice.stopCamera()
+                } else {
+                    try await voice.startCamera()
+                }
+            } catch {
+                DiagnosticsLogger.shared.error("voice", "camera action failed", error: error)
+                banner = error.localizedDescription
+            }
+        }
+    }
+
+    func switchCamera() {
+        Task {
+            do {
+                try await voice.switchCamera()
+            } catch {
+                DiagnosticsLogger.shared.error("voice", "camera switch failed", error: error)
                 banner = error.localizedDescription
             }
         }

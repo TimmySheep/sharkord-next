@@ -1,18 +1,23 @@
 /* Sharkord iOS - Français */
 
 /* connexion */
-"connect.title" = "Connexion à Sharkord";
-"connect.subtitle" = "Saisissez l'adresse de votre serveur et votre compte. Cette version communique avec le serveur réel : messages, voix et partage d'écran sont opérationnels.";
+"connect.title" = "Connexion à cove";
 "connect.server" = "Adresse du serveur";
 "connect.serverPlaceholder" = "https://chat.example.com";
 "connect.identity" = "Compte";
 "connect.identityPlaceholder" = "votre compte";
 "connect.password" = "Mot de passe";
 "connect.passwordPlaceholder" = "votre mot de passe";
-"connect.serverPassword" = "Mot de passe du serveur (facultatif)";
-"connect.serverPasswordPlaceholder" = "uniquement si le serveur en demande un";
+"connect.serverPassword" = "Mot de passe du serveur";
+"connect.serverPasswordPlaceholder" = "Facultatif";
 "connect.submit" = "Se connecter";
 "connect.connecting" = "Connexion en cours…";
+"connect.rememberLogin" = "Mémoriser ce compte et se connecter automatiquement";
+"connect.quickSignIn" = "Continuer avec le compte enregistré";
+"connect.forgetSavedLogin" = "Oublier le compte enregistré";
+"connect.credentialStorageFailed" = "Les identifiants enregistrés de façon sécurisée n’ont pas pu être mis à jour.";
+"connect.serverPasswordRequired" = "Mot de passe du serveur requis";
+"connect.joinServer" = "Rejoindre le serveur";
 
 /* navigation */
 "nav.channels" = "Canaux";
@@ -20,6 +25,12 @@
 "nav.settings" = "Réglages";
 "nav.directMessages" = "Messages privés";
 "nav.voiceChannels" = "Canaux vocaux";
+"dm.newMessage" = "Nouveau message";
+"dm.searchMembers" = "Rechercher des membres";
+"dm.emptyTitle" = "Aucune conversation pour le moment";
+"dm.emptyBody" = "Commencez une conversation avec un membre de ce serveur.";
+"dm.noMembers" = "Aucun membre trouvé";
+"dm.openFailed" = "Impossible de démarrer la conversation";
 
 /* canaux et messages */
 "channel.loadOlder" = "Charger les messages précédents";
@@ -39,6 +50,7 @@
 
 /* voix */
 "voice.call" = "Voix";
+"voice.openChat" = "Ouvrir le chat du salon";
 "voice.join" = "Rejoindre la voix";
 "voice.leave" = "Quitter la voix";
 "voice.controls" = "Commandes de l'appel";
@@ -70,6 +82,14 @@
 "voice.error.micBlockedByDeafen" = "Activez le haut-parleur avant d'ouvrir le micro.";
 "voice.error.screenShareNotAllowed" = "Vous n'avez pas la permission de partager l'écran ici.";
 "voice.error.screenShareUnavailable" = "Le partage d'écran n'est pas disponible sur cet appareil pour le moment.";
+"voice.error.cameraNotAllowed" = "Vous n’êtes pas autorisé à utiliser la caméra dans ce canal vocal.";
+"voice.error.cameraAccessRequired" = "Autorisez l’accès à la caméra dans Réglages pour partager la vidéo.";
+"voice.error.cameraUnavailable" = "Aucune caméra utilisable n’est disponible sur cet appareil.";
+"voice.camera.title" = "Caméra";
+"voice.camera.start" = "Activer la caméra";
+"voice.camera.stop" = "Désactiver la caméra";
+"voice.camera.switch" = "Changer de caméra";
+"voice.quality.auto" = "Qualité automatique";
 "voice.error.transportFailed" = "La connexion vocale a échoué.";
 "voice.liveActivity.topic" = "Salon vocal";
 "voice.liveActivity.previewChannel" = "Salon";
@@ -82,7 +102,7 @@
 
 /* réglages */
 "settings.language" = "Langue";
-"settings.languageHint" = "Cette version prend en charge l'anglais, le chinois simplifié, l'espagnol, le français et l'allemand.";
+"settings.developer" = "Développement";
 "settings.liveActivity" = "Dynamic Island";
 "settings.liveActivityStart" = "Aperçu d'une activité en direct";
 "settings.liveActivityStop" = "Arrêter l'aperçu";
@@ -91,13 +111,34 @@
 "settings.server" = "Serveur";
 "settings.account" = "Compte";
 "settings.disconnect" = "Se déconnecter";
-"settings.disconnectHint" = "Quitte le serveur et revient à l'écran de connexion.";
-"settings.about" = "À propos de cette version";
-"settings.aboutBody" = "Première version fonctionnelle : connexion, canaux, messages, réactions, voix avec contrôle du micro, partage d'écran et cinq langues. Les envois de fichiers, les fils, les plugins et les écrans de modération sont encore à venir.";
+"settings.diagnostics" = "Diagnostic";
+"settings.viewLogs" = "Afficher les journaux";
+"settings.exportLogs" = "Exporter les journaux";
+"settings.shareLogs" = "Partager le fichier journal";
+"settings.noLogs" = "Aucun journal n’a encore été enregistré.";
+"settings.exportFailed" = "Impossible de créer le fichier journal.";
 
 /* général */
 "common.save" = "Enregistrer";
 "common.cancel" = "Annuler";
+"common.done" = "Terminé";
+"message.thread" = "Ouvrir le fil";
+"message.replyCount" = "%d réponses";
+"message.attachFile" = "Joindre un fichier";
+"message.removeAttachment" = "Supprimer la pièce jointe";
+"message.attachmentLimit" = "La limite de fichiers du serveur est atteinte.";
+"message.fileTooLarge" = "Ce fichier dépasse la taille autorisée par le serveur.";
+"message.previewFailed" = "Impossible de charger l’aperçu de l’image.";
+"search.title" = "Rechercher des messages";
+"search.placeholder" = "Rechercher des messages et des fichiers";
+"search.searching" = "Recherche…";
+"search.noResults" = "Aucun résultat";
+"search.tryAnother" = "Essayez une autre recherche.";
+"search.messages" = "Messages";
+"search.files" = "Fichiers";
+"search.truncated" = "D’autres résultats sont peut-être disponibles. Affinez la recherche.";
+"search.minimumLength" = "Saisissez au moins deux caractères pour rechercher.";
+"search.attachment" = "Pièce jointe";
 
 /* v2 design additions */
 "nav.voice" = "Voix";
@@ -117,11 +158,11 @@
 "connect.cardTitle" = "Se connecter au serveur";
 "connect.moreOptions" = "Plus d'options de connexion";
 "connect.fewerOptions" = "Moins d'options";
-"channel.searchPlaceholder" = "Rechercher des canaux ou des membres";
+"channel.searchPlaceholder" = "Rechercher des canaux";
 "channel.currentMembers" = "Membres dans ce canal";
 "screenshare.infoTitle" = "Détection en direct connectée";
 "screenshare.infoBody" = "Les listes et la signalisation de négociation passent par le serveur Sharkord ; la vidéo circule en WebRTC/ICE de pair à pair et n'est pas relayée par le serveur.";
-"screenshare.startHint" = "Au démarrage, le système capture cet écran et l'envoie sur le canal vocal actuel. Cette version ne partage pas l'audio du système.";
+"screenshare.startHint" = "Cette version partage uniquement l’écran de l’app Cove via le canal vocal. Les autres apps et l’écran d’accueil iOS ne sont pas capturés.";
 "screenshare.myScreen" = "L'écran de cet appareil";
 
 /* watch (radio Apple Watch) */

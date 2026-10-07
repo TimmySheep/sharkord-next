@@ -25,9 +25,10 @@
     <string name="search_members">Buscar miembros</string>
     <string name="no_conversations">Aún no hay conversaciones</string>
     <string name="no_members">No se encontraron miembros.</string>
-    <string name="join_voice">Unirse a voz</string>
+    <string name="join_voice">Unirse al canal de voz</string>
     <string name="voice_room">Voz</string>
     <string name="voice_chat">Chat</string>
+    <string name="collapse_voice_room">Minimizar sala de voz</string>
     <string name="leave_voice">Salir de voz</string>
     <string name="microphone">Micrófono</string>
     <string name="speaker">Altavoz</string>
@@ -102,6 +103,7 @@
     <string name="camera_control">Cámara</string>
     <string name="screen_share_control">Compartir pantalla</string>
     <string name="no_voice_participants">Esperando a otros participantes.</string>
+    <string name="voice_preview_empty">Aún no hay nadie. Únete cuando quieras hablar.</string>
     <string name="camera_permission_required">No tienes permiso para usar la cámara en este canal de voz.</string>
     <string name="camera_unavailable">No se encontró una cámara disponible.</string>
     <string name="camera_start_failed">No se pudo iniciar la cámara.</string>

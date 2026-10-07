@@ -57,11 +57,9 @@ public sealed partial class MainWindow : Window
         _session = session;
         InitializeComponent();
 
-        var windowHandle = WindowNative.GetWindowHandle(this);
-        var windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
-        AppWindow.GetFromWindowId(windowId).SetIcon(
-            Path.Combine(AppContext.BaseDirectory, "Assets", "cove.ico")
-        );
+        RootGrid.ActualThemeChanged += OnRootThemeChanged;
+        SetWindowIconForCurrentTheme();
+        Closed += (_, _) => RootGrid.ActualThemeChanged -= OnRootThemeChanged;
 
         _languagePreference = ReadLanguagePreference();
         if (_languagePreference is null)
@@ -86,6 +84,21 @@ public sealed partial class MainWindow : Window
             _session.Changed -= OnSessionChanged;
             _session.VoiceProducerChanged -= OnVoiceProducerChanged;
         };
+    }
+
+    private void OnRootThemeChanged(FrameworkElement sender, object args)
+    {
+        SetWindowIconForCurrentTheme();
+    }
+
+    private void SetWindowIconForCurrentTheme()
+    {
+        var windowHandle = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
+        var iconName = RootGrid.ActualTheme == ElementTheme.Dark ? "cove-dark.ico" : "cove.ico";
+        AppWindow.GetFromWindowId(windowId).SetIcon(
+            Path.Combine(AppContext.BaseDirectory, "Assets", iconName)
+        );
     }
 
     /// <summary>
