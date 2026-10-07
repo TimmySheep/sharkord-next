@@ -12,4 +12,14 @@ final class AppearanceTests: XCTestCase {
 
         XCTAssertTrue(source.contains(".preferredColorScheme(.dark)"))
     }
+
+    func testCoveAppIconIsPresent() throws {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let icon = packageRoot.appendingPathComponent("Resources/cove.icns")
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: icon.path))
+    }
 }

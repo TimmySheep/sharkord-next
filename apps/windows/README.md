@@ -1,4 +1,4 @@
-# Sharkord for Windows (native)
+# cove for Windows (native)
 
 The native Windows client: C# + WinUI 3, no Electron and no embedded web view. It talks to
 the same server as the web client over the same wire protocol the macOS client uses: tRPC
@@ -6,9 +6,9 @@ over WebSocket plus the plain HTTP endpoints.
 
 **Build reality:** WinUI 3 / Windows App SDK is Windows-only and cannot be built on macOS.
 `Sharkord.Core` is a plain `net8.0` library and is compiled and tested on macOS; `Sharkord.App`
-is the WinUI 3 shell and must be built on Windows. It **has** been built there: on
-2026-10-07 `dotnet build -p:Platform=x64` produced `Sharkord.App.exe` with 0 warnings and
-0 errors on Windows 11 (build 26200, x64, .NET SDK 8.0.425), and `dotnet test` passed 12/12.
+is the WinUI 3 shell and must be built on Windows. The current Cove x64 Release build and
+self-contained publish both succeeded on Windows 11 with 0 warnings and 0 errors, producing
+`cove.exe`. The app has not been launched or visually reviewed.
 
 ## Layout
 
@@ -25,7 +25,7 @@ apps/windows/
     SharkordSession.cs           # login -> handshake -> join -> state + live subscriptions
     I18n/L10n.cs                 # locale lookup, embedded tables, {{placeholder}} interpolation
     I18n/locales/<lang>/         # windows.json + connect.json, 10 languages
-  src/Sharkord.App/              # WinUI 3 shell (Windows-only, not built here)
+  src/Sharkord.App/              # WinUI 3 shell and cove.ico (Windows-only)
   tests/Sharkord.Core.Tests/     # wire-format + i18n unit tests, a gated integration test
 ```
 
@@ -39,6 +39,9 @@ cd apps/windows
 dotnet build src/Sharkord.App/Sharkord.App.csproj -p:Platform=x64
 dotnet test tests/Sharkord.Core.Tests/Sharkord.Core.Tests.csproj
 ```
+
+The app embeds `Assets/cove.ico` in `cove.exe` and publishes the file under `Assets/` beside
+the executable for the WinUI title bar and taskbar icon.
 
 `-p:Platform=x64` is required, not optional. `Sharkord.App.csproj` declares
 `Platforms=x64;ARM64`, so the default `AnyCPU` is not in that list and the build fails with
@@ -64,7 +67,7 @@ SHARKORD_IT_HOST=127.0.0.1:4992 dotnet test --filter LoginJoinSendAndReceive
 
 ## What works today (verified)
 
-`Sharkord.Core` builds clean and its tests pass with `dotnet test` on macOS (52 tests, two of
+`Sharkord.Core` builds clean and its tests pass with `dotnet test` on macOS (53 tests, two of
 them end to end against a real server):
 
 - tRPC WebSocket framing: `connectionParams` first frame, `?connectionParams=1`, one
@@ -88,18 +91,18 @@ them end to end against a real server):
   `%LOCALAPPDATA%\Sharkord\language`. `L10nTests` scans the window source so a hardcoded
   english label or a renamed key fails the suite instead of surfacing as raw text at runtime.
 
-`Sharkord.App` is a conventional WinUI 3 shell (connect form, channel list, message list,
-composer, reactions and language picker) wired to `SharkordSession`. The language-picker
-revision **compiled on Windows 11 x64 in Release configuration** with 0 warnings and 0 errors.
-The newer reaction controls are implemented in the current source but still need a Windows
-rebuild. They render reaction chips, toggle existing reactions and offer six common reactions;
-other reaction shortcodes remain visible as `:shortcode:` text. The app has not been launched or
-visually reviewed, and the shell only exposes a slice of what `SharkordSession` already supports.
+`cove` is a conventional WinUI 3 shell (connect form, channel list, message list,
+composer, reactions and language picker) wired to `SharkordSession`. The current source,
+including the Cove branding and icon, compiled and published on Windows 11 x64 in Release
+configuration with 0 warnings and 0 errors. It renders reaction chips, toggles existing
+reactions and offers six common reactions; other reaction shortcodes remain visible as
+`:shortcode:` text. The app has not been launched or visually reviewed, and the shell only
+exposes a slice of what `SharkordSession` supports.
 
 ## What is not here yet
 
-- **The WinUI 3 app has not been launched or visually reviewed.** The current revision
-  builds clean on Windows 11 x64, but compilation does not verify runtime interactions.
+- **The current WinUI 3 app has not been launched or visually reviewed.** Its Release build
+  succeeds on Windows 11 x64, but compilation does not verify runtime interactions.
   `Microsoft.WindowsAppSDK` is pinned at `1.6.240923002` and
   `Microsoft.Windows.SDK.BuildTools` at `10.0.26100.1742`; both restore and build as
   declared, so they are not placeholders needing replacement.

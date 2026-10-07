@@ -218,7 +218,7 @@ public class L10nTests
         // a new control that hardcodes english is invisible until someone runs the app in
         // another language, which only happens on a Windows machine
         var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
-        var allowed = new[] { "Sharkord", "localhost:4991" };
+        var allowed = new[] { "cove", "localhost:4991" };
 
         Assert.Contains("x:Name=\"LanguageBox\"", xaml);
         Assert.Contains("SelectionChanged=\"OnLanguageSelectionChanged\"", xaml);
@@ -246,6 +246,26 @@ public class L10nTests
         Assert.Contains("Click=\"OnAddReactionClick\"", xaml);
         Assert.Contains(".ReactionGroups(message)", code);
         Assert.Contains("_session.ToggleReactionAsync", code);
+    }
+
+    [Fact]
+    public void WinUiUsesCoveBrandingAndIcon()
+    {
+        var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
+        var code = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml.cs"));
+        var project = File.ReadAllText(SourceFile("Sharkord.App/Sharkord.App.csproj"));
+        var iconPath = SourceFile("Sharkord.App/Assets/cove.ico");
+
+        Assert.Contains("Title=\"cove\"", xaml);
+        Assert.Contains("AppWindow.GetFromWindowId(windowId).SetIcon(", code);
+        Assert.Contains("<AssemblyName>cove</AssemblyName>", project);
+        Assert.Contains("<AssemblyTitle>cove</AssemblyTitle>", project);
+        Assert.Contains("<Product>cove</Product>", project);
+        Assert.Contains("<ApplicationIcon>Assets\\cove.ico</ApplicationIcon>", project);
+        Assert.Contains("<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>", project);
+        Assert.Contains("<ExcludeFromSingleFile>true</ExcludeFromSingleFile>", project);
+        Assert.Contains("Name=\"CopyCoveIconToPublishDirectory\" AfterTargets=\"Publish\"", project);
+        Assert.True(File.Exists(iconPath));
     }
 
     /// <summary>

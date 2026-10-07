@@ -1,11 +1,11 @@
 # 原生客户端现状与局限
 
-本目录包含 Sharkord 的两个原生客户端：
+本目录包含 Sharkord 的两个原生客户端，面向用户的软件名为 `cove`：
 
 | 目录 | 平台 | 技术栈 | 上游可构建 | 本机已构建 |
 | --- | --- | --- | --- | --- |
 | `apps/macos` | macOS 14+ | Swift 6 + SwiftUI（SwiftPM） | ✅ | ✅ 已验证 |
-| `apps/windows` | Windows 10 1809+ | C# + WinUI 3（.NET 8） | `Core` 跨平台；`App` 仅 Windows | Core ✅；App ✅（已构建，未运行） |
+| `apps/windows` | Windows 10 1809+ | C# + WinUI 3（.NET 8） | `Core` 跨平台；`App` 仅 Windows | Core ✅；cove x64 Release 构建 ✅，未做 GUI 走查 |
 
 设计与证据见 [`docs/NATIVE_STRATEGY.md`](../docs/NATIVE_STRATEGY.md) 与 [`ROADMAP.md`](../ROADMAP.md)。
 两者都**不使用 Electron、不内嵌 WebView**，直接与网页端同一套服务器通信（tRPC over WebSocket + 明文 HTTP）。
@@ -14,7 +14,7 @@
 
 ## 一、已实现并实测的能力
 
-下表状态以「本机实测通过」为准，不是「写完代码」。macOS 端 43 个测试、Windows Core 端 52 个测试全部通过；
+下表状态以「本机实测通过」为准，不是「写完代码」。macOS 端 44 个测试、Windows Core 端 53 个测试全部通过；
 macOS 其中 6 个、Windows Core 其中 2 个是打**真实服务器**的端到端测试。
 
 | 能力 | 服务端接口 | macOS | Windows Core |
@@ -68,10 +68,9 @@ Windows 是 `TrpcProtocol.cs` / `TrpcWebSocketClient.cs`。消息 HTML 的解析
 
 ### 2.1 阻塞性（当前无法绕过）
 
-1. **Windows 的 WinUI 3 界面已构建，但从未启动、未走查。** 2026-10-07 在 Windows 11（build 26200，x64，
-   .NET SDK 8.0.425）上 Release `dotnet build -p:Platform=x64` **通过，0 警告 0 错误**；
-   当时的 `dotnet test` **50/50 通过**。之后 Core 测试增至 52/52 并通过；最新新增的回应 UI
-   尚未在 Windows 重建，窗口外观与交互也仍未验收。
+1. **Windows 的 WinUI 3 界面已构建，但从未启动、未走查。** 2026-10-07 的当前 Cove x64
+   Release `dotnet publish` **通过，0 警告 0 错误**，并产出便携包；Core 测试 **53/53 通过**。
+   窗口外观与实际交互仍未验收。
    `Microsoft.WindowsAppSDK 1.6.240923002` 与 `Microsoft.Windows.SDK.BuildTools 10.0.26100.1742`
    是可还原、可构建的真实固定版本，不是占位值。构建前提是 `-p:Platform=x64` 不能省
    （csproj 声明 `Platforms=x64;ARM64`，默认 `AnyCPU` 不在列表内会报 `OutputPath` 未设置）。

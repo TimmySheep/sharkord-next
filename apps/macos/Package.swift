@@ -34,7 +34,8 @@ let package = Package(
             ],
             sources: ["Sources/SharkordMac"],
             resources: [
-                .copy("Resources/locales")
+                .copy("Resources/locales"),
+                .copy("Resources/cove.icns")
             ]
         ),
         .testTarget(

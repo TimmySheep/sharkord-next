@@ -1,12 +1,15 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Windowing;
 using Sharkord.Core;
 using Sharkord.Core.I18n;
 using Windows.System;
+using WinRT.Interop;
 
 namespace Sharkord.App;
 
@@ -43,6 +46,12 @@ public sealed partial class MainWindow : Window
     {
         _session = session;
         InitializeComponent();
+
+        var windowHandle = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
+        AppWindow.GetFromWindowId(windowId).SetIcon(
+            Path.Combine(AppContext.BaseDirectory, "Assets", "cove.ico")
+        );
 
         _languagePreference = ReadLanguagePreference();
         if (_languagePreference is null)

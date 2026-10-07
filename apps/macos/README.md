@@ -1,4 +1,4 @@
-# Sharkord for macOS (native)
+# cove for macOS (native)
 
 The native macOS client: Swift + SwiftUI, no Electron and no embedded web view. It talks to
 the same server as the web client over the documented-in-code wire protocol (tRPC over
@@ -12,6 +12,7 @@ below, and the full per-feature table lives in [`../README.md`](../README.md).
 ```
 apps/macos/
   Package.swift
+  Resources/cove.icns            # app bundle icon, generated from apps/assets/cove-icon.png
   Sources/SharkordCore/          # transport + session (the future packages/apple-core)
     JSONValue.swift              # dynamic JSON for the tRPC envelope
     TRPCProtocol.swift           # request/response framing (the only place that knows it)
@@ -52,6 +53,9 @@ document's plan).
 
 ## Build and run
 
+When launched, the Dock icon uses the shared cove icon. This SwiftPM executable is not
+packaged as a `.app` bundle, so it has no installed-app display name.
+
 ```bash
 cd apps/macos
 swift build
@@ -80,7 +84,7 @@ delete categories, channels, roles, emojis and invites, and change server settin
 
 ## What works today (verified)
 
-Verified with `swift test` (43 tests) against an isolated server instance, not by
+Verified with `swift test` (44 tests) against an isolated server instance, not by
 inspection. 6 of those are end-to-end against a real server; the rest pin the wire format,
 the message HTML vocabulary and the locale lookup.
 
@@ -142,8 +146,9 @@ the message HTML vocabulary and the locale lookup.
 - **Desktop notifications, unread aggregation, menu bar presence, global PTT.** Unread
   badges live in the sidebar only.
 - **Theme and accessibility.** The fixed dark palette pins the app's color scheme to dark so system semantic text colors stay readable when macOS is in light mode; no VoiceOver pass.
-- **A signed `.app` bundle.** `swift run` produces a plain executable. No `Info.plist`, no
-  notarisation, no Sparkle updates.
+- **Formal distribution and updates.** The preview `.app` and DMG use the `cove` name and
+  icon, but are ad-hoc signed and not notarized. There is no Developer ID signing, automated
+  packaging pipeline or Sparkle update support.
 - **Per-screen visual review.** Compiled, unit-tested and exercised end-to-end over the
   protocol, but not walked through by hand. An automated screenshot pass was attempted and
   stopped on a `cua-driver` permission denial rather than worked around.

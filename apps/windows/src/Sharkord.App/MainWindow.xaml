@@ -6,7 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    Title="Sharkord">
+    Title="cove">
 
     <Grid Padding="24">
         <StackPanel
@@ -15,7 +15,7 @@
             Spacing="12"
             HorizontalAlignment="Center"
             VerticalAlignment="Center">
-            <TextBlock Text="Sharkord" FontSize="28" FontWeight="Bold" />
+            <TextBlock Text="cove" FontSize="28" FontWeight="Bold" />
             <TextBlock x:Name="TaglineText" Opacity="0.6" />
             <!-- the placeholder shows a host:port example, so it stays untranslated -->
             <TextBox x:Name="HostBox" PlaceholderText="localhost:4991" />

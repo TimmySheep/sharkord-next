@@ -5,6 +5,10 @@
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <RootNamespace>Sharkord.App</RootNamespace>
+    <AssemblyTitle>cove</AssemblyTitle>
+    <AssemblyName>cove</AssemblyName>
+    <Product>cove</Product>
+    <ApplicationIcon>Assets\cove.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
@@ -15,6 +19,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="Assets\cove.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.240923002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
   </ItemGroup>
@@ -22,5 +34,12 @@
   <ItemGroup>
     <ProjectReference Include="..\Sharkord.Core\Sharkord.Core.csproj" />
   </ItemGroup>
+
+  <Target Name="CopyCoveIconToPublishDirectory" AfterTargets="Publish">
+    <MakeDir Directories="$(PublishDir)Assets" />
+    <Copy
+      SourceFiles="$(MSBuildProjectDirectory)\Assets\cove.ico"
+      DestinationFolder="$(PublishDir)Assets" />
+  </Target>
 
 </Project>
