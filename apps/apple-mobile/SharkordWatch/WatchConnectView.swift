@@ -1,10 +1,8 @@
 import SwiftUI
 
-/// Sign-in screen. Same flow as the iPhone client but sized for the wrist. Phase 1 is
-/// offline: connecting simulates the handshake and enters the channel list.
+/// sign-in screen using the same HTTP login and tRPC handshake as the other clients.
 struct WatchConnectView: View {
     @EnvironmentObject private var model: WatchSessionModel
-    @State private var password = ""
 
     var body: some View {
         ScrollView {
@@ -23,7 +21,8 @@ struct WatchConnectView: View {
                     VStack(spacing: 8) {
                         field(L10n.t("connect.server"), text: $model.server, placeholder: L10n.t("connect.serverPlaceholder"), secure: false)
                         field(L10n.t("connect.identity"), text: $model.identity, placeholder: L10n.t("connect.identityPlaceholder"), secure: false)
-                        field(L10n.t("connect.password"), text: $password, placeholder: L10n.t("connect.passwordPlaceholder"), secure: true)
+                        field(L10n.t("connect.password"), text: $model.password, placeholder: L10n.t("connect.passwordPlaceholder"), secure: true)
+                        field(L10n.t("connect.serverPassword"), text: $model.serverPassword, placeholder: L10n.t("connect.serverPasswordPlaceholder"), secure: true)
                     }
                 }
 
@@ -32,18 +31,20 @@ struct WatchConnectView: View {
                         await model.connect()
                     }
                 } label: {
-                    Text(model.phase == .connecting ? L10n.t("connect.connecting") : L10n.t("connect.submit"))
+                    Text(model.isConnecting ? L10n.t("connect.connecting") : L10n.t("connect.submit"))
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(WatchTheme.accent)
-                .disabled(model.phase == .connecting)
+                .disabled(model.isConnecting)
 
-                Text(L10n.t("watch.mockNotice"))
-                    .font(.caption2)
-                    .foregroundStyle(WatchTheme.textSecondary)
-                    .multilineTextAlignment(.center)
+                if let connectError = model.connectError {
+                    Text(connectError)
+                        .font(.caption2)
+                        .foregroundStyle(WatchTheme.danger)
+                        .multilineTextAlignment(.center)
+                }
             }
             .padding(.horizontal, 6)
         }

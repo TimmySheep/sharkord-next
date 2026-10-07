@@ -133,3 +133,13 @@
 "watch.leaveChannel" = "Leave channel";
 "watch.volume" = "Volume %d%%";
 "watch.volumeHint" = "Digital Crown sets volume";
+"watch.otherChannels" = "Other channels";
+"watch.emptyMessages" = "No messages yet.";
+"watch.unknownUser" = "Unknown user";
+"watch.reply" = "Reply";
+"watch.replyingTo" = "Replying to";
+"watch.messagePlaceholder" = "Message";
+"watch.connectFirst" = "Connect to a server first";
+"watch.invalidServerAddress" = "Enter a valid server address";
+"watch.disconnected" = "Radio is disconnected";
+"watch.audioUnavailable" = "Unable to prepare microphone audio";

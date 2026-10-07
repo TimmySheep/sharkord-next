@@ -133,3 +133,13 @@
 "watch.leaveChannel" = "离开频道";
 "watch.volume" = "音量 %d%%";
 "watch.volumeHint" = "数码表冠调节音量";
+"watch.otherChannels" = "其他频道";
+"watch.emptyMessages" = "暂无消息";
+"watch.unknownUser" = "未知用户";
+"watch.reply" = "回复";
+"watch.replyingTo" = "回复给";
+"watch.messagePlaceholder" = "发送消息";
+"watch.connectFirst" = "请先连接服务器";
+"watch.invalidServerAddress" = "请输入有效的服务器地址";
+"watch.disconnected" = "对讲连接已断开";
+"watch.audioUnavailable" = "无法准备麦克风音频";

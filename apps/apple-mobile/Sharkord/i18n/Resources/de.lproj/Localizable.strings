@@ -133,3 +133,13 @@
 "watch.leaveChannel" = "Kanal verlassen";
 "watch.volume" = "Lautstärke %d%%";
 "watch.volumeHint" = "Die Digital Crown regelt die Lautstärke";
+"watch.otherChannels" = "Weitere Kanäle";
+"watch.emptyMessages" = "Noch keine Nachrichten.";
+"watch.unknownUser" = "Unbekannter Nutzer";
+"watch.reply" = "Antworten";
+"watch.replyingTo" = "Antwort an";
+"watch.messagePlaceholder" = "Nachricht";
+"watch.connectFirst" = "Verbinde dich zuerst mit einem Server";
+"watch.invalidServerAddress" = "Gib eine gültige Serveradresse ein";
+"watch.disconnected" = "Die Funkverbindung wurde getrennt";
+"watch.audioUnavailable" = "Mikrofon-Audio konnte nicht vorbereitet werden";

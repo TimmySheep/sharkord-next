@@ -8,6 +8,13 @@ type TVoiceProducerEvent = {
   kind: StreamKind;
 };
 
+type TVoiceRadioFrameEvent = {
+  channelId: number;
+  userId: number;
+  seq: number;
+  payload: string;
+};
+
 // these events are broadcast to ALL users (for UI population in the sidebar)
 const onUserJoinVoiceRoute = protectedProcedure.subscription(
   async ({ ctx }) => {
@@ -88,7 +95,16 @@ const onVoiceProducerClosedRoute = protectedProcedure.subscription(
   }
 );
 
+const onRadioFrameRoute = protectedProcedure.subscription(async ({ ctx }) => {
+  if (!ctx.currentVoiceChannelId) {
+    return observable<TVoiceRadioFrameEvent>(() => () => {});
+  }
+
+  return ctx.pubsub.subscribeFor(ctx.user.id, ServerEvents.VOICE_RADIO_FRAME);
+});
+
 export {
+  onRadioFrameRoute,
   onUserJoinVoiceRoute,
   onUserLeaveVoiceRoute,
   onUserUpdateVoiceStateRoute,

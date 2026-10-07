@@ -6,6 +6,7 @@ import { consumeRoute } from './consume';
 import { createConsumerTransportRoute } from './create-consumer-transport';
 import { createProducerTransportRoute } from './create-producer-transport';
 import {
+  onRadioFrameRoute,
   onUserJoinVoiceRoute,
   onUserLeaveVoiceRoute,
   onUserUpdateVoiceStateRoute,
@@ -22,6 +23,9 @@ import { joinVoiceRoute } from './join';
 import { leaveVoiceRoute } from './leave';
 import { moveUserRoute } from './move';
 import { produceRoute } from './produce';
+import { radioFrameRoute } from './radio-frame';
+import { radioStartRoute } from './radio-start';
+import { radioStopRoute } from './radio-stop';
 import { sendVoiceReactionRoute } from './send-reaction';
 import { setConsumerQualityRoute } from './set-consumer-quality';
 import { updateVoiceStateRoute } from './update-state';
@@ -38,6 +42,9 @@ export const voiceRouter = t.router({
   connectConsumerTransport: connectConsumerTransportRoute,
   closeProducer: closeProducerRoute,
   produce: produceRoute,
+  radioStart: radioStartRoute,
+  radioFrame: radioFrameRoute,
+  radioStop: radioStopRoute,
   consume: consumeRoute,
   setConsumerQuality: setConsumerQualityRoute,
   getProducers: getProducersRoute,
@@ -48,6 +55,7 @@ export const voiceRouter = t.router({
   onReaction: onUserVoiceReactionRoute,
   onNewProducer: onVoiceNewProducerRoute,
   onProducerClosed: onVoiceProducerClosedRoute,
+  onRadioFrame: onRadioFrameRoute,
   onAddExternalStream: onVoiceAddExternalStreamRoute,
   onUpdateExternalStream: onVoiceUpdateExternalStreamRoute,
   onRemoveExternalStream: onVoiceRemoveExternalStreamRoute

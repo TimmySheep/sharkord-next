@@ -135,6 +135,13 @@ type TExternalStreamInternal = {
   producers: TExternalStreamProducers;
 };
 
+type TVoiceProducerChange = {
+  userId: number;
+  kind: StreamKind;
+  producerId: string;
+  added: boolean;
+};
+
 const EXTERNAL_STREAM_ID_BASE = 1_000_000;
 
 class VoiceRuntime {
@@ -149,6 +156,9 @@ class VoiceRuntime {
   private screenAudioProducers: TProducerMap = {};
   private consumers: TConsumerMap = {};
   private producerQualityLayers: TProducerQualityLayerMap = {};
+  private producerChangeListeners = new Set<
+    (change: TVoiceProducerChange) => void
+  >();
 
   private externalCounter = EXTERNAL_STREAM_ID_BASE;
   private externalStreamsInternal: {
@@ -629,6 +639,22 @@ class VoiceRuntime {
     }
   };
 
+  public getAudioProducers = () =>
+    Object.entries(this.audioProducers).map(([userId, producer]) => ({
+      userId: Number(userId),
+      producer
+    }));
+
+  public subscribeToProducerChanges = (
+    listener: (change: TVoiceProducerChange) => void
+  ) => {
+    this.producerChangeListeners.add(listener);
+
+    return () => {
+      this.producerChangeListeners.delete(listener);
+    };
+  };
+
   public addProducer = (
     userId: number,
     type: StreamKind,
@@ -660,6 +686,9 @@ class VoiceRuntime {
       kind: type,
       producerId: producer.id
     });
+    this.producerChangeListeners.forEach((listener) => {
+      listener({ userId, kind: type, producerId: producer.id, added: true });
+    });
 
     producer.observer.on('close', () => {
       eventBus.emit('voice:producer_removed', {
@@ -680,6 +709,9 @@ class VoiceRuntime {
       }
 
       this.setProducerQualityLayers(userId, type, []);
+      this.producerChangeListeners.forEach((listener) => {
+        listener({ userId, kind: type, producerId: producer.id, added: false });
+      });
     });
   };
 

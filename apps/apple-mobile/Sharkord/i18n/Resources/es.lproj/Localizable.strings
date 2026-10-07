@@ -133,3 +133,13 @@
 "watch.leaveChannel" = "Salir del canal";
 "watch.volume" = "Volumen %d%%";
 "watch.volumeHint" = "La Corona Digital ajusta el volumen";
+"watch.otherChannels" = "Otros canales";
+"watch.emptyMessages" = "Aún no hay mensajes.";
+"watch.unknownUser" = "Usuario desconocido";
+"watch.reply" = "Responder";
+"watch.replyingTo" = "Respondiendo a";
+"watch.messagePlaceholder" = "Mensaje";
+"watch.connectFirst" = "Conéctate primero a un servidor";
+"watch.invalidServerAddress" = "Introduce una dirección de servidor válida";
+"watch.disconnected" = "La radio está desconectada";
+"watch.audioUnavailable" = "No se pudo preparar el audio del micrófono";

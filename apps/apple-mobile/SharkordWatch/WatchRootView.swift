@@ -1,19 +1,23 @@
 import SwiftUI
+import SharkordCore
 
-/// Routing: connect -> channel list -> radio room. Same explicit lifecycle as the
+/// routing: connect -> channel list -> radio room. Same explicit lifecycle as the
 /// product definition: joining a channel starts a radio session, leaving ends it.
 struct WatchRootView: View {
-    @EnvironmentObject private var model: WatchSessionModel
+    @EnvironmentObject private var session: SharkordSession
 
     var body: some View {
-        Group {
-            switch model.phase {
-            case .disconnected, .connecting:
-                WatchConnectView()
-            case .connected:
-                WatchChannelListView()
+        NavigationStack {
+            Group {
+                switch session.phase {
+                case .disconnected, .connecting, .failed:
+                    WatchConnectView()
+                case .connected:
+                    WatchChannelListView()
+                }
             }
+            .background(WatchTheme.background)
         }
-        .background(WatchTheme.background)
+        .preferredColorScheme(.dark)
     }
 }

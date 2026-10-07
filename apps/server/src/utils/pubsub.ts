@@ -109,6 +109,12 @@ type Events = {
     remoteId: number;
     kind: StreamKind;
   };
+  [ServerEvents.VOICE_RADIO_FRAME]: {
+    channelId: number;
+    userId: number;
+    seq: number;
+    payload: string;
+  };
 
   [ServerEvents.PLUGIN_LOG]: TLogEntry;
   [ServerEvents.PLUGIN_COMMANDS_CHANGE]: TCommandsMapByPlugin;

@@ -7,7 +7,9 @@ import PackageDescription
 let package = Package(
     name: "SharkordMac",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v14),
+        .iOS(.v17),
+        .watchOS(.v10)
     ],
     products: [
         .executable(name: "SharkordMac", targets: ["SharkordMac"]),

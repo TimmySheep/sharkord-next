@@ -1,38 +1,62 @@
 import Foundation
+import SwiftUI
+import SharkordCore
 
-/// The watch's app state: a mock server session plus the radio session. Phase 1 is
-/// offline by design (the skeleton demonstrates the join / hold to talk / leave flow),
-/// phase 2 swaps `connect` for the real Sharkord session and `MockRadioTransport` for
-/// the server relay transport.
+/// owns the shared Sharkord session and the Watch-only radio controller.
 @MainActor
 final class WatchSessionModel: ObservableObject {
-    enum Phase: Equatable {
-        case disconnected
-        case connecting
-        case connected
+    @Published var server = UserDefaults.standard.string(forKey: "watch.server") ?? ""
+    @Published var identity = UserDefaults.standard.string(forKey: "watch.identity") ?? ""
+    @Published var password = ""
+    @Published var serverPassword = ""
+    @Published private(set) var isConnecting = false
+    @Published private(set) var connectError: String?
+
+    let session: SharkordSession
+    let radio: WatchRadioSession
+
+    init(session: SharkordSession) {
+        self.session = session
+        self.radio = WatchRadioSession()
     }
-
-    @Published var phase: Phase = .disconnected
-    @Published var errorMessage: String?
-    @Published var identity = ""
-    @Published var server = ""
-
-    let channels = MockData.channels
-    let radio = WatchRadioSession()
 
     func connect() async {
-        phase = .connecting
-        errorMessage = nil
+        guard !isConnecting else {
+            return
+        }
 
-        // offline skeleton: pretend to reach the server, then enter the workspace
-        try? await Task.sleep(nanoseconds: 600_000_000)
-        phase = .connected
+        isConnecting = true
+        connectError = nil
+        UserDefaults.standard.set(server, forKey: "watch.server")
+        UserDefaults.standard.set(identity, forKey: "watch.identity")
+        let radioCredentials = WatchRadioCredentials(
+            host: server,
+            identity: identity,
+            password: password,
+            serverPassword: serverPassword.isEmpty ? nil : serverPassword
+        )
+
+        await session.connect(
+            host: server,
+            identity: identity,
+            password: password,
+            serverPassword: serverPassword.isEmpty ? nil : serverPassword
+        )
+
+        isConnecting = false
+
+        if case .failed(let message) = session.phase {
+            connectError = message
+            return
+        }
+
+        password = ""
+        serverPassword = ""
+        radio.configure(credentials: radioCredentials)
     }
 
-    func disconnect() {
-        Task {
-            await radio.leave()
-        }
-        phase = .disconnected
+    func disconnect() async {
+        await radio.leave()
+        session.disconnect()
     }
 }

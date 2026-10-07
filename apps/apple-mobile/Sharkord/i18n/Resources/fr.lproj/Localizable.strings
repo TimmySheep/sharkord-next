@@ -133,3 +133,13 @@
 "watch.leaveChannel" = "Quitter le canal";
 "watch.volume" = "Volume %d%%";
 "watch.volumeHint" = "La Couronne numérique règle le volume";
+"watch.otherChannels" = "Autres salons";
+"watch.emptyMessages" = "Aucun message pour le moment.";
+"watch.unknownUser" = "Utilisateur inconnu";
+"watch.reply" = "Répondre";
+"watch.replyingTo" = "Réponse à";
+"watch.messagePlaceholder" = "Message";
+"watch.connectFirst" = "Connectez-vous d’abord à un serveur";
+"watch.invalidServerAddress" = "Saisissez une adresse de serveur valide";
+"watch.disconnected" = "La radio est déconnectée";
+"watch.audioUnavailable" = "Impossible de préparer l’audio du microphone";

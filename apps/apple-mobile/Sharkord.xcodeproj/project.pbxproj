@@ -47,6 +47,7 @@
 		BB0000000000000000000026 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000013 /* L10n.swift */; };
 		BB0000000000000000000027 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000017 /* Localizable.strings */; };
 		BB0000000000000000000028 /* SharkordWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = FD0000000000000000000003 /* SharkordWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BB0000000000000000000029 /* WatchMessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000002A /* WatchMessagesView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -131,6 +132,7 @@
 		FB0000000000000000000027 /* WatchChannelListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchChannelListView.swift; sourceTree = "<group>"; };
 		FB0000000000000000000028 /* WatchRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRoomView.swift; sourceTree = "<group>"; };
 		FB0000000000000000000029 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FB000000000000000000002A /* WatchMessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMessagesView.swift; sourceTree = "<group>"; };
 		FD0000000000000000000003 /* SharkordWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SharkordWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB000000000000000000001D /* RemoteVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteVideoView.swift; sourceTree = "<group>"; };
 		FD0000000000000000000001 /* Sharkord.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sharkord.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -282,6 +284,7 @@
 				FB0000000000000000000026 /* WatchConnectView.swift */,
 				FB0000000000000000000027 /* WatchChannelListView.swift */,
 				FB0000000000000000000028 /* WatchRoomView.swift */,
+				FB000000000000000000002A /* WatchMessagesView.swift */,
 				FB0000000000000000000029 /* Info.plist */,
 			);
 			path = SharkordWatch;
@@ -345,6 +348,9 @@
 			dependencies = (
 			);
 			name = SharkordWatch;
+			packageProductDependencies = (
+				E00000000000000000000005 /* SharkordCore */,
+			);
 			productName = SharkordWatch;
 			productReference = FD0000000000000000000003 /* SharkordWatch.app */;
 			productType = "com.apple.product-type.application";
@@ -478,6 +484,7 @@
 				BB0000000000000000000024 /* WatchChannelListView.swift in Sources */,
 				BB0000000000000000000025 /* WatchRoomView.swift in Sources */,
 				BB0000000000000000000026 /* L10n.swift in Sources */,
+				BB0000000000000000000029 /* WatchMessagesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -792,6 +799,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = E00000000000000000000002 /* XCRemoteSwiftPackageReference "mediasoup-client-swift" */;
 			productName = Mediasoup;
+		};
+		E00000000000000000000005 /* SharkordCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E00000000000000000000001 /* XCLocalSwiftPackageReference "../macos" */;
+			productName = SharkordCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

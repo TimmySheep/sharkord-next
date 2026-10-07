@@ -1,25 +1,40 @@
+import SharkordCore
 import SwiftUI
 import WatchKit
 
-/// The radio room. This screen IS the product: an explicit join starts the session, the
-/// big button is hold to talk, and leaving closes capture, transport and audio session.
-/// The digital crown controls the channel volume.
+private struct WatchVoiceParticipant: Identifiable {
+    let id: Int
+    let name: String
+    let micMuted: Bool
+}
+
+/// the radio room has an explicit join, hold-to-talk and leave lifecycle.
 struct WatchRoomView: View {
-    @EnvironmentObject private var model: WatchSessionModel
+    @EnvironmentObject private var session: SharkordSession
     @EnvironmentObject private var radio: WatchRadioSession
     @Environment(\.dismiss) private var dismiss
 
-    let channelId: String
+    let channelId: Int
 
-    private var channel: WatchChannel? {
-        model.channels.first { $0.id == channelId }
+    private var channel: SharkordChannel? {
+        session.channel(for: channelId)
+    }
+
+    private var participants: [WatchVoiceParticipant] {
+        session.voiceUsers(in: channelId).map { entry in
+            WatchVoiceParticipant(
+                id: entry.user.id,
+                name: entry.user.name,
+                micMuted: entry.state.micMuted
+            )
+        }
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
                 header
-                participants
+                participantList
                 HoldToTalkButton()
                 leaveButton
             }
@@ -38,8 +53,9 @@ struct WatchRoomView: View {
 
     private var header: some View {
         VStack(spacing: 6) {
-            Text(channel?.name ?? channelId)
+            Text(channel?.name ?? "#\(channelId)")
                 .font(.headline)
+                .lineLimit(1)
             WatchStatePill(color: stateColor, text: stateText)
             HStack(spacing: 4) {
                 Image(systemName: "speaker.wave.2.fill")
@@ -53,19 +69,24 @@ struct WatchRoomView: View {
         }
     }
 
-    private var participants: some View {
+    private var participantList: some View {
         WatchCard {
             VStack(alignment: .leading, spacing: 6) {
-                if let channel {
-                    ForEach(channel.participants) { participant in
+                if participants.isEmpty {
+                    Text(L10n.t("voice.emptyRoom"))
+                        .font(.caption2)
+                        .foregroundStyle(WatchTheme.textSecondary)
+                } else {
+                    ForEach(participants) { participant in
                         HStack(spacing: 6) {
                             Circle()
-                                .fill(participant.isSpeaking ? WatchTheme.accentSoft : WatchTheme.textSecondary.opacity(0.4))
+                                .fill(participant.micMuted ? WatchTheme.textSecondary.opacity(0.4) : WatchTheme.accentSoft)
                                 .frame(width: 7, height: 7)
                             Text(participant.name)
                                 .font(.caption)
                                 .foregroundStyle(WatchTheme.textPrimary)
-                            Spacer()
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
                             if participant.micMuted {
                                 Image(systemName: "mic.slash.fill")
                                     .font(.caption2)
@@ -73,10 +94,6 @@ struct WatchRoomView: View {
                             }
                         }
                     }
-                } else {
-                    Text(L10n.t("voice.emptyRoom"))
-                        .font(.caption2)
-                        .foregroundStyle(WatchTheme.textSecondary)
                 }
             }
         }
@@ -129,9 +146,7 @@ struct WatchRoomView: View {
     }
 }
 
-/// Hold to talk. Touch down starts the microphone, touch up stops it and keeps the
-/// session listening. Disabled outside an established session so the microphone can
-/// never open outside a joined channel.
+/// the microphone opens only after the radio session is joined.
 private struct HoldToTalkButton: View {
     @EnvironmentObject private var radio: WatchRadioSession
     @State private var isPressed = false
@@ -168,7 +183,9 @@ private struct HoldToTalkButton: View {
                         return
                     }
                     isPressed = true
-                    radio.beginTransmit()
+                    Task {
+                        await radio.beginTransmit()
+                    }
                     WKInterfaceDevice.current().play(.start)
                 }
                 .onEnded { _ in
@@ -176,7 +193,9 @@ private struct HoldToTalkButton: View {
                         return
                     }
                     isPressed = false
-                    radio.endTransmit()
+                    Task {
+                        await radio.endTransmit()
+                    }
                     WKInterfaceDevice.current().play(.stop)
                 }
         )
