@@ -10,20 +10,26 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.ScreenShare
@@ -54,6 +60,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -73,6 +81,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import android.Manifest
@@ -128,6 +137,104 @@ fun ChannelChatScreen(state: SessionState, model: CoveViewModel, channel: Channe
         }
     }
 
+    val voicePanel: @Composable (Modifier) -> Unit = { panelModifier ->
+        VoiceCallPanel(
+            channel = channel,
+            state = state,
+            remoteVideoTracks = remoteVideoTracks,
+            onJoin = { model.joinVoice(channel.id) },
+            onLeave = model::leaveVoice,
+            onToggleMicrophone = {
+                if (state.microphoneEnabled) {
+                    model.setMicrophoneEnabled(false)
+                } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    model.setMicrophoneEnabled(true)
+                } else {
+                    microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            },
+            onToggleSpeaker = { model.setSpeakerEnabled(!state.speakerEnabled) },
+            onStartScreenShare = {
+                val manager = context.getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                screenCapturePermission.launch(manager.createScreenCaptureIntent())
+            },
+            onStopScreenShare = model::stopScreenShare,
+            modifier = panelModifier
+        )
+    }
+
+    val conversation: @Composable ColumnScope.() -> Unit = {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (state.messageCursors[channel.id] != null) {
+                    TextButton(onClick = { model.loadOlder(channel.id) }) {
+                        Text(stringResource(R.string.load_older))
+                    }
+                } else {
+                    Spacer(Modifier.height(1.dp))
+                }
+            }
+
+            if (messages.isEmpty()) {
+                EmptyContent(
+                    title = stringResource(R.string.no_messages),
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(messages, key = Message::id) { message ->
+                        MessageRow(
+                            message = message,
+                            authorName = state.users.firstOrNull { it.id == message.userId }?.name ?: stringResource(R.string.unknown_user),
+                            isOwnMessage = message.userId == state.ownUserId,
+                            ownUserId = state.ownUserId,
+                            onOpenActions = { actionMessage = message },
+                            onToggleReaction = { emoji -> model.toggleReaction(message.id, emoji) }
+                        )
+                    }
+                }
+            }
+
+            replyingTo?.let { message ->
+                ReplyingBanner(
+                    message = message,
+                    onDismiss = { replyingTo = null }
+                )
+            }
+            editingMessage?.let { message ->
+                EditBanner(
+                    message = message,
+                    onDismiss = {
+                        editingMessage = null
+                        editText = ""
+                    }
+                )
+            }
+
+            MessageComposer(
+                value = if (editingMessage != null) editText else draft,
+                onValueChange = { value -> if (editingMessage != null) editText = value else draft = value },
+                isEditing = editingMessage != null,
+                onSend = {
+                    if (editingMessage != null) {
+                        model.editMessage(editingMessage!!.id, editText)
+                        editingMessage = null
+                        editText = ""
+                    } else {
+                        model.sendMessage(channel.id, draft, replyingTo?.id)
+                        draft = ""
+                        replyingTo = null
+                    }
+                }
+            )
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         if (channel.topic?.isNotBlank() == true) {
             Text(
@@ -141,99 +248,34 @@ fun ChannelChatScreen(state: SessionState, model: CoveViewModel, channel: Channe
         }
 
         if (channel.type == ChannelType.VOICE) {
-            VoiceCallPanel(
-                channel = channel,
-                state = state,
-                remoteVideoTracks = remoteVideoTracks,
-                onJoin = { model.joinVoice(channel.id) },
-                onLeave = model::leaveVoice,
-                onToggleMicrophone = {
-                    if (state.microphoneEnabled) {
-                        model.setMicrophoneEnabled(false)
-                    } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                        model.setMicrophoneEnabled(true)
-                    } else {
-                        microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+            BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (maxWidth >= 600.dp) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        voicePanel(
+                            Modifier
+                                .width(300.dp)
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState())
+                        )
+                        VerticalDivider()
+                        Column(modifier = Modifier.weight(1f).fillMaxHeight(), content = conversation)
                     }
-                },
-                onToggleSpeaker = { model.setSpeakerEnabled(!state.speakerEnabled) },
-                onStartScreenShare = {
-                    val manager = context.getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                    screenCapturePermission.launch(manager.createScreenCaptureIntent())
-                },
-                onStopScreenShare = model::stopScreenShare
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (state.messageCursors[channel.id] != null) {
-                TextButton(onClick = { model.loadOlder(channel.id) }) {
-                    Text(stringResource(R.string.load_older))
-                }
-            } else {
-                Spacer(Modifier.height(1.dp))
-            }
-        }
-
-        if (messages.isEmpty()) {
-            EmptyContent(
-                title = stringResource(R.string.no_messages),
-                modifier = Modifier.weight(1f)
-            )
-        } else {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                items(messages, key = Message::id) { message ->
-                    MessageRow(
-                        message = message,
-                        authorName = state.users.firstOrNull { it.id == message.userId }?.name ?: stringResource(R.string.unknown_user),
-                        isOwnMessage = message.userId == state.ownUserId,
-                        ownUserId = state.ownUserId,
-                        onOpenActions = { actionMessage = message },
-                        onToggleReaction = { emoji -> model.toggleReaction(message.id, emoji) }
-                    )
-                }
-            }
-        }
-
-        replyingTo?.let { message ->
-            ReplyingBanner(
-                message = message,
-                onDismiss = { replyingTo = null }
-            )
-        }
-        editingMessage?.let { message ->
-            EditBanner(
-                message = message,
-                onDismiss = {
-                    editingMessage = null
-                    editText = ""
-                }
-            )
-        }
-
-        MessageComposer(
-            value = if (editingMessage != null) editText else draft,
-            onValueChange = { value -> if (editingMessage != null) editText = value else draft = value },
-            isEditing = editingMessage != null,
-            onSend = {
-                if (editingMessage != null) {
-                    model.editMessage(editingMessage!!.id, editText)
-                    editingMessage = null
-                    editText = ""
                 } else {
-                    model.sendMessage(channel.id, draft, replyingTo?.id)
-                    draft = ""
-                    replyingTo = null
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        voicePanel(
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 280.dp)
+                                .verticalScroll(rememberScrollState())
+                        )
+                        HorizontalDivider()
+                        Column(modifier = Modifier.weight(1f).fillMaxWidth(), content = conversation)
+                    }
                 }
             }
-        )
+        } else {
+            Column(modifier = Modifier.weight(1f).fillMaxWidth(), content = conversation)
+        }
     }
 
     actionMessage?.let { message ->
@@ -514,7 +556,8 @@ private fun VoiceCallPanel(
     onToggleMicrophone: () -> Unit,
     onToggleSpeaker: () -> Unit,
     onStartScreenShare: () -> Unit,
-    onStopScreenShare: () -> Unit
+    onStopScreenShare: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isInThisRoom = state.voiceChannelId == channel.id
     val participants = state.voiceUsersByChannel[channel.id].orEmpty()
@@ -522,12 +565,12 @@ private fun VoiceCallPanel(
         ?.jsonObject?.get("permissions")?.jsonObject?.get("SHARE_SCREEN")?.jsonPrimitive?.booleanOrNull ?: false
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = MaterialTheme.shapes.extraLarge,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -590,20 +633,21 @@ private fun VoiceCallPanel(
                         )
                     }
                     if (participants.isNotEmpty()) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            participants.forEach { (userId, voiceState) ->
-                                val user = state.users.firstOrNull { it.id == userId } ?: return@forEach
-                                AssistChip(
-                                    onClick = {},
-                                    label = {
-                                        Text(
-                                            text = user.name + if (voiceState.micMuted) " · ${stringResource(R.string.muted)}" else "",
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    },
-                                    leadingIcon = { UserAvatar(name = user.name, size = 24.dp) }
-                                )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(participants.toList(), key = { it.first }) { (userId, voiceState) ->
+                                state.users.firstOrNull { it.id == userId }?.let { user ->
+                                    AssistChip(
+                                        onClick = {},
+                                        label = {
+                                            Text(
+                                                text = user.name + if (voiceState.micMuted) " · ${stringResource(R.string.muted)}" else "",
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        },
+                                        leadingIcon = { UserAvatar(name = user.name, size = 24.dp) }
+                                    )
+                                }
                             }
                         }
                     }

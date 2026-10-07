@@ -1,13 +1,17 @@
 package com.timmysheep.cove.voice
 
+import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.os.Bundle
 import android.os.Build
 import android.os.IBinder
+import android.os.ResultReceiver
+import androidx.core.content.IntentCompat
 import com.timmysheep.cove.R
 
 class VoiceCallService : Service() {
@@ -23,15 +27,34 @@ class VoiceCallService : Service() {
 
     @Suppress("InlinedApi")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_START_MICROPHONE -> startForegroundFor(ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
-            ACTION_START_SCREEN -> {
-                var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-                if (intent.getBooleanExtra(EXTRA_INCLUDE_MICROPHONE, false)) {
-                    types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        val resultReceiver = intent?.let {
+            IntentCompat.getParcelableExtra(it, EXTRA_FOREGROUND_RESULT_RECEIVER, ResultReceiver::class.java)
+        }
+
+        try {
+            when (intent?.action) {
+                ACTION_START_CALL -> startForegroundFor(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+                ACTION_START_MICROPHONE -> startForegroundFor(
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                )
+                ACTION_START_SCREEN -> {
+                    var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                    if (intent.getBooleanExtra(EXTRA_INCLUDE_MICROPHONE, false)) {
+                        types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                    }
+                    startForegroundFor(types)
                 }
-                startForegroundFor(types)
             }
+            resultReceiver?.send(Activity.RESULT_OK, Bundle.EMPTY)
+        } catch (error: RuntimeException) {
+            resultReceiver?.send(
+                Activity.RESULT_CANCELED,
+                Bundle().apply { putString(EXTRA_FOREGROUND_ERROR, error.message) }
+            )
+            if (resultReceiver == null) throw error
+            stopSelf(startId)
         }
         return START_NOT_STICKY
     }
@@ -55,9 +78,12 @@ class VoiceCallService : Service() {
     }
 
     companion object {
+        const val ACTION_START_CALL = "com.timmysheep.cove.voice.START_CALL"
         const val ACTION_START_MICROPHONE = "com.timmysheep.cove.voice.START_MICROPHONE"
         const val ACTION_START_SCREEN = "com.timmysheep.cove.voice.START_SCREEN"
         const val EXTRA_INCLUDE_MICROPHONE = "includeMicrophone"
+        const val EXTRA_FOREGROUND_RESULT_RECEIVER = "foregroundResultReceiver"
+        const val EXTRA_FOREGROUND_ERROR = "foregroundError"
 
         private const val CHANNEL_ID = "voice_call"
         private const val NOTIFICATION_ID = 20
