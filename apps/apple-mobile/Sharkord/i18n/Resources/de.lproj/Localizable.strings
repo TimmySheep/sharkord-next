@@ -123,3 +123,13 @@
 "screenshare.infoBody" = "Listen und Verhandlungssignalisierung laufen über den Sharkord-Server; Videomedien laufen WebRTC/ICE Peer-to-Peer und werden nicht vom Server weitergeleitet.";
 "screenshare.startHint" = "Nach dem Start zeichnet das System diesen Bildschirm auf und sendet ihn über den aktuellen Sprachkanal. Diese Version teilt keine Systemaudios.";
 "screenshare.myScreen" = "Bildschirm dieses Geräts";
+
+/* watch (Apple Watch Funkgespräch) */
+"watch.mockNotice" = "Offline-Demo · keine Serververbindung, nur Vorschau der Oberfläche und des Funkgesprächs-Ablaufs.";
+"watch.holdToTalk" = "Gedrückt halten zum Sprechen";
+"watch.transmitting" = "Sendet";
+"watch.listening" = "Hört zu";
+"watch.joining" = "Beitritt…";
+"watch.leaveChannel" = "Kanal verlassen";
+"watch.volume" = "Lautstärke %d%%";
+"watch.volumeHint" = "Die Digital Crown regelt die Lautstärke";

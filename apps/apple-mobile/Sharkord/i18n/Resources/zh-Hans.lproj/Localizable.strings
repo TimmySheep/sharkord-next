@@ -123,3 +123,13 @@
 "screenshare.infoBody" = "列表与协商信令通过 Sharkord 服务器；画面媒体走 WebRTC/ICE P2P，不经服务器中继。";
 "screenshare.startHint" = "开始共享后，系统会采集本机画面并通过当前语音频道发送。本版本不共享系统音频。";
 "screenshare.myScreen" = "本机屏幕";
+
+/* watch (Apple Watch 对讲) */
+"watch.mockNotice" = "离线示例 · 不连接服务器，仅演示界面与对讲流程。";
+"watch.holdToTalk" = "按住说话";
+"watch.transmitting" = "正在讲话";
+"watch.listening" = "收听中";
+"watch.joining" = "正在加入…";
+"watch.leaveChannel" = "离开频道";
+"watch.volume" = "音量 %d%%";
+"watch.volumeHint" = "数码表冠调节音量";

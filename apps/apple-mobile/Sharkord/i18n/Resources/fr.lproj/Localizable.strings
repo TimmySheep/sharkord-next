@@ -123,3 +123,13 @@
 "screenshare.infoBody" = "Les listes et la signalisation de négociation passent par le serveur Sharkord ; la vidéo circule en WebRTC/ICE de pair à pair et n'est pas relayée par le serveur.";
 "screenshare.startHint" = "Au démarrage, le système capture cet écran et l'envoie sur le canal vocal actuel. Cette version ne partage pas l'audio du système.";
 "screenshare.myScreen" = "L'écran de cet appareil";
+
+/* watch (radio Apple Watch) */
+"watch.mockNotice" = "Démo hors ligne · aucune connexion au serveur, aperçu de l'interface et du flux interphone uniquement.";
+"watch.holdToTalk" = "Maintenir pour parler";
+"watch.transmitting" = "Émission";
+"watch.listening" = "À l'écoute";
+"watch.joining" = "Connexion…";
+"watch.leaveChannel" = "Quitter le canal";
+"watch.volume" = "Volume %d%%";
+"watch.volumeHint" = "La Couronne numérique règle le volume";

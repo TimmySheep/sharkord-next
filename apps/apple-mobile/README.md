@@ -1,13 +1,21 @@
-# Sharkord iOS (first feature version)
+# Sharkord iOS + Apple Watch
 
 > **这一版有功能了。** 登录、频道、消息、表情回应、语音（开关麦、耳聋保护）、屏幕共享、
 > 五种语言、灵动岛，全部走真实协议：`POST /login` + tRPC over WebSocket + mediasoup SFU。
 > 没有示例数据，界面上不再有"离线示例"。
 >
+> **Apple Watch 侧是第一版骨架（MVP）**：腕上 PTT 对讲终端的完整框架与界面，
+> 离线示例数据演示 Join → 按住说话 → 明确 Leave 的会话生命周期，媒体传输留接口给下一版。
+>
 > **This version has working features.** Sign in, channels, messages, reactions, voice
 > (mic on/off, output-off protection), screen sharing, five languages and the Dynamic
 > Island all run on the real protocol: `POST /login` + tRPC over WebSocket + the mediasoup
 > SFU. There is no sample data any more.
+>
+> **The Apple Watch side is a first skeleton (MVP):** the full framework and UI of a
+> wrist PTT radio terminal, offline sample data walking through the join, hold to talk
+> and explicit leave lifecycle, with the media transport left as a seam for the next
+> version.
 
 原生 iPhone/iPad 客户端，第一版功能。设计文档见
 [`docs/NATIVE_STRATEGY.md`](../../docs/NATIVE_STRATEGY.md)，目录形态按其 §3.1。
@@ -82,6 +90,13 @@ Sharkord/
     Resources/<lang>.lproj/Localizable.strings   en / zh-Hans / es / fr / de
   Activities/                           灵动岛（app 侧）
 SharkordLiveActivity/                   灵动岛（widget 扩展）
+SharkordWatch/                          Apple Watch（PTT 对讲骨架，target SharkordWatch）
+  SharkordWatchApp.swift / WatchRootView.swift   入口与路由（连接 → 频道 → 对讲房间）
+  WatchSessionModel.swift               应用状态（离线示例会话）
+  WatchRadioSession.swift               PTT 会话状态机 + 音频引擎 + RadioTransport 接口
+  WatchConnectView/WatchChannelListView/WatchRoomView.swift   三块屏幕
+  WatchTheme.swift / MockData.swift     Watch 设计令牌 / 离线示例数据
+  Info.plist                            WKApplication + UIBackgroundModes: audio + 麦克风用途
 ```
 
 ## 语音协议顺序（与 web 端一致）
@@ -99,10 +114,32 @@ SharkordLiveActivity/                   灵动岛（widget 扩展）
 管理与服务器设置界面、插件、邀请、用户资料编辑、通知与音效、离线重连 UI。协议层（`SharkordCore`）
 已具备这些接口，属于界面层未接。
 
+## Apple Watch：腕上 PTT 终端（骨架）
+
+Watch 不是缩小版客户端，是**语音频道的腕上对讲机**。产品定义是明确的会话生命周期：
+
+1. **Join**：打开 App → 选频道 → 进房间即加入，`AVAudioSession (.playAndRecord)` 激活
+   （audio background mode 让会话在放腕后继续，抬腕回 App）。
+2. **收听**：默认只听；`RadioTransport` 收音频帧播放。
+3. **按住说话**：半双工 PTT，按住才开麦克风采集（RMS 电平表），松手即停，继续收听。
+   麦克风只在已建立的会话里允许打开（状态机在 `.listening` 之外拒绝 `beginTransmit`）。
+4. **明确 Leave**：离开频道 = 停采集、断传输、`AVAudioSession` 关闭，回到普通 App 状态。
+   系统返回手势（`onDisappear`）同样收尾整个会话。
+
+屏幕：连接（复用 connect.* 文案）→ 频道列表（卡片 + 人数）→ 对讲房间（状态胶囊、
+成员与讲话指示、大圆 PTT 钮 + 电平表、红色离开键、数码表冠调音量、震动反馈）。
+设计沿用 iPhone 的纯黑 + 深灰圆角卡片 + 宝蓝主色（`WatchTheme`）。
+
+传输按服务器中继设计（不做 P2P，网络切换与后台限制太多）。Phase 2 把
+`MockRadioTransport` 换成 WebSocket + Opus 中继、接真实会话，并实测"加入后长时间静默，
+突然有人 PTT 能否立即出声"这一关键场景（watchOS 音频后台 + 低层网络在静默期的行为）。
+
 ## 验证状态
 
 - `xcodebuild`（scheme `Sharkord`，`generic/platform=iOS Simulator`，`CODE_SIGNING_ALLOWED=NO`）编译通过，
   Swift 0 error 0 warning；`Sharkord.app/PlugIns/SharkordLiveActivity.appex` 正常嵌入并校验。
-- 五语言 `Localizable.strings` 共 107 键 × 5，`plutil -lint` 通过、键集一致。
-- **本机未安装 iOS Simulator runtime，因此没有运行时验收**：通话、屏幕共享、灵动岛、新视觉均为编译期验证，
-  真机/模拟器实测待补。
+- `xcodebuild`（scheme `SharkordWatch`，`generic/platform=watchOS Simulator`）编译通过，Swift 0 error 0 warning；
+  `Sharkord.app/Watch/SharkordWatch.app` 正常嵌入（Embed Watch Content + ValidateEmbeddedBinary）。
+- 五语言 `Localizable.strings` 共 115 键 × 5（含 Watch 新增 8 键），`plutil -lint` 通过、键集一致。
+- **本机未安装 iOS / watchOS Simulator runtime，因此没有运行时验收**：通话、屏幕共享、灵动岛、
+  新视觉、Watch 对讲流程均为编译期验证，真机/模拟器实测待补。

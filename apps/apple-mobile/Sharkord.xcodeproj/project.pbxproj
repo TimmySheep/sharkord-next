@@ -35,6 +35,18 @@
 		BB000000000000000000001C /* ScreenshareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000001F /* ScreenshareView.swift */; };
 		BB0000000000000000000019 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000017 /* Localizable.strings */; };
 		BB000000000000000000001A /* RemoteVideoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000000000000000000001D /* RemoteVideoView.swift */; };
+		BB000000000000000000001D /* SharkordWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000020 /* SharkordWatchApp.swift */; };
+		BB000000000000000000001E /* WatchTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000021 /* WatchTheme.swift */; };
+		BB000000000000000000001F /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000022 /* MockData.swift */; };
+		BB0000000000000000000020 /* WatchSessionModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000023 /* WatchSessionModel.swift */; };
+		BB0000000000000000000021 /* WatchRadioSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000024 /* WatchRadioSession.swift */; };
+		BB0000000000000000000022 /* WatchRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000025 /* WatchRootView.swift */; };
+		BB0000000000000000000023 /* WatchConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000026 /* WatchConnectView.swift */; };
+		BB0000000000000000000024 /* WatchChannelListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000027 /* WatchChannelListView.swift */; };
+		BB0000000000000000000025 /* WatchRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000028 /* WatchRoomView.swift */; };
+		BB0000000000000000000026 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000013 /* L10n.swift */; };
+		BB0000000000000000000027 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000017 /* Localizable.strings */; };
+		BB0000000000000000000028 /* SharkordWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = FD0000000000000000000003 /* SharkordWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,6 +56,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 700000000000000000000003;
 			remoteInfo = SharkordLiveActivity;
+		};
+		C00000000000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 700000000000000000000002 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 700000000000000000000004;
+			remoteInfo = SharkordWatch;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -57,6 +76,17 @@
 				BB0000000000000000000012 /* SharkordLiveActivity.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		800000000000000000000008 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				BB0000000000000000000028 /* SharkordWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -91,6 +121,17 @@
 		FB000000000000000000001A /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
 		FB000000000000000000001B /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		FB000000000000000000001C /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
+		FB0000000000000000000020 /* SharkordWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharkordWatchApp.swift; sourceTree = "<group>"; };
+		FB0000000000000000000021 /* WatchTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTheme.swift; sourceTree = "<group>"; };
+		FB0000000000000000000022 /* MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockData.swift; sourceTree = "<group>"; };
+		FB0000000000000000000023 /* WatchSessionModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSessionModel.swift; sourceTree = "<group>"; };
+		FB0000000000000000000024 /* WatchRadioSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRadioSession.swift; sourceTree = "<group>"; };
+		FB0000000000000000000025 /* WatchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRootView.swift; sourceTree = "<group>"; };
+		FB0000000000000000000026 /* WatchConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectView.swift; sourceTree = "<group>"; };
+		FB0000000000000000000027 /* WatchChannelListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchChannelListView.swift; sourceTree = "<group>"; };
+		FB0000000000000000000028 /* WatchRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRoomView.swift; sourceTree = "<group>"; };
+		FB0000000000000000000029 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FD0000000000000000000003 /* SharkordWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SharkordWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FB000000000000000000001D /* RemoteVideoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteVideoView.swift; sourceTree = "<group>"; };
 		FD0000000000000000000001 /* Sharkord.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sharkord.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD0000000000000000000002 /* SharkordLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SharkordLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -111,6 +152,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		80000000000000000000000B /* Watch Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -119,6 +167,7 @@
 			children = (
 				600000000000000000000002 /* Sharkord */,
 				600000000000000000000007 /* SharkordLiveActivity */,
+				60000000000000000000000B /* SharkordWatch */,
 				600000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -146,6 +195,7 @@
 			children = (
 				FD0000000000000000000001 /* Sharkord.app */,
 				FD0000000000000000000002 /* SharkordLiveActivity.appex */,
+				FD0000000000000000000003 /* SharkordWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -220,6 +270,23 @@
 			path = SharkordLiveActivity;
 			sourceTree = "<group>";
 		};
+		60000000000000000000000B /* SharkordWatch */ = {
+			isa = PBXGroup;
+			children = (
+				FB0000000000000000000020 /* SharkordWatchApp.swift */,
+				FB0000000000000000000025 /* WatchRootView.swift */,
+				FB0000000000000000000023 /* WatchSessionModel.swift */,
+				FB0000000000000000000024 /* WatchRadioSession.swift */,
+				FB0000000000000000000021 /* WatchTheme.swift */,
+				FB0000000000000000000022 /* MockData.swift */,
+				FB0000000000000000000026 /* WatchConnectView.swift */,
+				FB0000000000000000000027 /* WatchChannelListView.swift */,
+				FB0000000000000000000028 /* WatchRoomView.swift */,
+				FB0000000000000000000029 /* Info.plist */,
+			);
+			path = SharkordWatch;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -231,11 +298,13 @@
 				800000000000000000000002 /* Frameworks */,
 				800000000000000000000003 /* Resources */,
 				800000000000000000000004 /* Embed App Extensions */,
+				800000000000000000000008 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				C00000000000000000000002 /* PBXTargetDependency */,
+				C00000000000000000000004 /* PBXTargetDependency */,
 			);
 			name = Sharkord;
 			packageProductDependencies = (
@@ -263,6 +332,23 @@
 			productReference = FD0000000000000000000002 /* SharkordLiveActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		700000000000000000000004 /* SharkordWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000004 /* Build configuration list for PBXNativeTarget "SharkordWatch" */;
+			buildPhases = (
+				800000000000000000000009 /* Watch Sources */,
+				80000000000000000000000B /* Watch Frameworks */,
+				80000000000000000000000A /* Watch Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SharkordWatch;
+			productName = SharkordWatch;
+			productReference = FD0000000000000000000003 /* SharkordWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -276,6 +362,9 @@
 						CreatedOnToolsVersion = 27.0;
 					};
 					700000000000000000000003 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					700000000000000000000004 = {
 						CreatedOnToolsVersion = 27.0;
 					};
 				};
@@ -303,6 +392,7 @@
 			targets = (
 				700000000000000000000001 /* Sharkord */,
 				700000000000000000000003 /* SharkordLiveActivity */,
+				700000000000000000000004 /* SharkordWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -321,6 +411,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		80000000000000000000000A /* Watch Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB0000000000000000000027 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -366,6 +464,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		800000000000000000000009 /* Watch Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB000000000000000000001D /* SharkordWatchApp.swift in Sources */,
+				BB000000000000000000001E /* WatchTheme.swift in Sources */,
+				BB000000000000000000001F /* MockData.swift in Sources */,
+				BB0000000000000000000020 /* WatchSessionModel.swift in Sources */,
+				BB0000000000000000000021 /* WatchRadioSession.swift in Sources */,
+				BB0000000000000000000022 /* WatchRootView.swift in Sources */,
+				BB0000000000000000000023 /* WatchConnectView.swift in Sources */,
+				BB0000000000000000000024 /* WatchChannelListView.swift in Sources */,
+				BB0000000000000000000025 /* WatchRoomView.swift in Sources */,
+				BB0000000000000000000026 /* L10n.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
@@ -388,6 +503,11 @@
 			isa = PBXTargetDependency;
 			target = 700000000000000000000003 /* SharkordLiveActivity */;
 			targetProxy = C00000000000000000000001 /* PBXContainerItemProxy */;
+		};
+		C00000000000000000000004 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 700000000000000000000004 /* SharkordWatch */;
+			targetProxy = C00000000000000000000003 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -558,6 +678,52 @@
 			};
 			name = Release;
 		};
+		900000000000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SharkordWatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
+		};
+		900000000000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SharkordWatch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -584,6 +750,15 @@
 			buildConfigurations = (
 				900000000000000000000005 /* Debug */,
 				900000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000000000000000000004 /* Build configuration list for PBXNativeTarget "SharkordWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				900000000000000000000007 /* Debug */,
+				900000000000000000000008 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
