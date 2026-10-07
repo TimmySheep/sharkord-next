@@ -83,12 +83,7 @@ class SharkordApi {
     suspend fun connect(baseUrl: HttpUrl, token: String) {
         explicitlyClosed = false
         val ready = CompletableDeferred<Unit>()
-        val wsUrl = baseUrl.newBuilder()
-            .scheme(if (baseUrl.isHttps) "wss" else "ws")
-            .encodedPath("/")
-            .query("connectionParams=1")
-            .build()
-        val request = Request.Builder().url(wsUrl).build()
+        val request = Request.Builder().url(webSocketRequestUrl(baseUrl)).build()
 
         socket = http.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -304,6 +299,11 @@ class SharkordApi {
             explicitNulls = false
             coerceInputValues = true
         }
+
+        internal fun webSocketRequestUrl(baseUrl: HttpUrl): HttpUrl = baseUrl.newBuilder()
+            .encodedPath("/")
+            .query("connectionParams=1")
+            .build()
     }
 }
 

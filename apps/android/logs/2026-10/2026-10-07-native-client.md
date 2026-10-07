@@ -81,3 +81,19 @@ Pending final implementation summary.
 - Copied the verified 71 MB debug APK to `~/Downloads/cove-android-debug-2026-10-07.apk`
   before moving build outputs. The source and delivered APK SHA-256 values match:
   `b8568b64756b707234f784282bf0d7b34ba5e2ab1cb4afab2c1a569d5af67963`.
+
+## WebSocket URL fix
+
+- Diagnosed the `unexpected scheme: wss` connection error. The client passed `wss` or `ws`
+  to OkHttp's `HttpUrl.Builder`, which only accepts `https` or `http`; the failure occurred
+  after the HTTP login and before the WebSocket handshake.
+- Kept the base HTTP scheme when building the WebSocket request URL. OkHttp's
+  `newWebSocket` handles the WebSocket upgrade for the HTTP or HTTPS request.
+- Added a regression test covering both HTTP schemes. Offline unit tests passed with 4
+  tests total; `:app:assembleDebug` passed, and lint reported 0 errors and 11 warnings.
+- Copied the corrected 70 MB debug APK to
+  `~/Downloads/cove-android-debug-2026-10-07-ws-fix.apk`; its SHA-256 is
+  `cae2bfee0cf17b0ac5ffcdc930b23b178cf30c78aa3522fef0663ec074a59b30`.
+- Device-level login and WebSocket verification remains pending the user's phone test.
+- The rebuild recreated `app/build` (257 MB) and the project-local `.gradle` cache
+  (3.2 MB). They remain in place while the corrected APK is being tested.
