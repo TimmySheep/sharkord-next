@@ -1,0 +1,6 @@
+<resources>
+    <plurals name="reply_count">
+        <item quantity="one">%1$d reply</item>
+        <item quantity="other">%1$d replies</item>
+    </plurals>
+</resources>
