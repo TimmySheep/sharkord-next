@@ -1,9 +1,29 @@
 import Foundation
 
-/// Voice signalling. The control plane is complete: join, leave, mute state, reactions,
-/// moderator moves and the mediasoup transport handshake. Actually moving media needs a
-/// WebRTC stack, which is the one piece this client does not have yet.
+/// Voice signalling and the allowlisted RPC surface used by the bundled mediasoup worker.
 extension SharkordSession {
+    private static var voiceMediaProcedures: [String: TRPCMethod] {
+        [
+        "voice.createProducerTransport": .mutation,
+        "voice.connectProducerTransport": .mutation,
+        "voice.produce": .mutation,
+        "voice.createConsumerTransport": .mutation,
+        "voice.connectConsumerTransport": .mutation,
+        "voice.consume": .mutation,
+        "voice.getProducers": .query,
+        "voice.updateState": .mutation,
+        "voice.closeProducer": .mutation
+        ]
+    }
+
+    public func callVoiceMediaProcedure(_ path: String, input: JSONValue? = nil) async throws -> JSONValue {
+        guard let method = Self.voiceMediaProcedures[path] else {
+            throw TRPCClientError(code: "BAD_REQUEST", message: "This voice media operation is not available.")
+        }
+
+        return try await call(path, method: method, input: input)
+    }
+
     // MARK: presence and state
 
     @discardableResult
@@ -29,6 +49,7 @@ extension SharkordSession {
             userId: ownUserId,
             state: VoiceUserState(micMuted: micMuted, soundMuted: soundMuted)
         ))
+        startVoiceProducerSubscriptions()
 
         return capabilities
     }
@@ -41,6 +62,7 @@ extension SharkordSession {
         _ = try await call("voice.leave", method: .mutation)
 
         applyVoiceLeave(VoiceLeaveEvent(channelId: channelId, userId: ownUserId))
+        stopVoiceProducerSubscriptions()
     }
 
     /// Fields the viewer lacks channel permission for are dropped server side.

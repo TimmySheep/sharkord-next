@@ -1,14 +1,14 @@
 # cove for Windows (native)
 
-The native Windows client: C# + WinUI 3, no Electron and no embedded web view. It talks to
-the same server as the web client over the same wire protocol the macOS client uses: tRPC
-over WebSocket plus the plain HTTP endpoints.
+The native Windows client: C# + WinUI 3, no Electron. A bundled WebView2 is limited to the
+shared mediasoup media worker; the rest of the interface remains native. It talks to the same
+server as the web client over tRPC WebSocket and the plain HTTP endpoints.
 
 **Build reality:** WinUI 3 / Windows App SDK is Windows-only and cannot be built on macOS.
 `Sharkord.Core` is a plain `net8.0` library and is compiled and tested on macOS; `Sharkord.App`
-is the WinUI 3 shell and must be built on Windows. The current Cove x64 Release build and
-self-contained publish both succeeded on Windows 11 with 0 warnings and 0 errors, producing
-`cove.exe`. The app has not been launched or visually reviewed.
+is the WinUI 3 shell and must be built on Windows. A previous Cove x64 Release build and
+self-contained publish succeeded on Windows 11 with 0 warnings and 0 errors. The current voice
+and TreeView changes have not been rebuilt, and the app has not been launched or visually reviewed.
 
 ## Layout
 
@@ -25,7 +25,7 @@ apps/windows/
     SharkordSession.cs           # login -> handshake -> join -> state + live subscriptions
     I18n/L10n.cs                 # locale lookup, embedded tables, {{placeholder}} interpolation
     I18n/locales/<lang>/         # windows.json + connect.json, 10 languages
-  src/Sharkord.App/              # WinUI 3 shell and cove.ico (Windows-only)
+  src/Sharkord.App/              # WinUI 3 shell, WebView2 media worker and cove.ico (Windows-only)
   tests/Sharkord.Core.Tests/     # wire-format + i18n unit tests, a gated integration test
 ```
 
@@ -91,9 +91,9 @@ them end to end against a real server):
   `%LOCALAPPDATA%\Sharkord\language`. `L10nTests` scans the window source so a hardcoded
   english label or a renamed key fails the suite instead of surfacing as raw text at runtime.
 
-`cove` is a conventional WinUI 3 shell (connect form, channel list, message list,
-composer, reactions and language picker) wired to `SharkordSession`. The current source,
-including the Cove branding and icon, compiled and published on Windows 11 x64 in Release
+`cove` is a WinUI 3 shell (connect form, grouped channel tree, message list, composer,
+reactions, voice controls and language picker) wired to `SharkordSession`. The source before
+the current voice and TreeView changes compiled and published on Windows 11 x64 in Release
 configuration with 0 warnings and 0 errors. It renders reaction chips, toggles existing
 reactions and offers six common reactions; other reaction shortcodes remain visible as
 `:shortcode:` text. The app has not been launched or visually reviewed, and the shell only
@@ -101,14 +101,17 @@ exposes a slice of what `SharkordSession` supports.
 
 ## What is not here yet
 
-- **The current WinUI 3 app has not been launched or visually reviewed.** Its Release build
-  succeeds on Windows 11 x64, but compilation does not verify runtime interactions.
+- **The current WinUI 3 source has not been rebuilt, launched or visually reviewed.** The
+  earlier Release build predates the voice media and grouped TreeView changes, and compilation
+  alone would not verify runtime interactions.
   `Microsoft.WindowsAppSDK` is pinned at `1.6.240923002` and
   `Microsoft.Windows.SDK.BuildTools` at `10.0.26100.1742`; both restore and build as
   declared, so they are not placeholders needing replacement.
-- **Voice.** No C# mediasoup client exists; this is strategy document risk #1 and is gated
-  on a separate `libmediasoupclient` P/Invoke spike.
-- **Plugins.** Needs a WebView2 host.
+- **Voice runtime acceptance.** The WinUI voice controls, C# signaling bridge and bundled
+  WebView2 mediasoup worker are present in source, including audio, webcam and screen sharing.
+  This version still needs a Windows build, permission check and real media test.
+- **Plugins.** The WebView2 surface is restricted to bundled media assets and does not load
+  server-provided plugin UI.
 - **The WinUI views do not yet surface** edit/delete, reply, typing, attachments or DMs,
   even though the session layer supports them.
 - **The admin and settings surface is macOS-only for now.** Categories/channels management,

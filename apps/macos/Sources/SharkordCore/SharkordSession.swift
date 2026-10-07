@@ -66,6 +66,7 @@ public final class SharkordSession: ObservableObject {
     private(set) var client: TRPCWebSocketClient?
     private(set) var token: String?
     private var credentials: Credentials?
+    private var voiceProducerSubscriptionTasks: [Task<Void, Never>] = []
     private var reconnectAttempt = 0
     private var isStopping = false
     var subscriptionTasks: [Task<Void, Never>] = []
@@ -305,6 +306,7 @@ public final class SharkordSession: ObservableObject {
         isStopping = true
         subscriptionTasks.forEach { $0.cancel() }
         subscriptionTasks.removeAll()
+        stopVoiceProducerSubscriptions()
 
         let client = self.client
         self.client = nil
@@ -427,6 +429,7 @@ public final class SharkordSession: ObservableObject {
 
     private func startSubscriptions(client: TRPCWebSocketClient) {
         subscriptionTasks.forEach { $0.cancel() }
+        stopVoiceProducerSubscriptions()
 
         // messages
         subscribe(client, "messages.onNew") { [weak self] value in
@@ -603,16 +606,6 @@ public final class SharkordSession: ObservableObject {
             self?.voiceReactions.append(event)
         }
 
-        subscribe(client, "voice.onNewProducer") { [weak self] value in
-            guard let event = try? value.decode(VoiceProducerEvent.self) else { return }
-            self?.upsertProducer(event)
-        }
-
-        subscribe(client, "voice.onProducerClosed") { [weak self] value in
-            guard let event = try? value.decode(VoiceProducerEvent.self) else { return }
-            self?.removeProducer(event)
-        }
-
         subscribe(client, "voice.onAddExternalStream") { [weak self] value in
             self?.applyExternalStream(value)
         }
@@ -658,15 +651,50 @@ public final class SharkordSession: ObservableObject {
         }
     }
 
+    @discardableResult
     private func subscribe(
         _ client: TRPCWebSocketClient,
         _ path: String,
         _ handler: @escaping @MainActor (JSONValue) -> Void
-    ) {
-        subscriptionTasks.append(Task { [weak self] in
+    ) -> Task<Void, Never> {
+        let task = makeSubscriptionTask(client, path, handler)
+        subscriptionTasks.append(task)
+        return task
+    }
+
+    private func makeSubscriptionTask(
+        _ client: TRPCWebSocketClient,
+        _ path: String,
+        _ handler: @escaping @MainActor (JSONValue) -> Void
+    ) -> Task<Void, Never> {
+        Task { [weak self] in
             let stream = await client.subscribe(path)
             await self?.consume(stream, onValue: handler)
-        })
+        }
+    }
+
+    func startVoiceProducerSubscriptions() {
+        stopVoiceProducerSubscriptions()
+
+        guard let client else {
+            return
+        }
+
+        voiceProducerSubscriptionTasks = [
+            makeSubscriptionTask(client, "voice.onNewProducer") { [weak self] value in
+                guard let event = try? value.decode(VoiceProducerEvent.self) else { return }
+                self?.upsertProducer(event)
+            },
+            makeSubscriptionTask(client, "voice.onProducerClosed") { [weak self] value in
+                guard let event = try? value.decode(VoiceProducerEvent.self) else { return }
+                self?.removeProducer(event)
+            }
+        ]
+    }
+
+    func stopVoiceProducerSubscriptions() {
+        voiceProducerSubscriptionTasks.forEach { $0.cancel() }
+        voiceProducerSubscriptionTasks.removeAll()
     }
 
     private func consume(

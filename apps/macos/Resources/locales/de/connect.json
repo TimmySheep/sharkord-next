@@ -2,6 +2,7 @@
   "identityLabel": "Identität",
   "identityHelp": "Ein eindeutiger Bezeichner für dein Konto auf diesem Server. Du kannst frei wählen, zum Beispiel eine E-Mail-Adresse oder einen Benutzernamen. Dieser wird nicht öffentlich geteilt.",
   "passwordLabel": "Passwort",
+  "optional": "Optional",
   "autoLoginLabel": "Automatisch anmelden",
   "insecureTitle": "Unsichere Verbindung",
   "insecureDesc": "Du greifst über eine unsichere Verbindung (HTTP) auf den Server zu. Standardmäßig blockieren Browser den Zugriff auf Mediengeräte wie deine Kamera und dein Mikrofon auf unsicheren Herkünften. Das bedeutet, dass du keine Video- oder Sprachchat-Funktionen nutzen kannst, solange du über HTTP mit dem Server verbunden bist. Wenn du der Serveradministrator bist, kannst du HTTPS einrichten, indem du den Anweisungen in der Dokumentation folgst.",

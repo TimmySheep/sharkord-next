@@ -4,17 +4,17 @@
 
 | 目录 | 平台 | 技术栈 | 上游可构建 | 本机已构建 |
 | --- | --- | --- | --- | --- |
-| `apps/macos` | macOS 14+ | Swift 6 + SwiftUI（SwiftPM） | ✅ | ✅ 已验证 |
-| `apps/windows` | Windows 10 1809+ | C# + WinUI 3（.NET 8） | `Core` 跨平台；`App` 仅 Windows | Core ✅；cove x64 Release 构建 ✅，未做 GUI 走查 |
+| `apps/macos` | macOS 14+ | Swift 6 + SwiftUI；WKWebView 仅承载语音媒体 worker | ✅ | Swift tests ✅；媒体运行时待验收 |
+| `apps/windows` | Windows 10 1809+ | C# + WinUI 3（.NET 8）；WebView2 仅承载语音媒体 worker | `Core` 跨平台；`App` 仅 Windows | 现有 UI 源码本轮未构建，待 Windows 验收 |
 
 设计与证据见 [`docs/NATIVE_STRATEGY.md`](../docs/NATIVE_STRATEGY.md) 与 [`ROADMAP.md`](../ROADMAP.md)。
-两者都**不使用 Electron、不内嵌 WebView**，直接与网页端同一套服务器通信（tRPC over WebSocket + 明文 HTTP）。
+两者都**不使用 Electron**，主要界面保持原生；只在原生语音画面中嵌入受限的 WKWebView / WebView2，复用 `mediasoup-client` 传输媒体。客户端仍直接与网页端同一套服务器通信（tRPC over WebSocket + 明文 HTTP）。
 
 ---
 
 ## 一、已实现并实测的能力
 
-下表状态以「本机实测通过」为准，不是「写完代码」。macOS 端 44 个测试、Windows Core 端 53 个测试全部通过；
+下表状态以「本机实测通过」为准，不是「写完代码」。macOS 端 46 个测试、Windows Core 端 53 个测试全部通过；
 macOS 其中 6 个、Windows Core 其中 2 个是打**真实服务器**的端到端测试。
 
 | 能力 | 服务端接口 | macOS | Windows Core |
@@ -48,7 +48,7 @@ macOS 其中 6 个、Windows Core 其中 2 个是打**真实服务器**的端到
 | 服务器更新 | `others.getUpdate` / `others.updateServer` | ✅ | — |
 | 插件管理（列表 / 启停 / 移除 / 日志 / 能力 / 设置只读） | `plugins.*` | ✅ | — |
 | 语音控制面（加入 / 离开 / 静音 / 闭麦 / 摄像头与屏幕共享标志 / 反应 / 移动成员） | `voice.*` | ✅ | — |
-| 语音媒体传输（音频 / 视频 / 屏幕共享实际流） | mediasoup WebRTC | ❌ | ❌ |
+| 语音媒体传输（音频 / 摄像头 / 屏幕共享） | mediasoup WebRTC | 源码已接入，待 macOS 权限与真机媒体验收 | 源码已接入，待 Windows 编译与媒体验收 |
 | 实时消息事件 | `messages.onNew` / `onUpdate` / `onDelete` / `onThreadReplyCountUpdate` | ✅ | ✅ |
 | 实时用户事件 | `users.onJoin` / `onLeave` / `onUpdate` / `onCreate` / `onDelete` | ✅ | ✅ |
 | 实时频道/分类事件 | `channels.*` / `categories.*` | ✅ | ✅ |
@@ -74,8 +74,7 @@ Windows 是 `TrpcProtocol.cs` / `TrpcWebSocketClient.cs`。消息 HTML 的解析
    `Microsoft.WindowsAppSDK 1.6.240923002` 与 `Microsoft.Windows.SDK.BuildTools 10.0.26100.1742`
    是可还原、可构建的真实固定版本，不是占位值。构建前提是 `-p:Platform=x64` 不能省
    （csproj 声明 `Platforms=x64;ARM64`，默认 `AnyCPU` 不在列表内会报 `OutputPath` 未设置）。
-2. **Windows 无语音。** C# 没有任何 mediasoup 客户端；需要 P/Invoke `libmediasoupclient`（MSVC + libwebrtc）
-   或在 C# WebRTC 之上重写 mediasoup 协议。这是策略文档里的 1 号风险，尚未开始预研。
+2. **Windows 语音尚未验收。** 语音界面、WebView2 媒体 worker 与 C# 信令桥已接入源码；本轮修改后尚未在 Windows 编译或运行，因此不能把源码接通等同于可用。
 3. **macOS 界面没有逐屏人工验收。** 只做了编译、单测与协议层端到端，没有对窗口外观、键盘/鼠标交互逐屏走查。
    本轮尝试用 CUA 自动化截图走查，`cua-driver list-windows` 返回
    `Permission denied: tool 'list-windows' has no reviewed risk classification`，
@@ -85,8 +84,8 @@ Windows 是 `TrpcProtocol.cs` / `TrpcWebSocketClient.cs`。消息 HTML 的解析
 
 | 领域 | 缺口 |
 | --- | --- |
-| **语音媒体** | 控制面已全接通（`voice.*` 全部路由、订阅与成员状态），但**没有 WebRTC 媒体传输**：听不到、看不到、无法真的共享屏幕。Swift 侧没有现成的 mediasoup 客户端，这是「全部能力」里最大的一块，需要引 WebRTC 原生库或自实现 mediasoup 信令之上的传输层。界面上已标注该限制。 |
-| **插件 UI** | 插件 UI 在网页端是针对 `window.__SHARKORD_*` 运行的 React，原生端不嵌 WebView 就无法承载。原生端已能列出插件、启停、移除、看日志与能力清单，但**插件设置是只读展示**、插件能力权限编辑器未做、插件命令执行界面未做（Core 的 `executePluginCommand` 已就绪）。v1 明确不做插件 UI。 |
+| **语音媒体** | macOS / Windows 已接入共享 `mediasoup-client` worker，覆盖音频、摄像头和屏幕共享的发送/接收路径；但本轮没有完成设备权限、WebRTC 网络与远端播放的端到端验收。Windows 还缺本轮 WinUI 编译与 GUI 验收。屏幕共享入口位于媒体画面内，因为浏览器要求由页面真实用户操作触发屏幕选择器。 |
+| **插件 UI** | 插件 UI 在网页端是针对 `window.__SHARKORD_*` 运行的 React；当前 WebView 仅承载受限媒体页面，不加载服务器插件。原生端已能列出插件、启停、移除、看日志与能力清单，但**插件设置是只读展示**、插件能力权限编辑器未做、插件命令执行界面未做（Core 的 `executePluginCommand` 已就绪）。v1 明确不做插件 UI。 |
 | **通知** | 桌面通知（`UNUserNotificationCenter`）、未读汇总、系统托盘常驻均未做；未读角标只在侧栏显示。 |
 | **全局快捷键 / 按键通话** | macOS `CGEventTap`（需辅助功能权限）、Windows `RegisterHotKey` / 低级钩子，均未做。 |
 | **欢迎对话框 / 服务器密码对话框** | 用「资料」设置页与连接页的密码输入近似实现，没有做成独立的模态对话框与倒计时流程。 |

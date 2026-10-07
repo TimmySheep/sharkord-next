@@ -11,6 +11,8 @@ struct SidebarView: View {
 
     @State private var collapsed: Set<Int> = []
     @State private var showsDirectMessages = true
+    @State private var showsUncategorizedChannels = true
+    @State private var appliedDisclosureDefaults = false
     @State private var prompt: SidebarPrompt?
     @State private var confirmDelete: SidebarConfirm?
     @State private var newUserQuery = ""
@@ -39,6 +41,7 @@ struct SidebarView: View {
             userControl
         }
         .background(Theme.sidebar)
+        .onAppear(perform: applyDisclosureDefaults)
         .sheet(item: $prompt) { prompt in
             PromptSheet(prompt: prompt) { self.prompt = nil }
         }
@@ -112,7 +115,7 @@ struct SidebarView: View {
     private var directMessagesSection: some View {
         VStack(alignment: .leading, spacing: 2) {
             DisclosureRow(
-                title: "Direct messages",
+                title: L10n.t("directMessages", ns: "sidebar"),
                 isExpanded: Binding(
                     get: { showsDirectMessages },
                     set: { showsDirectMessages = $0 }
@@ -238,27 +241,51 @@ struct SidebarView: View {
 
         if !channels.isEmpty {
             VStack(alignment: .leading, spacing: 2) {
-                Eyebrow(text: "Channels")
-                    .padding(.horizontal, 12)
-                    .padding(.top, 6)
-
-                ForEach(channels) { channel in
-                    ChannelRow(
-                        channel: channel,
-                        unread: session.unreadByChannel[channel.id] ?? 0
+                DisclosureRow(
+                    title: L10n.t("channelsLabel", ns: "macos"),
+                    isExpanded: Binding(
+                        get: { showsUncategorizedChannels },
+                        set: { showsUncategorizedChannels = $0 }
                     )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        Task { await session.select(channelId: channel.id) }
-                    }
-                    .contextMenu { channelMenu(channel) }
+                ) {
+                    EmptyView()
+                }
 
-                    if channel.type == .voice {
-                        voiceUsers(of: channel)
+                if showsUncategorizedChannels {
+                    ForEach(channels) { channel in
+                        ChannelRow(
+                            channel: channel,
+                            unread: session.unreadByChannel[channel.id] ?? 0
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Task { await session.select(channelId: channel.id) }
+                        }
+                        .contextMenu { channelMenu(channel) }
+
+                        if channel.type == .voice {
+                            voiceUsers(of: channel)
+                        }
                     }
                 }
             }
         }
+    }
+
+    private func applyDisclosureDefaults() {
+        guard !appliedDisclosureDefaults else {
+            return
+        }
+
+        appliedDisclosureDefaults = true
+        showsDirectMessages = session.directMessageChannels.count <= 5
+
+        for category in session.categories where session.channels(in: category).count > 5 {
+            collapsed.insert(category.id)
+        }
+
+        let uncategorizedCount = session.channels.filter { $0.categoryId == nil && !$0.isDm }.count
+        showsUncategorizedChannels = uncategorizedCount <= 5
     }
 
     @ViewBuilder
@@ -508,8 +535,7 @@ struct DisclosureRow<Trailing: View>: View {
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
 
                     Text(title.uppercased())
-                        .font(.system(size: 10, weight: .semibold))
-                        .tracking(0.6)
+                        .font(.system(size: 11, weight: .medium))
                 }
             }
             .buttonStyle(.plain)
@@ -544,7 +570,7 @@ struct ChannelRow: View {
                 .frame(width: 16)
 
             Text(channel.name)
-                .font(.system(size: 13, weight: unread > 0 ? .semibold : .regular))
+                .font(.system(size: 14, weight: unread > 0 ? .semibold : .regular))
                 .foregroundStyle(unread > 0 ? .primary : .secondary)
                 .lineLimit(1)
 
@@ -564,7 +590,7 @@ struct ChannelRow: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 4)
+        .padding(.vertical, 5)
         .background(
             session.selectedChannelId == channel.id
                 ? Theme.elevated
@@ -588,7 +614,7 @@ struct DirectMessageRow: View {
             AvatarView(user: partner, size: 20, showsPresence: true)
 
             Text(partner?.name ?? "Direct message")
-                .font(.system(size: 13, weight: unread > 0 ? .semibold : .regular))
+                .font(.system(size: 14, weight: unread > 0 ? .semibold : .regular))
                 .foregroundStyle(unread > 0 ? .primary : .secondary)
                 .lineLimit(1)
 
@@ -604,7 +630,7 @@ struct DirectMessageRow: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 4)
+        .padding(.vertical, 5)
         .background(
             session.selectedChannelId == channel.id
                 ? Theme.elevated

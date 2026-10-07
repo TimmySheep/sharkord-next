@@ -1,3 +1,4 @@
+import Combine
 import SharkordCore
 import SwiftUI
 
@@ -78,7 +79,7 @@ struct MessageRowView: View {
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, grouped ? 1 : 6)
+            .padding(.vertical, grouped ? 2 : 8)
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(highlighted ? Theme.accent.opacity(0.22) : mentionHighlight)
@@ -102,7 +103,7 @@ struct MessageRowView: View {
     private var header: some View {
         HStack(spacing: 6) {
             Text(author?.name ?? "Unknown")
-                .font(.system(size: 13.5, weight: isOwn ? .bold : .semibold))
+                .font(.system(size: 14.5, weight: isOwn ? .bold : .semibold))
                 .foregroundStyle(author.map { Theme.color(for: $0) } ?? .primary)
                 .strikethrough(author?.banned == true)
 

@@ -28,7 +28,24 @@ public class L10nTests
         "systemUser",
         "languageLabel",
         "systemLanguage",
-        "addReaction"
+        "addReaction",
+        "directMessages",
+        "textChannels",
+        "voiceChannels",
+        "joinVoice",
+        "leaveVoice",
+        "muteMic",
+        "unmuteMic",
+        "deafen",
+        "undeafen",
+        "webcam",
+        "voiceConnecting",
+        "voiceNoPermission",
+        "shareScreen",
+        "stopScreenShare",
+        "mediaLocalUser",
+        "mediaScreen",
+        "mediaCamera"
     ];
 
     public static IEnumerable<object[]> Languages =>

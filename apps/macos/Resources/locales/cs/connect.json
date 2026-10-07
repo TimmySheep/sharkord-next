@@ -2,6 +2,7 @@
   "identityLabel": "Identita",
   "identityHelp": "Unikátní identifikátor pro váš účet na tomto serveru. Použijte cokoliv se vám líbí, ať už email nebo uživatelské jméno. Tento údaj nebude vidět veřejně.",
   "passwordLabel": "Heslo",
+  "optional": "Volitelné",
   "autoLoginLabel": "Přihlašovat automaticky",
   "insecureTitle": "Nezabezpečené připojení",
   "insecureDesc": "K tomuto serveru jste připojení nezabezpečeně pomocí HTTP. Prohlížeče ve výchozím nastavení blokují přístup k zařízením jako kamera a mikrofon, takže nebudete moci použít audio a video hovory. Pokud jste administrátor serveru, můžete HTTPS nastavit následováním instrukcí v dokumentaci.",

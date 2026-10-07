@@ -2,6 +2,7 @@
   "identityLabel": "Identidade",
   "identityHelp": "Um identificador único para sua conta neste servidor. Você pode usar o que preferir, como um endereço de e-mail ou um nome de usuário. Isso não será compartilhado publicamente.",
   "passwordLabel": "Senha",
+  "optional": "Opcional",
   "autoLoginLabel": "Entrar automaticamente",
   "insecureTitle": "Conexão Insegura",
   "insecureDesc": "Você está acessando o servidor por meio de uma conexão insegura (HTTP). Por padrão, os navegadores bloqueiam o acesso a dispositivos de mídia como câmera e microfone em origens inseguras. Isso significa que você não poderá usar recursos de vídeo ou bate-papo por voz enquanto estiver conectado ao servidor via HTTP. Se você for o administrador do servidor, pode configurar o HTTPS seguindo as instruções na documentação.",

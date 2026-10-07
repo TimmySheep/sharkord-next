@@ -8,5 +8,22 @@
   "systemUser": "Systém",
   "languageLabel": "Jazyk",
   "systemLanguage": "Jazyk systému",
-  "addReaction": "Přidat reakci"
+  "addReaction": "Přidat reakci",
+  "directMessages": "Přímé zprávy",
+  "textChannels": "Textové kanály",
+  "voiceChannels": "Hlasové kanály",
+  "joinVoice": "Připojit se k hlasu",
+  "leaveVoice": "Opustit hlasový kanál",
+  "muteMic": "Ztlumit mikrofon",
+  "unmuteMic": "Zapnout mikrofon",
+  "deafen": "Ztlumit zvuk",
+  "undeafen": "Zapnout zvuk",
+  "webcam": "Kamera",
+  "voiceConnecting": "Připojování k hlasovému kanálu…",
+  "voiceNoPermission": "Nemáte oprávnění připojit se k tomuto hlasovému kanálu.",
+  "shareScreen": "Sdílet obrazovku",
+  "stopScreenShare": "Zastavit sdílení",
+  "mediaLocalUser": "Vy",
+  "mediaScreen": "Obrazovka",
+  "mediaCamera": "Kamera"
 }

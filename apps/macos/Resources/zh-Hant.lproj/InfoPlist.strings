@@ -1,0 +1,3 @@
+"NSCameraUsageDescription" = "cove 需要使用攝影機在語音頻道中傳送視訊。";
+"NSMicrophoneUsageDescription" = "cove 需要使用麥克風在語音頻道中傳送音訊。";
+"NSScreenCaptureUsageDescription" = "cove 需要錄製你選擇分享的螢幕、視窗或 App 內容。";

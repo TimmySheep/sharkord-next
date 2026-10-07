@@ -8,5 +8,22 @@
   "systemUser": "系统",
   "languageLabel": "语言",
   "systemLanguage": "跟随系统",
-  "addReaction": "添加表情回应"
+  "addReaction": "添加表情回应",
+  "directMessages": "私信",
+  "textChannels": "文字频道",
+  "voiceChannels": "语音频道",
+  "joinVoice": "加入语音",
+  "leaveVoice": "离开语音",
+  "muteMic": "麦克风静音",
+  "unmuteMic": "取消麦克风静音",
+  "deafen": "耳机静音",
+  "undeafen": "取消耳机静音",
+  "webcam": "摄像头",
+  "voiceConnecting": "正在连接语音频道…",
+  "voiceNoPermission": "你没有加入此语音频道的权限。",
+  "shareScreen": "分享屏幕",
+  "stopScreenShare": "停止共享",
+  "mediaLocalUser": "你",
+  "mediaScreen": "屏幕",
+  "mediaCamera": "摄像头"
 }

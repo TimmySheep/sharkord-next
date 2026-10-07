@@ -74,6 +74,11 @@ final class LocaleParityTests: XCTestCase {
                 let url = localesURL.appendingPathComponent(language).appendingPathComponent(namespace)
                 _ = try json(at: url)
             }
+
+            let connect = try json(at: localesURL.appendingPathComponent("\(language)/connect.json"))
+            let optional = try XCTUnwrap(connect["optional"] as? String)
+            XCTAssertFalse(optional.isEmpty, "\(language).connect.optional is empty")
+            XCTAssertNotEqual(optional, "optional", "\(language).connect.optional is missing")
         }
     }
 

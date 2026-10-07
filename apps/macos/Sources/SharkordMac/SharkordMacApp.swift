@@ -6,11 +6,13 @@ import SwiftUI
 struct SharkordMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var session = SharkordSession()
+    @StateObject private var voiceMedia = VoiceMediaController()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(session)
+                .environmentObject(voiceMedia)
                 .frame(minWidth: 900, minHeight: 600)
                 // the fixed dark palette relies on semantic text colors resolving for dark mode
                 .preferredColorScheme(.dark)
@@ -42,13 +44,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 struct RootView: View {
     @EnvironmentObject private var session: SharkordSession
+    @EnvironmentObject private var voiceMedia: VoiceMediaController
 
     var body: some View {
-        switch session.phase {
-        case .connected:
-            MainWindow()
-        default:
-            ConnectView()
+        Group {
+            switch session.phase {
+            case .connected:
+                MainWindow()
+            default:
+                ConnectView()
+            }
+        }
+        .onAppear {
+            voiceMedia.bind(to: session)
         }
     }
 }

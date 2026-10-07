@@ -185,6 +185,7 @@ public sealed class JoinResult
     public List<SharkordChannel> Channels { get; init; } = [];
     public List<SharkordUser> Users { get; init; } = [];
     public List<SharkordRole> Roles { get; init; } = [];
+    public Dictionary<int, ChannelPermissionEntry>? ChannelPermissions { get; init; }
     public List<SharkordEmoji> Emojis { get; init; } = [];
     public string ServerId { get; init; } = "";
     public string ServerName { get; init; } = "";
@@ -193,6 +194,14 @@ public sealed class JoinResult
     public SharkordSettings PublicSettings { get; init; } = new();
     public Dictionary<string, long>? ReadStates { get; init; }
     public bool? ShowWelcomeDialog { get; init; }
+}
+
+public sealed class ChannelPermissionEntry
+{
+    public int ChannelId { get; init; }
+    public Dictionary<string, bool> Permissions { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public bool Allows(string permission) => Permissions.TryGetValue(permission, out var allowed) && allowed;
 }
 
 public sealed class SharkordTempFile
@@ -254,6 +263,13 @@ public sealed class TypingEvent
     public int ChannelId { get; init; }
     public int UserId { get; init; }
     public int? ParentMessageId { get; init; }
+}
+
+public sealed class VoiceProducerEvent
+{
+    public int ChannelId { get; init; }
+    public int RemoteId { get; init; }
+    public string Kind { get; init; } = "";
 }
 
 public sealed class ReplyCountUpdate

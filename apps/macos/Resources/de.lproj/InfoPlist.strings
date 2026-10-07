@@ -1,0 +1,3 @@
+"NSCameraUsageDescription" = "cove verwendet die Kamera, um Video in Sprachkanälen zu übertragen.";
+"NSMicrophoneUsageDescription" = "cove verwendet das Mikrofon, um Audio in Sprachkanälen zu übertragen.";
+"NSScreenCaptureUsageDescription" = "cove zeichnet den Bildschirm, das Fenster oder die App auf, die du in einem Sprachkanal teilen möchtest.";

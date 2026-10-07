@@ -8,5 +8,22 @@
   "systemUser": "System",
   "languageLabel": "Language",
   "systemLanguage": "System default",
-  "addReaction": "Add reaction"
+  "addReaction": "Add reaction",
+  "directMessages": "Direct messages",
+  "textChannels": "Text channels",
+  "voiceChannels": "Voice channels",
+  "joinVoice": "Join voice",
+  "leaveVoice": "Leave voice",
+  "muteMic": "Mute mic",
+  "unmuteMic": "Unmute mic",
+  "deafen": "Deafen",
+  "undeafen": "Undeafen",
+  "webcam": "Webcam",
+  "voiceConnecting": "Connecting to voice…",
+  "voiceNoPermission": "You don't have permission to join this voice channel.",
+  "shareScreen": "Share screen",
+  "stopScreenShare": "Stop sharing",
+  "mediaLocalUser": "You",
+  "mediaScreen": "Screen",
+  "mediaCamera": "Camera"
 }

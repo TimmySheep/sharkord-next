@@ -38,9 +38,11 @@ public sealed class SharkordSession : IAsyncDisposable
     private int _reconnectAttempt;
     private bool _stopping;
     private CancellationTokenSource? _subscriptions;
+    private CancellationTokenSource? _voiceSubscriptions;
 
     /// <summary>Raised whenever observable state changes; the UI re-reads the properties.</summary>
     public event Action? Changed;
+    public event Action<VoiceProducerEvent, bool>? VoiceProducerChanged;
 
     public SessionPhase Phase { get; private set; } = SessionPhase.Disconnected;
     public SharkordServerInfo? ServerInfo { get; private set; }
@@ -49,12 +51,15 @@ public sealed class SharkordSession : IAsyncDisposable
     public IReadOnlyList<SharkordChannel> Channels { get; private set; } = [];
     public IReadOnlyList<SharkordUser> Users { get; private set; } = [];
     public IReadOnlyList<SharkordRole> Roles { get; private set; } = [];
+    public IReadOnlyDictionary<int, ChannelPermissionEntry> ChannelPermissions { get; private set; } =
+        new Dictionary<int, ChannelPermissionEntry>();
     public IReadOnlyList<SharkordEmoji> Emojis { get; private set; } = [];
     public IReadOnlyList<DirectMessageConversation> DirectMessages { get; private set; } = [];
     public SharkordSettings? Settings { get; private set; }
     public int OwnUserId { get; private set; }
     public int? SelectedChannelId { get; private set; }
     public string? LastError { get; private set; }
+    public int? CurrentVoiceChannelId { get; private set; }
 
     public IReadOnlyDictionary<int, List<SharkordMessage>> MessagesByChannel => _messagesByChannel;
 
@@ -66,6 +71,15 @@ public sealed class SharkordSession : IAsyncDisposable
         Channels.Where(c => c.IsDm).OrderBy(c => c.CreatedAt);
 
     public SharkordChannel? Channel(int id) => Channels.FirstOrDefault(c => c.Id == id);
+
+    public bool HasChannelPermission(int channelId, string permission) =>
+        ChannelPermissions.TryGetValue(channelId, out var entry) && entry.Allows(permission);
+
+    public bool HasPermission(string permission)
+    {
+        var ownRoleIds = OwnUser?.RoleIds ?? [];
+        return Roles.Any(role => ownRoleIds.Contains(role.Id) && role.Permissions?.Contains(permission) == true);
+    }
 
     public SharkordUser? User(int id) => Users.FirstOrDefault(u => u.Id == id);
 
@@ -239,6 +253,7 @@ public sealed class SharkordSession : IAsyncDisposable
         Channels = join.Channels;
         Users = join.Users.OrderBy(u => u.Name, StringComparer.OrdinalIgnoreCase).ToList();
         Roles = join.Roles;
+        ChannelPermissions = join.ChannelPermissions ?? new Dictionary<int, ChannelPermissionEntry>();
         Emojis = join.Emojis;
         Settings = join.PublicSettings;
         OwnUserId = join.OwnUserId;
@@ -712,6 +727,12 @@ public sealed class SharkordSession : IAsyncDisposable
     public async Task SelectChannelAsync(int channelId, CancellationToken cancellationToken = default)
     {
         SelectedChannelId = channelId;
+        if (Channel(channelId)?.IsVoice == true)
+        {
+            Notify();
+            return;
+        }
+
         SetUnread(channelId, 0);
         Notify();
 
@@ -731,6 +752,103 @@ public sealed class SharkordSession : IAsyncDisposable
             LastError = Describe(exception);
             _loadedChannels.Remove(channelId);
         }
+    }
+
+    public async Task<JsonNode?> JoinVoiceAsync(int channelId, CancellationToken cancellationToken = default)
+    {
+        var client = _client ?? throw new TrpcClientError("DISCONNECTED", "Not connected");
+        var input = new JsonObject
+        {
+            ["channelId"] = channelId,
+            ["state"] = new JsonObject { ["micMuted"] = true, ["soundMuted"] = false }
+        };
+        var result = await client.MutationAsync("voice.join", input, cancellationToken).ConfigureAwait(false);
+
+        CurrentVoiceChannelId = channelId;
+        StartVoiceProducerSubscriptions(client, channelId);
+        Notify();
+        return result;
+    }
+
+    public async Task LeaveVoiceAsync(CancellationToken cancellationToken = default)
+    {
+        if (CurrentVoiceChannelId is null)
+        {
+            return;
+        }
+
+        var client = _client ?? throw new TrpcClientError("DISCONNECTED", "Not connected");
+        await client.MutationAsync("voice.leave", null, cancellationToken).ConfigureAwait(false);
+        _voiceSubscriptions?.Cancel();
+        _voiceSubscriptions?.Dispose();
+        _voiceSubscriptions = null;
+        CurrentVoiceChannelId = null;
+        Notify();
+    }
+
+    public async Task<JsonNode?> CallVoiceMediaProcedureAsync(
+        string path,
+        JsonNode? input = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var client = _client ?? throw new TrpcClientError("DISCONNECTED", "Not connected");
+
+        return path switch
+        {
+            "voice.createProducerTransport" or
+            "voice.connectProducerTransport" or
+            "voice.produce" or
+            "voice.createConsumerTransport" or
+            "voice.connectConsumerTransport" or
+            "voice.consume" or
+            "voice.updateState" or
+            "voice.closeProducer" => await client.MutationAsync(path, input, cancellationToken).ConfigureAwait(false),
+            "voice.getProducers" => await client.QueryAsync(path, input, cancellationToken).ConfigureAwait(false),
+            _ => throw new TrpcClientError("BAD_REQUEST", "This voice media operation is not available")
+        };
+    }
+
+    private void StartVoiceProducerSubscriptions(TrpcWebSocketClient client, int channelId)
+    {
+        _voiceSubscriptions?.Cancel();
+        _voiceSubscriptions?.Dispose();
+        _voiceSubscriptions = new CancellationTokenSource();
+        var cancellationToken = _voiceSubscriptions.Token;
+
+        SubscribeVoiceProducerEvents(client, "voice.onNewProducer", channelId, added: true, cancellationToken);
+        SubscribeVoiceProducerEvents(client, "voice.onProducerClosed", channelId, added: false, cancellationToken);
+    }
+
+    private void SubscribeVoiceProducerEvents(
+        TrpcWebSocketClient client,
+        string path,
+        int channelId,
+        bool added,
+        CancellationToken cancellationToken
+    )
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (var value in client.SubscribeAsync(path, null, cancellationToken).ConfigureAwait(false))
+                {
+                    if (value.DeserializeObject<VoiceProducerEvent>() is { } producer && producer.ChannelId == channelId)
+                    {
+                        VoiceProducerChanged?.Invoke(producer, added);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // expected when leaving voice or disconnecting
+            }
+            catch
+            {
+                // the websocket disconnect callback owns connection recovery
+            }
+        }, cancellationToken);
     }
 
     public async Task LoadOlderAsync(int channelId, CancellationToken cancellationToken = default)
@@ -995,6 +1113,9 @@ public sealed class SharkordSession : IAsyncDisposable
     {
         _stopping = true;
         _subscriptions?.Cancel();
+        _voiceSubscriptions?.Cancel();
+        _voiceSubscriptions?.Dispose();
+        _voiceSubscriptions = null;
 
         var client = _client;
         _client = null;
@@ -1016,11 +1137,13 @@ public sealed class SharkordSession : IAsyncDisposable
         Channels = [];
         Users = [];
         Roles = [];
+        ChannelPermissions = new Dictionary<int, ChannelPermissionEntry>();
         Emojis = [];
         DirectMessages = [];
         Settings = null;
         OwnUserId = 0;
         SelectedChannelId = null;
+        CurrentVoiceChannelId = null;
 
         lock (_gate)
         {

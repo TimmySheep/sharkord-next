@@ -448,3 +448,21 @@ apps/windows/
    macOS get its own? Recommendation: one package, split only if Voice pushes conflicting needs. **[R]**
 4. Which mediasoup Apple wrapper becomes the supported one (`VLprojects/mediasoup-client-swift` vs
    `MediaSFU/mediasfu-mediasoup-client-apple`)? Both are third-party; neither is official. **[V]**
+
+## Implementation update: bundled media worker (2026-10-07)
+
+The earlier recommendation to gate desktop voice on a native C#/Swift mediasoup binding was
+superseded for the first implementation slice. The native interface remains SwiftUI / WinUI 3,
+but a restricted WKWebView (macOS) or WebView2 (Windows) now hosts the locally bundled
+`mediasoup-client` worker shared from `apps/client/scripts/voice-worker.ts`.
+
+- The embedded page is packaged with the application and does not navigate to the server or load
+  server-provided plugin code. Native code owns login, channel permissions and the allowlisted tRPC
+  bridge; the worker owns the WebRTC send/receive transports and media elements.
+- Audio, camera and screen-share send/receive paths are implemented in source. Screen capture is
+  initiated by a real click inside the media surface so the browser can present its source picker.
+- macOS packaging now carries localized camera, microphone and screen-capture usage descriptions.
+- Source integration and the macOS bundle have been build-checked, but media-device permissions,
+  ICE connectivity and remote playback have not had end-to-end runtime acceptance. The current
+  WinUI changes have not been rebuilt on Windows. Do not treat the presence of the source paths as
+  proof of working cross-platform media.

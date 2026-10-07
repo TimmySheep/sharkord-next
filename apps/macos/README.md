@@ -1,8 +1,8 @@
 # cove for macOS (native)
 
-The native macOS client: Swift + SwiftUI, no Electron and no embedded web view. It talks to
-the same server as the web client over the documented-in-code wire protocol (tRPC over
-WebSocket plus the plain HTTP endpoints).
+The native macOS client: Swift + SwiftUI, no Electron. A bundled WKWebView is used only for
+the shared mediasoup media worker; the rest of the interface remains native. It talks to the
+same server as the web client over tRPC WebSocket and the plain HTTP endpoints.
 
 It covers the web client's text surface end to end. What is not here is listed honestly
 below, and the full per-feature table lives in [`../README.md`](../README.md).
@@ -13,6 +13,7 @@ below, and the full per-feature table lives in [`../README.md`](../README.md).
 apps/macos/
   Package.swift
   Resources/cove.icns            # app bundle icon, generated from apps/assets/cove-icon.png
+  Resources/cove-icon.png        # transparent logo shown on the connection screen
   Sources/SharkordCore/          # transport + session (the future packages/apple-core)
     JSONValue.swift              # dynamic JSON for the tRPC envelope
     TRPCProtocol.swift           # request/response framing (the only place that knows it)
@@ -34,15 +35,20 @@ apps/macos/
     ThreadSidebarView.swift      # thread and pinned panels
     SearchView.swift             # debounced search over messages and files
     MemberListView.swift         # roster and user profile card
-    VoiceChannelView.swift       # voice control plane (no media, see below)
+    VoiceChannelView.swift       # native voice controls and the media surface
+    VoiceMediaController.swift   # WKWebView media worker and allowlisted tRPC bridge
     SettingsView.swift           # user settings
     ServerSettingsViews.swift    # general, storage, users, roles, emojis, invites,
                                  # plugins, updates
     EmojiPicker.swift
     DesignSystem.swift
-  Resources/locales/             # 8 languages x 8 web namespaces, byte-identical copies of
+  Resources/locales/             # 10 languages x 8 web namespaces, byte-identical copies of
                                  # apps/client/src/i18n/locales, plus a native-only `macos`
                                  # namespace for the strings the web client has no key for
+  Resources/voice-media/         # bundled mediasoup-client worker and its local media view
+  Resources/AppInfo.plist        # app metadata and macOS microphone, camera, screen capture reasons
+  Resources/*.lproj/InfoPlist.strings # localized system privacy prompts
+  package-app.sh                 # assemble and ad-hoc sign a cove.app bundle
   Tests/SharkordCoreTests/       # wire format, message HTML, gated end-to-end suites
   Tests/SharkordMacTests/        # L10n lookup, fallback, plurals, locale parity
 ```
@@ -53,13 +59,23 @@ document's plan).
 
 ## Build and run
 
-When launched, the Dock icon uses the shared cove icon. This SwiftPM executable is not
-packaged as a `.app` bundle, so it has no installed-app display name.
+The Dock icon uses the shared cove icon. `swift run` launches the development executable;
+`package-app.sh` assembles the named `cove.app` bundle with the privacy metadata needed for
+microphone, camera and screen capture.
 
 ```bash
 cd apps/macos
 swift build
 swift run SharkordMac
+```
+
+Use a bundled app to exercise media capture and macOS privacy prompts. The packager includes
+localized microphone, camera and screen-recording usage descriptions, then ad-hoc signs the
+bundle. It refuses to overwrite an existing output path.
+
+```bash
+sh package-app.sh release .build/cove.app
+open .build/cove.app
 ```
 
 Then enter the server address (for example `localhost:4991`), an identity and a password.
@@ -84,9 +100,9 @@ delete categories, channels, roles, emojis and invites, and change server settin
 
 ## What works today (verified)
 
-Verified with `swift test` (44 tests) against an isolated server instance, not by
-inspection. 6 of those are end-to-end against a real server; the rest pin the wire format,
-the message HTML vocabulary and the locale lookup.
+The current offline `swift test` run passes 46 tests. Earlier isolated-server runs also
+passed six protocol-level end-to-end tests; neither result validates camera, microphone or
+screen capture in the embedded media view.
 
 - tRPC WebSocket framing: `connectionParams` first frame, `?connectionParams=1`, one
   envelope per request, batched-array decoding, `PING`/`PONG` keepalive, `reconnect`.
@@ -124,22 +140,24 @@ the message HTML vocabulary and the locale lookup.
   `dms.onConversationOpen`, `channels.onReadStateUpdate`/`onReadStateDelta`, `voice.*`,
   `invites.*`, `plugins.*`.
 - Reconnect with the reference client's backoff `[1, 2, 4, 8, 8]s` and a re-join.
-- Voice control plane: join, leave, mute, deafen, webcam and screen-share flags, reactions
-  and moving members between channels. See the caveat below.
-- i18n: all 8 languages and 8 namespaces from the web client, byte-identical, with
+- Voice control and media paths: join, leave, mute, deafen, audio, webcam and screen capture
+  through the bundled mediasoup worker; reactions and moderator moves use the server routes.
+  Runtime media permissions and remote playback still need platform testing.
+- i18n: all 10 languages and 8 web namespaces, with
   `{{placeholder}}` interpolation and `_one`/`_other` plurals. Strings the web client has
-  no key for live in a native-only `macos` namespace, translated in all 8 languages. No
+  no key for live in a native-only `macos` namespace, translated in all 10 languages. No
   user-facing string in the UI is hardcoded English.
 
 ## What is not here yet
 
-- **Voice media.** The control plane is complete and interoperable with the web client, but
-  there is no WebRTC transport: nothing is heard or seen. Swift has no mediasoup client,
-  so this needs a native WebRTC library or a hand-rolled transport over the mediasoup
-  signalling. It is the single largest remaining gap and the voice view says so.
+- **Voice media runtime acceptance.** Audio, webcam and screen-share transport code uses the
+  bundled `mediasoup-client` worker in a restricted WKWebView. The browser capture permission,
+  device selection, ICE connectivity and remote playback have not been exercised end to end.
+  Screen sharing starts from a localized button inside the media surface because the browser
+  requires a real page interaction before presenting its source picker.
 - **Plugin UI.** Plugin UI in the web client runs React against `window.__SHARKORD_*`;
-  native parity would need a WebView host, which is out of scope for v1. The plugin
-  settings editor is read-only and there is no capability permission editor or command
+  it needs a broader WebView host than the restricted media surface, which is out of scope
+  for v1. The plugin settings editor is read-only and there is no capability permission editor or command
   console, though `SharkordCore` already has the routes for all three.
 - **Welcome and server-password dialogs.** Approximated by the connection page and the
   profile settings, not the web client's modal flow with its countdown.
@@ -166,6 +184,6 @@ the message HTML vocabulary and the locale lookup.
   outside `Sources/` so the web namespaces can be re-copied wholesale; the native-only
   `macos.json` sits alongside them and survives a refresh. `LocaleParityTests` walks
   `Sources/SharkordMac` for `L10n.t` call sites and fails on any key no locale defines, and
-  holds `macos` to an identical key set and real translations in all 8 languages.
+  holds `macos` to an identical key set and real translations in all 10 languages.
 - `apps/macos` has no `package.json`, so Bun workspaces ignore it and `bun.lock` is
   untouched.

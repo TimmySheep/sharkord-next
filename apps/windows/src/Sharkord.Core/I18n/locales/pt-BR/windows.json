@@ -8,5 +8,22 @@
   "systemUser": "Sistema",
   "languageLabel": "Idioma",
   "systemLanguage": "Idioma do sistema",
-  "addReaction": "Adicionar reação"
+  "addReaction": "Adicionar reação",
+  "directMessages": "Mensagens diretas",
+  "textChannels": "Canais de texto",
+  "voiceChannels": "Canais de voz",
+  "joinVoice": "Entrar no canal de voz",
+  "leaveVoice": "Sair do canal de voz",
+  "muteMic": "Silenciar microfone",
+  "unmuteMic": "Ativar microfone",
+  "deafen": "Silenciar áudio",
+  "undeafen": "Ativar áudio",
+  "webcam": "Webcam",
+  "voiceConnecting": "Conectando ao canal de voz…",
+  "voiceNoPermission": "Você não tem permissão para entrar neste canal de voz.",
+  "shareScreen": "Compartilhar tela",
+  "stopScreenShare": "Parar compartilhamento",
+  "mediaLocalUser": "Você",
+  "mediaScreen": "Tela",
+  "mediaCamera": "Câmera"
 }

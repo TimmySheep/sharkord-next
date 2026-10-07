@@ -20,7 +20,7 @@ struct MainWindow: View {
                 onOpenSettings: { settingsSection = .profile },
                 onOpenServerSettings: { settingsSection = .general }
             )
-            .frame(minWidth: 200, idealWidth: 250, maxWidth: 320)
+            .frame(minWidth: 220, idealWidth: 260, maxWidth: 330)
 
             Divider()
 

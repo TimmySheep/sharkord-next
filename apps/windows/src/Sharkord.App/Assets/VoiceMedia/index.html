@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>cove voice media engine</title>
+    <style>
+      :root { color-scheme: dark; font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; }
+      body { display: flex; align-items: stretch; }
+      #media-surface { position: relative; width: 100%; height: 100%; }
+      #video-grid { display: grid; width: 100%; height: 100%; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; padding: 8px; box-sizing: border-box; }
+      .video-tile { position: relative; min-height: 120px; overflow: hidden; border-radius: 12px; background: #151820; }
+      .video-tile.hidden { display: none; }
+      .video-tile video { display: block; width: 100%; height: 100%; min-height: 120px; object-fit: cover; }
+      .video-tile span { position: absolute; left: 8px; bottom: 8px; padding: 4px 7px; color: white; border-radius: 6px; background: #0009; }
+      #screen-share-button { position: absolute; z-index: 2; top: 10px; right: 10px; padding: 7px 11px; border: 0; border-radius: 8px; color: white; background: #315fce; font: inherit; cursor: pointer; }
+      #screen-share-button.active { background: #b63e48; }
+      #screen-share-button:disabled { opacity: .65; cursor: wait; }
+      #screen-share-button[hidden] { display: none; }
+      audio { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="media-surface">
+      <div id="video-grid">
+        <div class="video-tile hidden"><video id="local-preview" autoplay muted playsinline hidden></video><span id="local-label">You</span></div>
+      </div>
+      <button id="screen-share-button" type="button" hidden></button>
+    </div>
+    <script src="voice-worker.js"></script>
+  </body>
+</html>

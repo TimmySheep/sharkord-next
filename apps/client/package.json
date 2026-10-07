@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
+    "build-desktop-voice": "sh scripts/build-desktop-voice.sh",
     "test": "bun test",
     "lint": "eslint ./src --ext ts,tsx",
     "lint:fix": "eslint ./src --ext ts,tsx --report-unused-disable-directives --fix",
-    "check-types": "tsc --noEmit --project tsconfig.app.json",
+    "check-types": "tsc --noEmit --project tsconfig.app.json && tsc --noEmit --skipLibCheck --strict --target ES2022 --moduleResolution bundler --module esnext --lib DOM,ES2022 scripts/voice-worker.ts",
     "format": "prettier --write \"**/*.ts*\" --config ./.prettierrc.json",
     "format:check": "prettier --check \"**/*.ts*\" --config ./.prettierrc.json",
     "magic": "bun --bun run lint:fix && bun --bun run format && bun --bun run check-types"

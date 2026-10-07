@@ -75,7 +75,7 @@ struct MessageBodyView: View {
     var emojiOnly: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             ForEach(document.blocks) { block in
                 switch block.kind {
                 case .paragraph:
@@ -85,6 +85,7 @@ struct MessageBodyView: View {
                 }
             }
         }
+        .lineSpacing(3)
     }
 
     @ViewBuilder
@@ -162,7 +163,8 @@ struct MessageSpanView: View {
         // per run styling goes through `Text` modifiers, which compose without the
         // get-only attribute subscripts `AttributedString` exposes on this sdk
         let base = Text(value)
-            .font(.system(size: emojiOnly ? 22 : 13.5))
+            .font(.system(size: emojiOnly ? 22 : 14.5))
+            .tracking(0.1)
             .fontWeight(span.bold ? .semibold : .regular)
 
         let styled = span.italic ? base.italic() : base

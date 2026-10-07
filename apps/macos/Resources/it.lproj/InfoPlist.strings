@@ -1,0 +1,3 @@
+"NSCameraUsageDescription" = "cove usa la fotocamera per trasmettere video nei canali vocali.";
+"NSMicrophoneUsageDescription" = "cove usa il microfono per trasmettere audio nei canali vocali.";
+"NSScreenCaptureUsageDescription" = "cove registra lo schermo, la finestra o l’app che scegli di condividere in un canale vocale.";

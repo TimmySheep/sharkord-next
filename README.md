@@ -22,16 +22,18 @@ native applications that talk to the same server.
 
 ### 1. macOS — native (first)
 
-Swift + SwiftUI, AppKit where it is the right tool. No Electron, no embedded web view, no wrapper around
-the web client. Real system integration: menu bar presence, global push-to-talk hotkeys, native screen
-capture (ScreenCaptureKit), system audio. Text first, then voice.
+Swift + SwiftUI, AppKit where it is the right tool. No Electron and no wrapper around the web client:
+the interface is native, with a restricted WKWebView used only for the bundled `mediasoup-client`
+media worker. The worker carries voice, camera and screen-share media; the WKWebView does not load
+server pages or plugin UI. Runtime media acceptance is still pending. Planned system integration
+includes menu bar presence, global push-to-talk hotkeys and system audio.
 Design and evidence: [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
 
 ### 2. Windows — native (second)
 
-C# + WinUI 3, native. Text first. Voice is gated on a feasibility spike, because **no C# mediasoup client
-exists today** — that is a research problem, not a task. System tray, global hotkeys, WASAPI audio,
-Windows.Graphics.Capture.
+C# + WinUI 3, native interface, with WebView2 restricted to the same bundled media worker. Voice,
+camera and screen-share paths are present in source but still need a Windows build and real-media
+acceptance. System tray, global hotkeys and WASAPI audio remain planned work.
 Design and evidence: [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
 
 ### 3. iPhone + iPad — native (third)

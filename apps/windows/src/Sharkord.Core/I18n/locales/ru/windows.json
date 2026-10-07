@@ -8,5 +8,22 @@
   "systemUser": "Система",
   "languageLabel": "Язык",
   "systemLanguage": "Язык системы",
-  "addReaction": "Добавить реакцию"
+  "addReaction": "Добавить реакцию",
+  "directMessages": "Личные сообщения",
+  "textChannels": "Текстовые каналы",
+  "voiceChannels": "Голосовые каналы",
+  "joinVoice": "Войти в голосовой канал",
+  "leaveVoice": "Покинуть голосовой канал",
+  "muteMic": "Выключить микрофон",
+  "unmuteMic": "Включить микрофон",
+  "deafen": "Отключить звук",
+  "undeafen": "Включить звук",
+  "webcam": "Камера",
+  "voiceConnecting": "Подключение к голосовому каналу…",
+  "voiceNoPermission": "У вас нет разрешения войти в этот голосовой канал.",
+  "shareScreen": "Поделиться экраном",
+  "stopScreenShare": "Остановить показ экрана",
+  "mediaLocalUser": "Вы",
+  "mediaScreen": "Экран",
+  "mediaCamera": "Камера"
 }

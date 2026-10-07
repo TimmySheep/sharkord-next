@@ -2,8 +2,8 @@
 import PackageDescription
 
 // macOS native client. SharkordCore is the transport + session layer that the app (and,
-// later, the iOS target) consumes; SharkordMac is the SwiftUI application. Everything is
-// plain SwiftUI/AppKit, no embedded web view, per docs/NATIVE_STRATEGY.md.
+// later, the iOS target) consumes; SharkordMac is the SwiftUI application. WKWebView is
+// limited to the bundled mediasoup media worker; the rest of the interface remains native.
 let package = Package(
     name: "SharkordMac",
     platforms: [
@@ -30,12 +30,26 @@ let package = Package(
             exclude: [
                 "Sources/SharkordCore",
                 "Tests",
-                "README.md"
+                "README.md",
+                "package-app.sh"
             ],
             sources: ["Sources/SharkordMac"],
             resources: [
                 .copy("Resources/locales"),
-                .copy("Resources/cove.icns")
+                .copy("Resources/cove.icns"),
+                .copy("Resources/cove-icon.png"),
+                .copy("Resources/voice-media"),
+                .copy("Resources/AppInfo.plist"),
+                .copy("Resources/cs.lproj"),
+                .copy("Resources/de.lproj"),
+                .copy("Resources/en.lproj"),
+                .copy("Resources/es.lproj"),
+                .copy("Resources/fr.lproj"),
+                .copy("Resources/it.lproj"),
+                .copy("Resources/pt-BR.lproj"),
+                .copy("Resources/ru.lproj"),
+                .copy("Resources/zh-Hans.lproj"),
+                .copy("Resources/zh-Hant.lproj")
             ]
         ),
         .testTarget(

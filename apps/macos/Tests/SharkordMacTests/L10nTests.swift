@@ -79,16 +79,18 @@ final class L10nTests: XCTestCase {
         L10n.language = "de"
         XCTAssertEqual(L10n.t("cancel"), "Abbrechen")
         XCTAssertEqual(L10n.t("connectBtn", ns: "connect"), "Verbinden")
-        XCTAssertEqual(L10n.t("tagline", ns: "macos"), "Verbindet sich über tRPC und WebSocket mit demselben Server wie der Web-Client.")
+        XCTAssertEqual(L10n.t("optional", ns: "connect"), "Optional")
 
         L10n.language = "zh-Hant"
         XCTAssertEqual(L10n.t("cancel"), "取消")
         XCTAssertEqual(L10n.t("typeAMessage"), "輸入訊息...")
         XCTAssertEqual(L10n.t("simulcastLabel", ns: "settings"), "聯播")
+        XCTAssertEqual(L10n.t("optional", ns: "connect"), "可選的")
 
         // the key that used to leak english on every non-en table
         L10n.language = "zh"
         XCTAssertEqual(L10n.t("messageChannel", ["name": "general"]), "消息「general」")
+        XCTAssertEqual(L10n.t("optional", ns: "connect"), "可选的")
     }
 
     func testLocaleResourcesLoadedFromBundle() {

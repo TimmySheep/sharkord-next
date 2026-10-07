@@ -47,14 +47,26 @@
                     FontWeight="SemiBold"
                     FontSize="16"
                     Margin="0,0,0,8" />
-                <ListView
+                <TreeView
                     x:Name="ChannelList"
                     Grid.Row="1"
-                    DisplayMemberPath="Name"
-                    SelectionChanged="OnChannelSelected" />
+                    SelectionMode="Single"
+                    Expanding="OnChannelTreeExpanding"
+                    Collapsed="OnChannelTreeCollapsed"
+                    ItemInvoked="OnChannelInvoked">
+                    <TreeView.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock
+                                Text="{Binding Content.Name}"
+                                FontSize="14"
+                                CharacterSpacing="12"
+                                TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
             </Grid>
 
-            <Grid Grid.Column="1" Margin="16,0,0,0">
+            <Grid x:Name="TextChannelPanel" Grid.Column="1" Margin="16,0,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -68,7 +80,12 @@
                     <ListView.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Spacing="4" Padding="8,6">
-                                <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                                <TextBlock
+                                    Text="{Binding Text}"
+                                    FontSize="15"
+                                    CharacterSpacing="12"
+                                    LineHeight="23"
+                                    TextWrapping="Wrap" />
                                 <StackPanel Orientation="Horizontal" Spacing="4">
                                     <ItemsControl ItemsSource="{Binding Reactions}">
                                         <ItemsControl.ItemsPanel>
@@ -116,6 +133,38 @@
                         Style="{StaticResource AccentButtonStyle}"
                         Click="OnSendClick" />
                 </Grid>
+            </Grid>
+
+            <Grid x:Name="VoiceChannelPanel" Grid.Column="1" Margin="16,0,0,0" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="240" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock x:Name="VoiceChannelTitle" FontWeight="SemiBold" FontSize="18" CharacterSpacing="10" Margin="0,0,0,10" />
+                <WebView2
+                    x:Name="VoiceMediaWebView"
+                    Grid.Row="1"
+                    Loaded="OnVoiceMediaWebViewLoaded" />
+                <TextBlock
+                    x:Name="VoiceStatusText"
+                    Grid.Row="2"
+                    Margin="0,8,0,2"
+                    FontSize="13"
+                    CharacterSpacing="8"
+                    TextWrapping="Wrap" />
+                <StackPanel Grid.Row="3" Spacing="10" VerticalAlignment="Top">
+                    <TextBlock x:Name="VoiceErrorText" Foreground="IndianRed" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="JoinVoiceButton" Click="OnJoinVoiceClick" />
+                        <Button x:Name="MicrophoneButton" Click="OnMicrophoneClick" Visibility="Collapsed" />
+                        <Button x:Name="DeafenButton" Click="OnDeafenClick" Visibility="Collapsed" />
+                        <Button x:Name="WebcamButton" Click="OnWebcamClick" Visibility="Collapsed" />
+                        <Button x:Name="LeaveVoiceButton" Click="OnLeaveVoiceClick" Visibility="Collapsed" />
+                    </StackPanel>
+                </StackPanel>
             </Grid>
         </Grid>
 

@@ -7,9 +7,9 @@ import SwiftUI
 /// the same product rather than a different one.
 enum Theme {
     static let accent = Color(red: 0x14 / 255, green: 0x47 / 255, blue: 0xE6 / 255)
-    static let sidebar = Color(red: 0x0B / 255, green: 0x0D / 255, blue: 0x14 / 255)
-    static let panel = Color(red: 0x12 / 255, green: 0x15 / 255, blue: 0x1D / 255)
-    static let elevated = Color(red: 0x1A / 255, green: 0x1E / 255, blue: 0x28 / 255)
+    static let sidebar = Color(nsColor: .windowBackgroundColor)
+    static let panel = Color(nsColor: .controlBackgroundColor)
+    static let elevated = Color(nsColor: .underPageBackgroundColor)
 
     static let avatarPalette: [Color] = [
         Color(red: 0x14 / 255, green: 0x47 / 255, blue: 0xE6 / 255),

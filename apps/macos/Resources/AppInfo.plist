@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>cove</string>
+	<key>CFBundleExecutable</key>
+	<string>cove</string>
+	<key>CFBundleIconFile</key>
+	<string>cove.icns</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.timmysheep.cove</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>cove</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.0.25</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.25</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>cove uses the camera to send video in voice channels.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>cove uses the microphone to send audio in voice channels.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>cove records the screen, window, or app you choose to share in a voice channel.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.social-networking</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>cs</string>
+		<string>de</string>
+		<string>en</string>
+		<string>es</string>
+		<string>fr</string>
+		<string>it</string>
+		<string>pt-BR</string>
+		<string>ru</string>
+		<string>zh-Hans</string>
+		<string>zh-Hant</string>
+	</array>
+</dict>
+</plist>

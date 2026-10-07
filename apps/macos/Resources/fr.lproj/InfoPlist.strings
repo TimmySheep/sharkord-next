@@ -1,0 +1,3 @@
+"NSCameraUsageDescription" = "cove utilise la caméra pour transmettre la vidéo dans les salons vocaux.";
+"NSMicrophoneUsageDescription" = "cove utilise le microphone pour transmettre l’audio dans les salons vocaux.";
+"NSScreenCaptureUsageDescription" = "cove enregistre l’écran, la fenêtre ou l’app que vous choisissez de partager dans un salon vocal.";

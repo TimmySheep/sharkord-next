@@ -8,5 +8,22 @@
   "systemUser": "Système",
   "languageLabel": "Langue",
   "systemLanguage": "Langue du système",
-  "addReaction": "Ajouter une réaction"
+  "addReaction": "Ajouter une réaction",
+  "directMessages": "Messages directs",
+  "textChannels": "Salons textuels",
+  "voiceChannels": "Salons vocaux",
+  "joinVoice": "Rejoindre le salon vocal",
+  "leaveVoice": "Quitter le salon vocal",
+  "muteMic": "Couper le micro",
+  "unmuteMic": "Activer le micro",
+  "deafen": "Couper le son",
+  "undeafen": "Rétablir le son",
+  "webcam": "Caméra",
+  "voiceConnecting": "Connexion au salon vocal…",
+  "voiceNoPermission": "Vous n'avez pas l'autorisation de rejoindre ce salon vocal.",
+  "shareScreen": "Partager l’écran",
+  "stopScreenShare": "Arrêter le partage",
+  "mediaLocalUser": "Vous",
+  "mediaScreen": "Écran",
+  "mediaCamera": "Caméra"
 }

@@ -1,0 +1,3 @@
+"NSCameraUsageDescription" = "cove использует камеру для передачи видео в голосовых каналах.";
+"NSMicrophoneUsageDescription" = "cove использует микрофон для передачи звука в голосовых каналах.";
+"NSScreenCaptureUsageDescription" = "cove записывает экран, окно или приложение, которое вы выбрали для демонстрации в голосовом канале.";

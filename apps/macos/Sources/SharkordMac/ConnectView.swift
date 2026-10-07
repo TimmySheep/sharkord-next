@@ -33,7 +33,6 @@ struct ConnectView: View {
             VStack(spacing: 20) {
                 header
                 card
-                footer
             }
             .frame(maxWidth: 420)
             .padding(32)
@@ -42,21 +41,16 @@ struct ConnectView: View {
 
     private var header: some View {
         VStack(spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Theme.accent)
-                    .frame(width: 56, height: 56)
+            Image("cove-icon", bundle: .module)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(width: 72, height: 72)
+                .accessibilityHidden(true)
 
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(.white)
-            }
-
-            Text("Sharkord")
+            Text("cove")
                 .font(.system(size: 26, weight: .bold))
                 .foregroundStyle(.white)
-
-            Eyebrow(text: "Native macOS client")
         }
     }
 
@@ -71,9 +65,9 @@ struct ConnectView: View {
                     secureField(
                         title: "Server password",
                         text: $serverPassword,
-                        placeholder: "if the server requires one"
+                        placeholder: L10n.t("optional", ns: "connect")
                     )
-                    field(title: "Invite code", text: $invite, placeholder: "if registration is closed")
+                    field(title: "Invite code", text: $invite, placeholder: L10n.t("optional", ns: "connect"))
                 }
                 .padding(.top, 10)
             }
@@ -111,12 +105,6 @@ struct ConnectView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(.white.opacity(0.08), lineWidth: 1)
         )
-    }
-
-    private var footer: some View {
-        Text(L10n.t("tagline", ns: "macos"))
-            .font(.system(size: 11))
-            .foregroundStyle(.secondary)
     }
 
     private func field(title: String, text: Binding<String>, placeholder: String) -> some View {

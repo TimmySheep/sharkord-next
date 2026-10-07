@@ -2,11 +2,10 @@ import SharkordCore
 import SwiftUI
 
 /// The voice channel screen. The whole control plane is real here: join, leave, mute and
-/// deafen state, webcam and screen share flags, reactions and moderator moves all go
-/// through the same tRPC procedures the web client uses. Moving actual media still needs a
-/// WebRTC stack, which is the one gap left (documented in apps/README.md).
+/// deafen state, webcam media, reactions and moderator moves all use the server voice routes.
 struct VoiceChannelView: View {
     @EnvironmentObject private var session: SharkordSession
+    @EnvironmentObject private var voiceMedia: VoiceMediaController
 
     let channel: SharkordChannel
 
@@ -22,8 +21,21 @@ struct VoiceChannelView: View {
         VStack(spacing: 0) {
             header
             Divider()
+            VoiceMediaHost(controller: voiceMedia)
+                .frame(maxWidth: .infinity)
+                .frame(height: joined ? 220 : 1)
+                .opacity(joined ? 1 : 0.01)
 
-            if joined {
+            if joined && voiceMedia.status == "connected" {
+                if let errorMessage = voiceMedia.errorMessage {
+                    Text(errorMessage)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(3)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 8)
+                }
+
                 participantGrid
                 Divider()
                 controls
@@ -75,23 +87,31 @@ struct VoiceChannelView: View {
             if session.hasPermission(.joinVoiceChannels),
                session.hasChannelPermission(channel.id, .join) {
                 Button {
-                    Task {
-                        _ = try? await session.joinVoice(channelId: channel.id)
-                    }
+                    connectVoice()
                 } label: {
                     Label(L10n.t("joinVoice", ns: "macos"), systemImage: "phone.fill")
                         .padding(.horizontal, 8)
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(voiceMedia.status == "connecting")
             } else {
                 Text(L10n.t("voiceNoPermission", ns: "macos"))
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
 
-            Text(L10n.t("voiceMediaMissing", ns: "macos"))
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+            if voiceMedia.status == "connecting" {
+                ProgressView(L10n.t("voiceConnecting", ns: "macos"))
+                    .controlSize(.small)
+            }
+
+            if let errorMessage = voiceMedia.errorMessage {
+                Text(errorMessage)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
 
             Spacer()
         }
@@ -172,9 +192,34 @@ struct VoiceChannelView: View {
             controlButton(
                 micMuted ? "mic.slash.fill" : "mic.fill",
                 active: micMuted,
-                help: micMuted ? "Unmute microphone" : "Mute microphone"
+                help: L10n.t(micMuted ? "unmuteMic" : "muteMic", ns: "macos")
             ) {
-                Task { try? await session.updateVoiceState(micMuted: !micMuted) }
+                Task {
+                    do {
+                        try await voiceMedia.setMicrophoneMuted(!micMuted)
+                    } catch {
+                        voiceMedia.presentError(error.localizedDescription)
+                    }
+                }
+            }
+            .disabled(voiceMedia.status != "connected" || !voiceMedia.canPublishAudio)
+
+            if session.hasPermission(.enableWebcam),
+               session.hasChannelPermission(channel.id, .webcam) {
+                controlButton(
+                    ownState?.webcamEnabled == true ? "video.fill" : "video.slash",
+                    active: ownState?.webcamEnabled == true,
+                    help: L10n.t("toggleWebcam", ns: "macos")
+                ) {
+                    Task {
+                        do {
+                            try await voiceMedia.setWebcamEnabled(ownState?.webcamEnabled != true)
+                        } catch {
+                            voiceMedia.presentError(error.localizedDescription)
+                        }
+                    }
+                }
+                .disabled(voiceMedia.status != "connected")
             }
 
             controlButton(
@@ -183,39 +228,14 @@ struct VoiceChannelView: View {
                 help: deafened ? "Undeafen" : "Deafen"
             ) {
                 Task {
-                    if deafened {
-                        try? await session.updateVoiceState(soundMuted: false)
-                    } else {
-                        try? await session.updateVoiceState(micMuted: true, soundMuted: true)
+                    do {
+                        try await voiceMedia.setOutputMuted(!deafened)
+                    } catch {
+                        voiceMedia.presentError(error.localizedDescription)
                     }
                 }
             }
-
-            if session.hasPermission(.enableWebcam),
-               session.hasChannelPermission(channel.id, .webcam) {
-                controlButton(
-                    ownState?.webcamEnabled == true ? "video.fill" : "video.slash",
-                    active: ownState?.webcamEnabled == true,
-                    help: "Toggle webcam"
-                ) {
-                    Task {
-                        try? await session.updateVoiceState(webcamEnabled: ownState?.webcamEnabled != true)
-                    }
-                }
-            }
-
-            if session.hasPermission(.shareScreen),
-               session.hasChannelPermission(channel.id, .shareScreen) {
-                controlButton(
-                    "rectangle.dashed.badge.record",
-                    active: ownState?.sharingScreen == true,
-                    help: "Toggle screen share"
-                ) {
-                    Task {
-                        try? await session.updateVoiceState(sharingScreen: ownState?.sharingScreen != true)
-                    }
-                }
-            }
+            .disabled(voiceMedia.status != "connected")
 
             if session.hasPermission(.sendVoiceReaction) {
                 Menu {
@@ -236,7 +256,7 @@ struct VoiceChannelView: View {
             Spacer()
 
             controlButton("phone.down.fill", active: true, help: "Leave voice") {
-                Task { try? await session.leaveVoice() }
+                leaveVoice()
             }
         }
         .padding(.horizontal, 16)
@@ -272,5 +292,43 @@ struct VoiceChannelView: View {
 
     private var deafened: Bool {
         ownState?.soundMuted ?? false
+    }
+
+    private func connectVoice() {
+        Task {
+            do {
+                if session.currentVoiceChannelId != nil {
+                    voiceMedia.stop()
+                    try await session.leaveVoice()
+                }
+
+                let result = try await session.joinVoice(channelId: channel.id, micMuted: true)
+                let capabilities = result["routerRtpCapabilities"] ?? .null
+                try await voiceMedia.start(
+                    channelId: channel.id,
+                    routerRtpCapabilities: capabilities,
+                    canProduceAudio: session.hasChannelPermission(channel.id, .speak),
+                    canShareScreen: session.hasPermission(.shareScreen) &&
+                        session.hasChannelPermission(channel.id, .shareScreen),
+                    screenShareLabels: [
+                        "share": L10n.t("shareScreen", ns: "macos"),
+                        "stop": L10n.t("stopScreenShare", ns: "macos"),
+                        "local": L10n.t("mediaLocalUser", ns: "macos"),
+                        "screen": L10n.t("mediaScreen", ns: "macos"),
+                        "camera": L10n.t("mediaCamera", ns: "macos")
+                    ]
+                )
+            } catch {
+                try? await session.leaveVoice()
+                voiceMedia.presentError(error.localizedDescription)
+            }
+        }
+    }
+
+    private func leaveVoice() {
+        voiceMedia.stop()
+        Task {
+            try? await session.leaveVoice()
+        }
     }
 }
