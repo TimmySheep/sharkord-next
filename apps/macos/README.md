@@ -80,7 +80,7 @@ delete categories, channels, roles, emojis and invites, and change server settin
 
 ## What works today (verified)
 
-Verified with `swift test` (41 tests) against an isolated server instance, not by
+Verified with `swift test` (43 tests) against an isolated server instance, not by
 inspection. 6 of those are end-to-end against a real server; the rest pin the wire format,
 the message HTML vocabulary and the locale lookup.
 
@@ -141,7 +141,7 @@ the message HTML vocabulary and the locale lookup.
   profile settings, not the web client's modal flow with its countdown.
 - **Desktop notifications, unread aggregation, menu bar presence, global PTT.** Unread
   badges live in the sidebar only.
-- **Theme and accessibility.** Dark tokens are fixed; no VoiceOver pass.
+- **Theme and accessibility.** The fixed dark palette pins the app's color scheme to dark so system semantic text colors stay readable when macOS is in light mode; no VoiceOver pass.
 - **A signed `.app` bundle.** `swift run` produces a plain executable. No `Info.plist`, no
   notarisation, no Sparkle updates.
 - **Per-screen visual review.** Compiled, unit-tested and exercised end-to-end over the

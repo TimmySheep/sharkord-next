@@ -12,6 +12,8 @@ struct SharkordMacApp: App {
             RootView()
                 .environmentObject(session)
                 .frame(minWidth: 900, minHeight: 600)
+                // the fixed dark palette relies on semantic text colors resolving for dark mode
+                .preferredColorScheme(.dark)
         }
         .defaultSize(width: 1160, height: 760)
         .commands {
