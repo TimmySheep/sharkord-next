@@ -14,8 +14,8 @@ was written against the actual source at `c611bb4`.
 4. **Apple Watch, native** — declared; a wrist push-to-talk client, gated on a feasibility spike.
 5. Direct (P2P) voice, then self-hosting quality, in parallel with the native work.
 
-**Not on this list, on purpose:** Android (a native client already exists) and PWA/mobile-web work in this
-fork (proposed upstream instead). Details below.
+**Android development is now underway** in [`apps/android`](apps/android). PWA/mobile-web work in this
+fork remains proposed upstream. Details below.
 
 Status legend: **✅ done** · **🔜 next** · **🧪 needs a spike** · **📋 planned** · **⛔ not doing**
 
@@ -31,7 +31,6 @@ Status legend: **✅ done** · **🔜 next** · **🧪 needs a spike** · **📋
 
 | Not doing | Why |
 | --- | --- |
-| **A second Android client** | A real native one already exists and is MIT: Kotlin + Jetpack Compose, with voice, video, screen share and DMs ([`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android)). A rewrite duplicates a year of work. |
 | **PWA / mobile-web work in this fork** | The three web-client gaps are generic improvements to upstream's client. Fixed upstream, every self-hosted instance and third-party client benefits; fixed here, only we do. Proposed upstream in [Track 6](#track-6-upstream-collaboration). |
 | **An Electron desktop client** | Roughly a dozen thin Electron wrappers already exist. A native client is the differentiator; a wrapper is not. |
 | **A plugin sandbox / runtime rewrite** | Upstream's plugin model is deliberate (trusted, in-process, capability-gated). Replacing it breaks every existing plugin for no user-visible gain. |
@@ -136,6 +135,11 @@ things that are specific to this project's own direction are carried here.
 | Diagnose client-side "Failed to initialize voice connection" reports: the server-side flow completes today, so the failure is in the media path — likely announced address or UDP reachability | 🧪 |
 | Publish our own pinned image once we ship server-side changes (fingerprint: no `latest`, always a version tag) | 📋 |
 | Storage guidance: signed URLs are **off** by default, so attachment URLs are publicly readable unless the server enables signing | 📋 |
+
+## Android client, in progress
+
+Native Android client development is underway in [`apps/android`](apps/android), using Kotlin and
+Jetpack Compose. Current implementation and build instructions are in the [Android app README](apps/android/README.md).
 
 ## How this roadmap changes
 

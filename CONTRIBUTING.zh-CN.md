@@ -19,7 +19,7 @@
 
 - **移动端 Web / PWA** —— 三个具体的缺口（没有 service worker、没有 `viewport-fit=cover`、没有 iOS standalone meta）都在 [`docs/ECOSYSTEM_RESEARCH.md` §5.3](docs/ECOSYSTEM_RESEARCH.md) 中附有文件级证据。每一个都是一个自成体系的 PR。
 - **文档** —— `docs/` 中的每一篇文档都是被跟踪的研究成果。如果你发现某条说法已不再与代码相符，修正它就是一项受欢迎的贡献。
-- **Android** —— 原生 Android 客户端是另一个独立项目（[`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android)，MIT 许可）。协议兼容性工作，以及固定版本的兼容性 CI，正是我们关心的缺口；见 [`docs/ECOSYSTEM_RESEARCH.md` §5.1](docs/ECOSYSTEM_RESEARCH.md)。
+- **Android** —— 本仓库自己的 Kotlin + Jetpack Compose 原生客户端正在 [`apps/android`](apps/android) 下开发；构建方式见[项目说明](apps/android/README.md)。独立的 [`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android) 仍是生态参考。
 - **上游也会想要的东西** —— 通用 bug 修复最好先提给上游，这样两个项目都能受益，我们的 diff 也能保持很小。
 
 如果你不确定某个想法是否合适，就开一个 issue 问一下。在这里，“需要讨论”是一种正常状态，而不是拒绝。

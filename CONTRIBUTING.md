@@ -27,10 +27,10 @@ Small, self-contained work that is ready to pick up:
   [`docs/ECOSYSTEM_RESEARCH.md` §5.3](docs/ECOSYSTEM_RESEARCH.md). Each is a contained PR.
 - **Documentation** — every document in `docs/` is tracked research. If you find a claim that no longer
   matches the code, fixing it is a welcome contribution.
-- **Android** — the native Android client is a separate project
-  ([`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android), MIT). Protocol-compatibility
-  work and a version-pinned compatibility CI are exactly the gaps we care about; see
-  [`docs/ECOSYSTEM_RESEARCH.md` §5.1](docs/ECOSYSTEM_RESEARCH.md).
+- **Android** — this repository's native Kotlin + Jetpack Compose client is under active development
+  in [`apps/android`](apps/android); see its [README](apps/android/README.md) for build instructions.
+  The separate [`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android) remains an
+  ecosystem reference.
 - **Anything upstream would also want** — general bug fixes are best offered upstream first, so both
   projects benefit and our diff stays small.
 

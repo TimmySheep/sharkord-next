@@ -62,11 +62,10 @@ and design work proceeds **in parallel** — it does not depend on the answer an
 will say so instead of shipping something that stutters every half minute.
 Design, primary-source evidence and the spike plan: [`docs/APPLE_WATCH.md`](docs/APPLE_WATCH.md)
 
-### Not doing: Android
+### Android: native client in progress
 
-A native Android client already exists — [`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android)
-(Kotlin + Jetpack Compose, MIT, with text, DMs, voice, video and screen share). Building a second one
-would duplicate a year of work, not advance anything.
+This repository's native Android client is under active development in [`apps/android`](apps/android),
+using Kotlin and Jetpack Compose. See its [README](apps/android/README.md) for build instructions.
 
 ### Not doing: PWA / mobile-web work in this fork
 
@@ -86,7 +85,7 @@ with the relayed path as the fallback, is [Track 5](ROADMAP.md#track-5-direct-p2
 | **Windows** (native, WinUI 3) | **Build** — priority 2 | Unclaimed; text first, voice gated on a spike |
 | **iPhone + iPad** (native, Swift) | **Build** — priority 3 | Unclaimed; shares the Swift core macOS needs anyway |
 | **Apple Watch** (native, Swift) | **Declared** — gated on a spike | Wrist push-to-talk is where a voice channel becomes a walkie-talkie; watchOS networking limits are unresolved |
-| **Android** | **Do not build** | A native Kotlin/Compose client already exists |
+| **Android** | **In progress** | Native Kotlin/Compose client under `apps/android` |
 | **PWA / mobile web** | **Propose upstream** | Generic improvement; upstream serves every instance |
 | **Web client** | Keep as the reference client | It is the compatibility baseline for every client here |
 
@@ -102,7 +101,7 @@ The native clients under [`apps/`](apps/) are this project's own additions. Like
 | --- | --- |
 | Server (`apps/server`) | Upstream code, unmodified. Builds and runs; **1458 server tests pass**. |
 | Reference web client (`apps/client`) | Upstream code, unmodified. Builds and runs (Vite 7.3.1). |
-| Native clients | **Started.** macOS and Windows client sources are in [`apps/`](apps/) (state per client in its README); Apple Watch is declared and gated on a spike — see above. |
+| Native clients | **Started.** macOS, Windows, and Android client sources are in [`apps/`](apps/) (state per client in its README); Apple Watch is declared and gated on a spike. |
 | Documentation | Architecture, RTC, ecosystem and native-strategy research live in [`docs/`](docs/). |
 
 ## What the server already does

@@ -12,7 +12,7 @@
 4. **Apple Watch，原生** — 已声明；腕上按键说话客户端，需先过可行性验证。
 5. 直连（P2P）语音，然后是自托管质量，与原生开发工作并行推进。
 
-**有意不在本列表中：** Android（已存在原生客户端）以及本 fork 中的 PWA/移动 Web 工作（改为向上游提议）。详见下文。
+**Android 原生客户端已开始开发**，代码位于 [`apps/android`](apps/android)。本 fork 中的 PWA/移动 Web 工作仍计划向上游提议。
 
 状态图例：**✅ 已完成** · **🔜 下一步** · **🧪 需要可行性验证（spike）** · **📋 已计划** · **⛔ 不做**
 
@@ -28,7 +28,6 @@
 
 | 不做 | 原因 |
 | --- | --- |
-| **第二个 Android 客户端** | 已经有一个真正的原生客户端，且采用 MIT 许可：Kotlin + Jetpack Compose，支持语音、视频、屏幕共享和私信（[`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android)）。重写等于重复一年的工作。 |
 | **本 fork 中的 PWA / 移动 Web 工作** | 这三个 Web 客户端的缺口都是对上游客户端的通用改进。在上游修复，所有自托管实例和第三方客户端都能受益；在这里修复，只有我们受益。已在 [Track 6](#track-6-upstream-collaboration) 向上游提议。 |
 | **Electron 桌面客户端** | 大约已经有十几个轻量的 Electron 套壳。原生客户端才是差异点；套壳不是。 |
 | **插件沙箱 / 运行时重写** | 上游的插件模型是刻意设计的（受信任、进程内、按能力授权）。替换它会破坏所有现有插件，而用户感知不到任何收益。 |
@@ -114,6 +113,11 @@
 | 诊断客户端侧上报的「Failed to initialize voice connection」：目前服务端流程是能跑完的，所以故障在媒体路径——很可能是 announced address 或 UDP 可达性 | 🧪 |
 | 一旦我们发布服务端改动，就发布自己的固定版本镜像（特征：不使用 `latest`，始终用版本标签） | 📋 |
 | 存储指引：签名 URL 默认是**关闭**的，因此除非服务器启用签名，附件 URL 是可公开读取的 | 📋 |
+
+## Android 原生客户端，开发中
+
+本仓库正在 [`apps/android`](apps/android) 下开发 Kotlin + Jetpack Compose 原生 Android 客户端。
+当前实现与构建说明见 [Android 项目 README](apps/android/README.md)。
 
 ## 本路线图如何变更
 

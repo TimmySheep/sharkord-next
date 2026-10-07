@@ -38,9 +38,9 @@ C# + WinUI 3，原生。先做文字。**语音要先过可行性验证**，因�
 **这是"已声明的意图"，不是承诺。** watchOS 只允许第三方 App 在极窄的例外条件下使用低层网络（[TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)），而本设计依赖的"音频流例外"目前带着一个 Apple 已登记在案的缺陷（**FB24377808**，报告于 2026-08）：音频会话激活后约 36 秒网络路径被收回、不会自行恢复，所以必须**定时续期**才能把连接握着。社区里已经有一个绕过办法 —— 在到期前重新激活，收回就会被重新排程（据报告者实测，且不打断路径与已建立的连接）—— 但它**没有在真实音频下验证过**，也**没有在 watchOS 27 发布后复测过**。因此在 watchOS 上能否维持一个持续的语音会话，必须在**真机上量出来**，而这一测量**决定我们能不能对外声称"语音可用"**。界面与设计工作**与之并行推进** —— 它不依赖这个答案，而且无论结果如何都能移植到 iOS；但在测量出结果之前，我们不会把任何东西说成"能用"。如果答案是"不行"，我们会直接写在这个 README 里，而不是发布一个每半分钟卡一次的东西。
 设计与一手证据、验证计划：[`docs/APPLE_WATCH.zh-CN.md`](docs/APPLE_WATCH.zh-CN.md)
 
-### 不做：Android
+### Android：原生客户端开发中
 
-Kotlin 原生客户端**已经存在** —— [`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android)（Kotlin + Jetpack Compose，MIT，已实现文字、私信、语音、视频、屏幕共享）。再写一个等于重复别人一年的工作，不推进任何事。
+本仓库自己的原生 Android 客户端正在 [`apps/android`](apps/android) 下积极开发，采用 Kotlin 和 Jetpack Compose。构建方式见[项目说明](apps/android/README.md)。
 
 ### 不做：本仓库不做 PWA / 移动端网页
 
@@ -56,7 +56,7 @@ Kotlin 原生客户端**已经存在** —— [`Vigno04/sharkord-android`](https
 | **Windows**（原生，WinUI 3） | **做** —— 第二 | 无人占位；先文字，语音过验证 |
 | **iPhone + iPad**（原生，Swift） | **做** —— 第三 | 无人占位；复用 macOS 本来就要写的 Swift 核心 |
 | **Apple Watch**（原生，Swift） | **已声明** —— 需先过验证 | 腕上按键说话是"语音频道变成对讲机"的形态；watchOS 的网络限制尚未解决 |
-| **Android** | **不做** | 已有 Kotlin/Compose 原生客户端 |
+| **Android** | **开发中** | 本仓库的 Kotlin/Compose 原生客户端位于 `apps/android` |
 | **PWA / 移动端网页** | **向上游提议** | 通用改进，改在上游才能惠及所有实例 |
 | **网页客户端** | 保留，作为参考客户端 | 它是所有客户端的兼容基线 |
 
@@ -68,7 +68,7 @@ Kotlin 原生客户端**已经存在** —— [`Vigno04/sharkord-android`](https
 | --- | --- |
 | 服务端（`apps/server`） | 上游代码，未改动。可构建、可运行；**1458 个服务端测试通过** |
 | 参考网页客户端（`apps/client`） | 上游代码，未改动。可构建、可运行（Vite 7.3.1） |
-| 原生客户端 | **已开始** —— macOS 与 Windows 的客户端源码已在 [`apps/`](apps/) 下（状态见各自的 README）；Apple Watch 已声明，需先过可行性验证（见上） |
+| 原生客户端 | **已开始** —— macOS、Windows 与 Android 的客户端源码已在 [`apps/`](apps/) 下（状态见各自的 README）；Apple Watch 已声明，需先过可行性验证（见上） |
 | 文档 | 架构、RTC、生态调研、原生策略四份都在 [`docs/`](docs/) |
 
 ## 服务端已经具备的能力

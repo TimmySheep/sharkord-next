@@ -22,6 +22,11 @@ claim not independently checked). Nothing is asserted from memory.
 
 ---
 
+> **Status update (2026-10-08):** This report records the ecosystem assessment made on 2026-10-06, before
+> this repository started its own Android client. Its recommendation to contribute to or fork Vigno04's
+> client is superseded by the later decision to develop a first-party client in [`apps/android`](../apps/android).
+> The repository findings remain historical evidence; they are not the current Android roadmap.
+
 ## 0. Executable conclusions (TL;DR)
 
 1. **Android — do not rewrite. Contribute to / fork `Vigno04/sharkord-android`.**
