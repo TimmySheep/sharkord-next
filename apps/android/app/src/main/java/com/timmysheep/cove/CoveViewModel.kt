@@ -12,6 +12,8 @@ import com.timmysheep.cove.data.SessionState
 import com.timmysheep.cove.data.hasServerPermission
 import com.timmysheep.cove.voice.CoveVoiceEngine
 import com.timmysheep.cove.voice.RemoteVideoTrack
+import com.timmysheep.cove.voice.VoiceCallNotificationAction
+import com.timmysheep.cove.voice.VoiceCallNotificationActionBus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,6 +51,27 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
             repository.state.collect { currentState ->
                 if (!currentState.connected && currentState.voiceChannelId != null) {
                     voiceEngine.leave()
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            VoiceCallNotificationActionBus.actions.collect { action ->
+                when (action) {
+                    VoiceCallNotificationAction.TOGGLE_SPEAKER -> {
+                        voiceEngine.setSpeakerEnabled(!state.value.speakerEnabled)
+                    }
+                    VoiceCallNotificationAction.TOGGLE_MICROPHONE -> {
+                        if (state.value.microphoneEnabled) {
+                            voiceEngine.setMicrophoneEnabled(false)
+                        } else {
+                            if (!state.value.speakerEnabled) voiceEngine.setSpeakerEnabled(true)
+                            if (state.value.speakerEnabled && !state.value.microphoneEnabled) {
+                                voiceEngine.setMicrophoneEnabled(true)
+                            }
+                        }
+                    }
+                    VoiceCallNotificationAction.LEAVE_CALL -> voiceEngine.leave()
                 }
             }
         }

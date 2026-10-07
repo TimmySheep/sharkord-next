@@ -429,7 +429,9 @@ class CoveRepository {
     fun canUseServerPermission(permission: String): Boolean =
         mutableState.value.hasServerPermission(permission)
 
-    fun setError(message: String) {
+    fun setError(message: String, cause: Throwable? = null) {
+        if (cause == null) AppDiagnosticsLog.warning("app", message)
+        else AppDiagnosticsLog.error("app", message, cause)
         mutableState.value = mutableState.value.copy(error = message)
     }
 
@@ -482,6 +484,7 @@ class CoveRepository {
             candidate?.close()
             if (error is CancellationException) throw error
             if (api === candidate) api = null
+            AppDiagnosticsLog.error("connection", "server connection failed", error)
             mutableState.value = mutableState.value.copy(
                 connecting = false,
                 connected = false,
@@ -723,6 +726,7 @@ class CoveRepository {
     private fun currentApi(): SharkordApi = api ?: throw RpcException("Not connected", "DISCONNECTED")
 
     private fun reportError(error: Throwable) {
+        AppDiagnosticsLog.error("repository", "operation failed", error)
         updateState { it.copy(error = error.message ?: "Something went wrong") }
     }
 

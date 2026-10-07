@@ -1,4 +1,8 @@
 <resources>
+    <plurals name="voice_call_participant_count">
+        <item quantity="one">%1$d personne</item>
+        <item quantity="other">%1$d personnes</item>
+    </plurals>
     <plurals name="reply_count">
         <item quantity="one">%1$d réponse</item>
         <item quantity="other">%1$d réponses</item>

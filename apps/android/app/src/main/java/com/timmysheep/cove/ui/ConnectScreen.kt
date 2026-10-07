@@ -1,5 +1,8 @@
 package com.timmysheep.cove.ui
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -39,11 +42,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.timmysheep.cove.R
+import com.timmysheep.cove.data.AppDiagnosticsLog
 import com.timmysheep.cove.data.SessionState
 
 @Composable
@@ -55,12 +60,28 @@ fun ConnectScreen(
     onQuickConnect: (rememberLogin: Boolean) -> Unit,
     onForgetSavedLogin: () -> Unit
 ) {
+    val context = LocalContext.current
     var server by rememberSaveable { mutableStateOf("") }
     var identity by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var serverPassword by rememberSaveable { mutableStateOf("") }
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
     var rememberLogin by rememberSaveable { mutableStateOf(true) }
+    val exportFailedText = stringResource(R.string.diagnostics_export_failed)
+    val exportLogsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                val output = context.contentResolver.openOutputStream(uri)
+                    ?: throw IllegalStateException("Could not open the selected file")
+                output.use { it.write(AppDiagnosticsLog.exportText(context).toByteArray(Charsets.UTF_8)) }
+            }.onFailure {
+                AppDiagnosticsLog.error("export", "diagnostic log export failed", it)
+                Toast.makeText(context, exportFailedText, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -220,6 +241,10 @@ fun ConnectScreen(
                             Spacer(Modifier.width(8.dp))
                             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                         }
+                    }
+
+                    TextButton(onClick = { exportLogsLauncher.launch("cove-logs.txt") }) {
+                        Text(stringResource(R.string.export_logs))
                     }
 
                 }

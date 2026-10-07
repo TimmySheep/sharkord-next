@@ -1,14 +1,20 @@
 package com.timmysheep.cove.ui
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -33,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,6 +47,7 @@ import androidx.core.os.LocaleListCompat
 import com.timmysheep.cove.BuildConfig
 import com.timmysheep.cove.CoveViewModel
 import com.timmysheep.cove.R
+import com.timmysheep.cove.data.AppDiagnosticsLog
 import com.timmysheep.cove.data.SessionState
 
 private data class AppLanguage(val tag: String, val labelResource: Int)
@@ -55,8 +63,26 @@ private val appLanguages = listOf(
 
 @Composable
 fun SettingsDestination(state: SessionState, model: CoveViewModel) {
+    val context = LocalContext.current
     var languageMenuOpen by remember { mutableStateOf(false) }
     var confirmDisconnect by rememberSaveable { mutableStateOf(false) }
+    var showLogs by rememberSaveable { mutableStateOf(false) }
+    var logText by remember { mutableStateOf("") }
+    val exportFailedText = stringResource(R.string.diagnostics_export_failed)
+    val exportLogsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                val output = context.contentResolver.openOutputStream(uri)
+                    ?: throw IllegalStateException("Could not open the selected file")
+                output.use { it.write(AppDiagnosticsLog.exportText(context).toByteArray(Charsets.UTF_8)) }
+            }.onFailure {
+                AppDiagnosticsLog.error("export", "diagnostic log export failed", it)
+                Toast.makeText(context, exportFailedText, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     val selectedLanguage = AppCompatDelegate.getApplicationLocales().toLanguageTags()
         .substringBefore(',').ifBlank { "" }
 
@@ -116,6 +142,42 @@ fun SettingsDestination(state: SessionState, model: CoveViewModel) {
             }
 
             Text(
+                text = stringResource(R.string.diagnostics_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.diagnostics_title)) },
+                        supportingContent = { Text(stringResource(R.string.diagnostics_description)) },
+                        leadingContent = { Icon(Icons.Default.Info, contentDescription = null) }
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                logText = AppDiagnosticsLog.previewText(context)
+                                showLogs = true
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.view_logs))
+                        }
+                        OutlinedButton(
+                            onClick = { exportLogsLauncher.launch("cove-logs.txt") },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(stringResource(R.string.export_logs))
+                        }
+                    }
+                }
+            }
+
+            Text(
                 text = stringResource(R.string.about),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
@@ -140,6 +202,25 @@ fun SettingsDestination(state: SessionState, model: CoveViewModel) {
             Spacer(Modifier.width(10.dp))
             Text(stringResource(R.string.disconnect))
         }
+    }
+
+    if (showLogs) {
+        AlertDialog(
+            onDismissRequest = { showLogs = false },
+            title = { Text(stringResource(R.string.diagnostics_title)) },
+            text = {
+                SelectionContainer {
+                    Text(
+                        text = logText.ifBlank { stringResource(R.string.no_diagnostics_logs) },
+                        modifier = Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLogs = false }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
     }
 
     if (confirmDisconnect) {

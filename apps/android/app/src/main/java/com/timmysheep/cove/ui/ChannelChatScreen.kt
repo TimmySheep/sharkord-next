@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,7 +52,6 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.FlipCameraAndroid
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Forum
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
@@ -96,13 +96,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -836,8 +837,6 @@ private fun MessageActionSheet(
     } else {
         stringResource(R.string.start_thread)
     }
-    var replyOptionsExpanded by remember(message.id) { mutableStateOf(false) }
-
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
         if (messageContent.isNotBlank() && !isEmojiOnlyMessageContent(messageContent)) {
             Text(
@@ -860,59 +859,69 @@ private fun MessageActionSheet(
             }
         }
 
-        Box(modifier = Modifier.fillMaxWidth()) {
-            FilledTonalButton(
-                onClick = { replyOptionsExpanded = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = null)
-                Spacer(Modifier.width(12.dp))
-                Text(stringResource(R.string.reply))
-                Spacer(Modifier.weight(1f))
-                Icon(Icons.Default.ExpandMore, contentDescription = null)
-            }
-
-            DropdownMenu(
-                expanded = replyOptionsExpanded,
-                onDismissRequest = { replyOptionsExpanded = false }
-            ) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.reply)) },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.Reply, contentDescription = null) },
-                    onClick = {
-                        replyOptionsExpanded = false
-                        onReply()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text(threadActionText) },
-                    leadingIcon = { Icon(Icons.Default.Forum, contentDescription = null) },
-                    onClick = {
-                        replyOptionsExpanded = false
-                        onOpenThread()
-                    }
-                )
-            }
-        }
-
         if (isOwnMessage) {
             TextButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Edit, contentDescription = null)
                 Spacer(Modifier.width(12.dp))
                 Text(stringResource(R.string.edit))
             }
-        }
-        TextButton(onClick = onTogglePin, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.PushPin, contentDescription = null)
-            Spacer(Modifier.width(12.dp))
-            Text(stringResource(if (message.pinned) R.string.unpin else R.string.pin))
-        }
-        if (isOwnMessage) {
             TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.width(12.dp))
                 Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
             }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            MessageActionButton(
+                icon = Icons.AutoMirrored.Filled.Reply,
+                label = stringResource(R.string.reply),
+                onClick = onReply,
+                modifier = Modifier.weight(1f)
+            )
+            MessageActionButton(
+                icon = Icons.Default.Forum,
+                label = threadActionText,
+                onClick = onOpenThread,
+                modifier = Modifier.weight(1f)
+            )
+            MessageActionButton(
+                icon = Icons.Default.PushPin,
+                label = stringResource(if (message.pinned) R.string.unpin else R.string.pin),
+                onClick = onTogglePin,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun MessageActionButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(icon, contentDescription = null)
+            Text(
+                text = label,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
@@ -1015,13 +1024,6 @@ private fun VoiceCallPanel(
             )
         }
 
-        if (isInThisRoom && !state.speakerEnabled && !state.microphoneEnabled) {
-            Text(
-                text = stringResource(R.string.microphone_blocked),
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
     }
 }
 

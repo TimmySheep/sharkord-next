@@ -110,6 +110,7 @@ class SharkordApi {
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                AppDiagnosticsLog.error("websocket", "connection failed", t)
                 ready.completeExceptionally(t)
                 failPending(t)
                 closeSubscriptions(t)
@@ -289,6 +290,7 @@ class SharkordApi {
         if (errorValue != null) {
             val code = (errorValue["data"] as? JsonObject)?.get("code")?.jsonPrimitive?.contentOrNull ?: "UNKNOWN"
             val message = errorValue["message"]?.jsonPrimitive?.contentOrNull ?: "Request failed"
+            AppDiagnosticsLog.error("trpc", "request failed code=$code message=$message")
             val error = RpcException(message, code)
             pending.remove(id)?.completeExceptionally(error)
             subscriptions.remove(id)?.close(error)
@@ -314,6 +316,10 @@ class SharkordApi {
                 val message = runCatching {
                     protocolJson.parseToJsonElement(body).jsonObject["error"]?.jsonPrimitive?.contentOrNull
                 }.getOrNull()
+                AppDiagnosticsLog.error(
+                    "http",
+                    "request failed method=${request.method} path=${request.url.encodedPath} status=${response.code}"
+                )
                 throw IOException(message ?: "Request failed (${response.code})")
             }
             protocolJson.parseToJsonElement(body)
@@ -357,4 +363,21 @@ class SharkordApi {
     }
 }
 
-inline fun <reified T> JsonElement.decode(): T = SharkordApi.protocolJson.decodeFromJsonElement(this)
+internal inline fun <reified T> JsonElement.decode(): T = try {
+    SharkordApi.protocolJson.decodeFromJsonElement(this)
+} catch (error: kotlinx.serialization.SerializationException) {
+    AppDiagnosticsLog.error(
+        "json",
+        "decode failed target=${T::class.java.simpleName} root=${diagnosticJsonShape(this)}",
+        error
+    )
+    throw error
+}
+
+@PublishedApi
+internal fun diagnosticJsonShape(value: JsonElement): String = when (value) {
+    is JsonObject -> "object keys=${value.keys.sorted().joinToString(",")}"
+    is JsonArray -> "array size=${value.size}"
+    JsonNull -> "null"
+    else -> "primitive"
+}

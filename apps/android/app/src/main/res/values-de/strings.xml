@@ -37,7 +37,6 @@
     <string name="voice_control_enable_speaker">Lautsprecher einschalten</string>
     <string name="share_screen">Bildschirm teilen</string>
     <string name="stop_sharing">Teilen beenden</string>
-    <string name="microphone_blocked">Aktiviere die Lautsprecherausgabe, bevor du das Mikrofon einschaltest.</string>
     <string name="language">Sprache</string>
     <string name="appearance">Darstellung</string>
     <string name="system_default">Systemstandard</string>
@@ -67,7 +66,8 @@
     <string name="microphone_permission_denied">Zum Sprechen wird die Mikrofonberechtigung benötigt.</string>
     <string name="voice_call_notification_channel">Sprachanruf</string>
     <string name="voice_call_notification_title">Sprachanruf aktiv</string>
-    <string name="voice_call_notification_body">cove hält deine Verbindung aufrecht.</string>
+    <string name="voice_call_microphone_on">Mikrofon ist eingeschaltet</string>
+    <string name="voice_call_microphone_off">Mikrofon ist ausgeschaltet</string>
     <string name="disconnect_confirm_title">Vom Server trennen?</string>
     <string name="disconnect_confirm_body">Du musst dich erneut anmelden, um die Verbindung wiederherzustellen.</string>
     <string name="language_english">English</string>
@@ -115,4 +115,10 @@
     <string name="quick_sign_in">Mit gespeichertem Konto fortfahren</string>
     <string name="forget_saved_login">Gespeichertes Konto vergessen</string>
     <string name="credential_storage_failed">Die sicher gespeicherten Anmeldedaten konnten nicht aktualisiert werden.</string>
+    <string name="diagnostics_title">Diagnoseprotokoll</string>
+    <string name="diagnostics_description">Chatnachrichten und Medien werden nicht direkt protokolliert. Gängige Zugangsdatenmuster werden geschwärzt; prüfe Details vor dem Teilen.</string>
+    <string name="view_logs">Protokoll ansehen</string>
+    <string name="export_logs">Protokoll exportieren</string>
+    <string name="no_diagnostics_logs">Es wurden noch keine Protokolle aufgezeichnet.</string>
+    <string name="diagnostics_export_failed">Protokoll konnte nicht exportiert werden.</string>
 </resources>

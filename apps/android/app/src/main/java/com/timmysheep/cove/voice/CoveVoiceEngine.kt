@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ResultReceiver
 import com.timmysheep.cove.R
+import com.timmysheep.cove.data.AppDiagnosticsLog
 import com.timmysheep.cove.data.CoveRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +26,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -106,6 +109,21 @@ class CoveVoiceEngine(
     val remoteVideoTracks: StateFlow<List<RemoteVideoTrack>> = mutableVideoTracks.asStateFlow()
     val localCameraTrack: StateFlow<VideoTrack?> = mutableLocalCameraTrack.asStateFlow()
 
+    init {
+        scope.launch {
+            repository.state
+                .map { VoiceCallNotificationSnapshot.from(it) }
+                .distinctUntilChanged()
+                .collect { snapshot ->
+                    if (snapshot == null) {
+                        VoiceCallService.cancelNotification(appContext)
+                    } else {
+                        VoiceCallService.updateNotification(appContext, snapshot)
+                    }
+                }
+        }
+    }
+
     suspend fun join(channelId: Int) {
         if (repository.state.value.voiceChannelId == channelId && device != null) return
         if (repository.state.value.voiceChannelId != null) leave()
@@ -154,7 +172,7 @@ class CoveVoiceEngine(
             if (error is CancellationException) throw error
             closeMediaObjects()
             runCatching { repository.leaveVoice() }
-            repository.setError(error.message ?: appContext.getString(R.string.voice_join_failed))
+            repository.setError(error.message ?: appContext.getString(R.string.voice_join_failed), error)
         }
     }
 
@@ -182,7 +200,7 @@ class CoveVoiceEngine(
             microphoneTrack?.setEnabled(false)
             runCatching { repository.updateVoiceState(micMuted = true) }
                 .onSuccess { repository.updateVoiceMediaState(microphoneEnabled = false) }
-                .onFailure { repository.setError(it.message ?: appContext.getString(R.string.microphone_mute_failed)) }
+                .onFailure { repository.setError(it.message ?: appContext.getString(R.string.microphone_mute_failed), it) }
             syncVoiceService()
             return
         }
@@ -218,7 +236,7 @@ class CoveVoiceEngine(
             if (error is CancellationException) throw error
             pendingProduceKind.set(null)
             microphoneTrack?.setEnabled(false)
-            repository.setError(error.message ?: appContext.getString(R.string.microphone_enable_failed))
+            repository.setError(error.message ?: appContext.getString(R.string.microphone_enable_failed), error)
         }
     }
 
@@ -254,7 +272,7 @@ class CoveVoiceEngine(
             }
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
-            repository.setError(error.message ?: appContext.getString(R.string.speaker_update_failed))
+            repository.setError(error.message ?: appContext.getString(R.string.speaker_update_failed), error)
         }
     }
 
@@ -335,7 +353,7 @@ class CoveVoiceEngine(
             repository.updateVoiceMediaState(cameraEnabled = false)
             syncVoiceService()
             if (error is CancellationException) throw error
-            repository.setError(error.message ?: appContext.getString(R.string.camera_start_failed))
+            repository.setError(error.message ?: appContext.getString(R.string.camera_start_failed), error)
         }
     }
 
@@ -355,6 +373,7 @@ class CoveVoiceEngine(
         if (resultCode != Activity.RESULT_OK || resultData == null) return@withLock
         if (screenCapturer != null || screenProducer != null) return@withLock
 
+        AppDiagnosticsLog.info("voice", "screen share start requested channel=$channelId")
         try {
             // server authorization is authoritative; local permission snapshots can be stale.
             startScreenService()
@@ -385,6 +404,7 @@ class CoveVoiceEngine(
             }
             repository.updateVoiceState(sharingScreen = true)
             repository.updateVoiceMediaState(sharingScreen = true)
+            AppDiagnosticsLog.info("voice", "screen share started channel=$channelId")
         } catch (error: Throwable) {
             pendingProduceKind.set(null)
             screenProducer?.close()
@@ -395,7 +415,7 @@ class CoveVoiceEngine(
             repository.updateVoiceMediaState(sharingScreen = false)
             syncVoiceService()
             if (error is CancellationException) throw error
-            repository.setError(error.message ?: appContext.getString(R.string.screen_share_failed))
+            repository.setError(error.message ?: appContext.getString(R.string.screen_share_failed), error)
         }
     }
 
@@ -403,6 +423,7 @@ class CoveVoiceEngine(
         if (screenProducer == null && screenCapturer == null && !repository.state.value.sharingScreen) {
             return@withLock
         }
+        AppDiagnosticsLog.info("voice", "screen share stop requested")
         screenProducer?.close()
         screenProducer = null
         stopScreenCapture()
@@ -500,7 +521,7 @@ class CoveVoiceEngine(
             repository.updateVoiceMediaState(consumedRemoteStreams = consumers.keys.toSet())
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
-            repository.setError(error.message ?: appContext.getString(R.string.voice_stream_failed))
+            repository.setError(error.message ?: appContext.getString(R.string.voice_stream_failed), error)
         }
     }
 
@@ -620,15 +641,11 @@ class CoveVoiceEngine(
     }
 
     private fun startVoiceService() {
-        val intent = Intent(appContext, VoiceCallService::class.java)
-            .setAction(VoiceCallService.ACTION_START_MICROPHONE)
-        appContext.startForegroundService(intent)
+        appContext.startForegroundService(voiceServiceIntent(VoiceCallService.ACTION_START_MICROPHONE))
     }
 
     private fun startCallService() {
-        val intent = Intent(appContext, VoiceCallService::class.java)
-            .setAction(VoiceCallService.ACTION_START_CALL)
-        appContext.startForegroundService(intent)
+        appContext.startForegroundService(voiceServiceIntent(VoiceCallService.ACTION_START_CALL))
     }
 
     private suspend fun startScreenService() {
@@ -648,8 +665,7 @@ class CoveVoiceEngine(
                 }
             }
         }
-        val intent = Intent(appContext, VoiceCallService::class.java)
-            .setAction(VoiceCallService.ACTION_START_SCREEN)
+        val intent = voiceServiceIntent(VoiceCallService.ACTION_START_SCREEN)
             .putExtra(VoiceCallService.EXTRA_INCLUDE_MICROPHONE, microphoneGranted && repository.state.value.microphoneEnabled)
             .putExtra(VoiceCallService.EXTRA_INCLUDE_CAMERA, cameraCapturer != null)
             .putExtra(VoiceCallService.EXTRA_FOREGROUND_RESULT_RECEIVER, resultReceiver)
@@ -675,8 +691,7 @@ class CoveVoiceEngine(
                 }
             }
         }
-        val intent = Intent(appContext, VoiceCallService::class.java)
-            .setAction(VoiceCallService.ACTION_START_CAMERA)
+        val intent = voiceServiceIntent(VoiceCallService.ACTION_START_CAMERA)
             .putExtra(VoiceCallService.EXTRA_INCLUDE_MICROPHONE, microphoneGranted && repository.state.value.microphoneEnabled)
             .putExtra(VoiceCallService.EXTRA_INCLUDE_PROJECTION, screenCapturer != null)
             .putExtra(VoiceCallService.EXTRA_FOREGROUND_RESULT_RECEIVER, resultReceiver)
@@ -701,11 +716,7 @@ class CoveVoiceEngine(
 
     private suspend fun syncVoiceService() {
         val currentState = repository.state.value
-        if (
-            currentState.voiceChannelId == null ||
-            (!currentState.microphoneEnabled && !currentState.speakerEnabled &&
-                screenCapturer == null && cameraCapturer == null)
-        ) {
+        if (currentState.voiceChannelId == null) {
             stopVoiceService()
         } else if (screenCapturer != null) {
             startScreenService()
@@ -720,6 +731,11 @@ class CoveVoiceEngine(
 
     private fun stopVoiceService() {
         appContext.stopService(Intent(appContext, VoiceCallService::class.java))
+    }
+
+    private fun voiceServiceIntent(action: String): Intent {
+        val snapshot = requireNotNull(VoiceCallNotificationSnapshot.from(repository.state.value))
+        return VoiceCallService.createIntent(appContext, action, snapshot)
     }
 
     private fun consumerKey(remoteId: Int, kind: String) = "$remoteId:$kind"

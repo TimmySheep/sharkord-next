@@ -37,7 +37,6 @@
     <string name="voice_control_enable_speaker">Activar altavoz</string>
     <string name="share_screen">Compartir pantalla</string>
     <string name="stop_sharing">Dejar de compartir</string>
-    <string name="microphone_blocked">Activa el sonido del altavoz antes de habilitar el micrófono.</string>
     <string name="language">Idioma</string>
     <string name="appearance">Apariencia</string>
     <string name="system_default">Predeterminado del sistema</string>
@@ -67,7 +66,8 @@
     <string name="microphone_permission_denied">Se necesita permiso del micrófono para hablar.</string>
     <string name="voice_call_notification_channel">Llamada de voz</string>
     <string name="voice_call_notification_title">Llamada de voz activa</string>
-    <string name="voice_call_notification_body">cove mantiene la llamada conectada.</string>
+    <string name="voice_call_microphone_on">Micrófono activado</string>
+    <string name="voice_call_microphone_off">Micrófono desactivado</string>
     <string name="disconnect_confirm_title">¿Desconectarse de este servidor?</string>
     <string name="disconnect_confirm_body">Tendrás que iniciar sesión de nuevo para volver a conectarte.</string>
     <string name="language_english">English</string>
@@ -115,4 +115,10 @@
     <string name="quick_sign_in">Continuar con la cuenta guardada</string>
     <string name="forget_saved_login">Olvidar la cuenta guardada</string>
     <string name="credential_storage_failed">No se pudieron actualizar de forma segura los datos de inicio de sesión.</string>
+    <string name="diagnostics_title">Registro de diagnóstico</string>
+    <string name="diagnostics_description">Los mensajes y el contenido multimedia no se registran directamente. Se ocultan formatos comunes de credenciales; revisa los detalles antes de compartir.</string>
+    <string name="view_logs">Ver registros</string>
+    <string name="export_logs">Exportar registros</string>
+    <string name="no_diagnostics_logs">Todavía no hay registros.</string>
+    <string name="diagnostics_export_failed">No se pudieron exportar los registros.</string>
 </resources>
