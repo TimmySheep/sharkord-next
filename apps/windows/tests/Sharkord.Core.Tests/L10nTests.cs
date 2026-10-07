@@ -45,7 +45,14 @@ public class L10nTests
         "stopScreenShare",
         "mediaLocalUser",
         "mediaScreen",
-        "mediaCamera"
+        "mediaCamera",
+        "exportLogs",
+        "logFileType",
+        "logsExportSuccessTitle",
+        "logsExportSuccessMessage",
+        "logsExportFailureTitle",
+        "logsExportFailureMessage",
+        "close"
     ];
 
     public static IEnumerable<object[]> Languages =>
@@ -289,6 +296,18 @@ public class L10nTests
         Assert.Contains("SourceFiles=\"$(MSBuildProjectDirectory)\\Assets\\cove-dark.ico\"", project);
         Assert.True(File.Exists(iconPath));
         Assert.True(File.Exists(darkIconPath));
+    }
+
+    [Fact]
+    public void WinUiExposesDiagnosticLogExport()
+    {
+        var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
+        var code = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml.cs"));
+
+        Assert.Contains("x:Name=\"ExportLogsButton\"", xaml);
+        Assert.Contains("Click=\"OnExportLogsClick\"", xaml);
+        Assert.Contains("FileSavePicker", code);
+        Assert.Contains("ClientLogStore.Shared.ExportLogsAsync", code);
     }
 
     /// <summary>

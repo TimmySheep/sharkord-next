@@ -94,5 +94,10 @@
   "keyboardShortcutConflict": "Ce raccourci est déjà attribué à {{action}}.",
   "keyboardShortcutModifierRequired": "Utilisez Commande, Option ou Contrôle avec ce raccourci.",
   "keyboardShortcutReturnReserved": "⇧↩ est réservé aux sauts de ligne.",
-  "keyboardShortcutReservedForPushToTalk": "F13 est réservé au mode appuyer pour parler."
+  "keyboardShortcutReservedForPushToTalk": "F13 est réservé au mode appuyer pour parler.",
+  "exportLogs": "Exporter les journaux",
+  "logsExportSuccessTitle": "Journaux exportés",
+  "logsExportSuccessMessage": "Les journaux de diagnostic ont été enregistrés à l’emplacement choisi.",
+  "logsExportFailureTitle": "Impossible d’exporter les journaux",
+  "logsExportFailureMessage": "Cove n’a pas pu enregistrer les journaux de diagnostic. Vérifiez l’accès au fichier et réessayez."
 }

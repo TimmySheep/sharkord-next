@@ -176,10 +176,12 @@ public sealed class SharkordSession : IAsyncDisposable
     {
         if (!TryNormalize(host, out var baseUrl))
         {
+            ClientLogStore.Shared.RecordFailure("session.connect.failed", "invalid_server_address");
             SetPhase(SessionPhase.Failed, "Enter a valid server address");
             return;
         }
 
+        ClientLogStore.Shared.RecordInfo("session.connect.started");
         _stopping = false;
         _reconnectAttempt = 0;
         LastError = null;
@@ -201,9 +203,11 @@ public sealed class SharkordSession : IAsyncDisposable
                 .ConfigureAwait(false);
 
             SetPhase(SessionPhase.Connected, null);
+            ClientLogStore.Shared.RecordInfo("session.connect.succeeded");
         }
         catch (Exception exception)
         {
+            ClientLogStore.Shared.RecordError("session.connect.failed", exception);
             SetPhase(SessionPhase.Failed, Describe(exception));
         }
     }
@@ -749,6 +753,7 @@ public sealed class SharkordSession : IAsyncDisposable
         }
         catch (Exception exception)
         {
+            ClientLogStore.Shared.RecordError("session.channel_load.failed", exception);
             LastError = Describe(exception);
             _loadedChannels.Remove(channelId);
         }
@@ -1161,6 +1166,15 @@ public sealed class SharkordSession : IAsyncDisposable
         if (_stopping || Phase is not (SessionPhase.Connected or SessionPhase.Connecting))
         {
             return;
+        }
+
+        if (exception is null)
+        {
+            ClientLogStore.Shared.RecordFailure("session.disconnected", "connection_closed");
+        }
+        else
+        {
+            ClientLogStore.Shared.RecordError("session.disconnected", exception);
         }
 
         if (_http is null || _token is null || _reconnectAttempt >= ReconnectDelays.Length)

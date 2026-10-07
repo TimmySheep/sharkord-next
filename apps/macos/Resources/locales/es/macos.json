@@ -94,5 +94,10 @@
   "keyboardShortcutConflict": "Ese atajo ya está asignado a {{action}}.",
   "keyboardShortcutModifierRequired": "Usa Command, Option o Control con este atajo.",
   "keyboardShortcutReturnReserved": "⇧↩ está reservado para insertar saltos de línea.",
-  "keyboardShortcutReservedForPushToTalk": "F13 está reservado para pulsar para hablar."
+  "keyboardShortcutReservedForPushToTalk": "F13 está reservado para pulsar para hablar.",
+  "exportLogs": "Exportar registros",
+  "logsExportSuccessTitle": "Registros exportados",
+  "logsExportSuccessMessage": "Los registros de diagnóstico se guardaron en la ubicación seleccionada.",
+  "logsExportFailureTitle": "No se pudieron exportar los registros",
+  "logsExportFailureMessage": "Cove no pudo guardar los registros de diagnóstico. Comprueba el acceso al archivo e inténtalo de nuevo."
 }

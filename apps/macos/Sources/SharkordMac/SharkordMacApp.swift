@@ -63,6 +63,12 @@ struct SharkordMacApp: App {
 /// accessory. Promoting it to a regular app is what makes the window appear and focus.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let osMajorVersion = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+        ClientLogStore.shared.recordInfo("app.launched", code: "macos.\(osMajorVersion)")
+        NSSetUncaughtExceptionHandler { exception in
+            ClientLogStore.shared.recordFailure("app.uncaught_exception", code: exception.name.rawValue)
+        }
+
         if Bundle.main.bundleURL.pathExtension != "app",
            let iconURL = Bundle.module.url(forResource: "cove", withExtension: "icns"),
            let icon = NSImage(contentsOf: iconURL) {

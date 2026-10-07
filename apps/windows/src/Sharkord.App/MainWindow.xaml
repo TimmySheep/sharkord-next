@@ -168,11 +168,18 @@
             </Grid>
         </Grid>
 
-        <ComboBox
-            x:Name="LanguageBox"
-            Width="220"
+        <StackPanel
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
-            SelectionChanged="OnLanguageSelectionChanged" />
+            Orientation="Horizontal"
+            Spacing="8">
+            <ComboBox
+                x:Name="LanguageBox"
+                Width="220"
+                SelectionChanged="OnLanguageSelectionChanged" />
+            <Button
+                x:Name="ExportLogsButton"
+                Click="OnExportLogsClick" />
+        </StackPanel>
     </Grid>
 </Window>

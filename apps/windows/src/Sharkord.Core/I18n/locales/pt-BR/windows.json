@@ -25,5 +25,12 @@
   "stopScreenShare": "Parar compartilhamento",
   "mediaLocalUser": "Você",
   "mediaScreen": "Tela",
-  "mediaCamera": "Câmera"
+  "mediaCamera": "Câmera",
+  "exportLogs": "Exportar registros",
+  "logFileType": "Arquivos de registro",
+  "logsExportSuccessTitle": "Registros exportados",
+  "logsExportSuccessMessage": "Os registros de diagnóstico foram salvos no local escolhido.",
+  "logsExportFailureTitle": "Não foi possível exportar os registros",
+  "logsExportFailureMessage": "O Cove não conseguiu salvar os registros de diagnóstico. Verifique o acesso ao arquivo e tente novamente.",
+  "close": "Fechar"
 }

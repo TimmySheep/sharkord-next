@@ -94,5 +94,10 @@
   "keyboardShortcutConflict": "此快捷键已分配给“{{action}}”。",
   "keyboardShortcutModifierRequired": "请为快捷键添加 Command、Option 或 Control。",
   "keyboardShortcutReturnReserved": "⇧↩ 已保留为换行操作。",
-  "keyboardShortcutReservedForPushToTalk": "F13 已保留给按键通话功能。"
+  "keyboardShortcutReservedForPushToTalk": "F13 已保留给按键通话功能。",
+  "exportLogs": "导出日志",
+  "logsExportSuccessTitle": "日志已导出",
+  "logsExportSuccessMessage": "诊断日志已保存到所选位置。",
+  "logsExportFailureTitle": "无法导出日志",
+  "logsExportFailureMessage": "Cove 无法保存诊断日志。请检查文件访问权限后重试。"
 }

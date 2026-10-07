@@ -94,5 +94,10 @@
   "keyboardShortcutConflict": "Diese Tastenkombination ist bereits {{action}} zugewiesen.",
   "keyboardShortcutModifierRequired": "Verwende Command, Option oder Control mit dieser Tastenkombination.",
   "keyboardShortcutReturnReserved": "⇧↩ ist für Zeilenumbrüche reserviert.",
-  "keyboardShortcutReservedForPushToTalk": "F13 ist für Push to Talk reserviert."
+  "keyboardShortcutReservedForPushToTalk": "F13 ist für Push to Talk reserviert.",
+  "exportLogs": "Protokolle exportieren",
+  "logsExportSuccessTitle": "Protokolle exportiert",
+  "logsExportSuccessMessage": "Die Diagnoseprotokolle wurden am ausgewählten Speicherort gespeichert.",
+  "logsExportFailureTitle": "Protokolle konnten nicht exportiert werden",
+  "logsExportFailureMessage": "Cove konnte die Diagnoseprotokolle nicht speichern. Prüfe den Dateizugriff und versuche es erneut."
 }

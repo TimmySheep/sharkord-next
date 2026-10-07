@@ -226,7 +226,7 @@ struct VoiceChannelView: View {
                         do {
                             try await voiceMedia.setMicrophoneMuted(!micMuted)
                         } catch {
-                            voiceMedia.presentError(error.localizedDescription, context: "microphone")
+                            voiceMedia.presentError(error, context: "microphone")
                         }
                     }
                 }
@@ -244,7 +244,7 @@ struct VoiceChannelView: View {
                         do {
                             try await voiceMedia.setWebcamEnabled(ownState?.webcamEnabled != true)
                         } catch {
-                            voiceMedia.presentError(error.localizedDescription, context: "camera")
+                            voiceMedia.presentError(error, context: "camera")
                         }
                     }
                 }
@@ -260,7 +260,7 @@ struct VoiceChannelView: View {
                     do {
                         try await voiceMedia.setOutputMuted(!deafened)
                     } catch {
-                        voiceMedia.presentError(error.localizedDescription, context: "audio")
+                        voiceMedia.presentError(error, context: "audio")
                     }
                 }
             }
@@ -356,7 +356,7 @@ struct VoiceChannelView: View {
                 )
             } catch {
                 try? await session.leaveVoice()
-                voiceMedia.presentError(error.localizedDescription)
+                voiceMedia.presentError(error)
             }
         }
     }

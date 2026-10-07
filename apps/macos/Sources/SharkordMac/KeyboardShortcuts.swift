@@ -395,7 +395,7 @@ final class KeyboardShortcutsController: ObservableObject {
                     try await voiceMedia.setOutputMuted(shouldMute)
                 }
             } catch {
-                self?.voiceMedia?.presentError(error.localizedDescription, context: context)
+                self?.voiceMedia?.presentError(error, context: context)
             }
         }
     }

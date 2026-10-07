@@ -25,5 +25,12 @@
   "stopScreenShare": "Zastavit sdílení",
   "mediaLocalUser": "Vy",
   "mediaScreen": "Obrazovka",
-  "mediaCamera": "Kamera"
+  "mediaCamera": "Kamera",
+  "exportLogs": "Exportovat protokoly",
+  "logFileType": "Soubory protokolu",
+  "logsExportSuccessTitle": "Protokoly byly exportovány",
+  "logsExportSuccessMessage": "Diagnostické protokoly byly uloženy do vybraného umístění.",
+  "logsExportFailureTitle": "Protokoly se nepodařilo exportovat",
+  "logsExportFailureMessage": "Cove nemohl uložit diagnostické protokoly. Zkontrolujte přístup k souboru a zkuste to znovu.",
+  "close": "Zavřít"
 }

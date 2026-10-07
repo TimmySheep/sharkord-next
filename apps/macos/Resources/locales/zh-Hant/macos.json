@@ -94,5 +94,10 @@
   "keyboardShortcutConflict": "此快速鍵已指派給「{{action}}」。",
   "keyboardShortcutModifierRequired": "請為快速鍵加上 Command、Option 或 Control。",
   "keyboardShortcutReturnReserved": "⇧↩ 保留作為換行操作。",
-  "keyboardShortcutReservedForPushToTalk": "F13 已保留給按鍵通話功能。"
+  "keyboardShortcutReservedForPushToTalk": "F13 已保留給按鍵通話功能。",
+  "exportLogs": "匯出記錄",
+  "logsExportSuccessTitle": "記錄已匯出",
+  "logsExportSuccessMessage": "診斷記錄已儲存至所選位置。",
+  "logsExportFailureTitle": "無法匯出記錄",
+  "logsExportFailureMessage": "Cove 無法儲存診斷記錄。請檢查檔案存取權限後再試一次。"
 }

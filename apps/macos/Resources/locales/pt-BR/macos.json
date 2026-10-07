@@ -94,5 +94,10 @@
   "keyboardShortcutConflict": "Esse atalho já está atribuído a {{action}}.",
   "keyboardShortcutModifierRequired": "Use Command, Option ou Control com este atalho.",
   "keyboardShortcutReturnReserved": "⇧↩ é reservado para quebras de linha.",
-  "keyboardShortcutReservedForPushToTalk": "A tecla F13 é reservada para pressionar para falar."
+  "keyboardShortcutReservedForPushToTalk": "A tecla F13 é reservada para pressionar para falar.",
+  "exportLogs": "Exportar registros",
+  "logsExportSuccessTitle": "Registros exportados",
+  "logsExportSuccessMessage": "Os registros de diagnóstico foram salvos no local escolhido.",
+  "logsExportFailureTitle": "Não foi possível exportar os registros",
+  "logsExportFailureMessage": "O Cove não conseguiu salvar os registros de diagnóstico. Verifique o acesso ao arquivo e tente novamente."
 }

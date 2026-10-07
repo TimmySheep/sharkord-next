@@ -103,6 +103,8 @@ struct MainWindow: View {
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
+            DiagnosticLogExportButton()
+
             if session.settings?.enableSearch != false {
                 Button {
                     showsSearch = true

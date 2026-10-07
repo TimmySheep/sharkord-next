@@ -25,5 +25,12 @@
   "stopScreenShare": "Interrompi condivisione",
   "mediaLocalUser": "Tu",
   "mediaScreen": "Schermo",
-  "mediaCamera": "Fotocamera"
+  "mediaCamera": "Fotocamera",
+  "exportLogs": "Esporta i log",
+  "logFileType": "File di log",
+  "logsExportSuccessTitle": "Log esportati",
+  "logsExportSuccessMessage": "I log diagnostici sono stati salvati nella posizione selezionata.",
+  "logsExportFailureTitle": "Impossibile esportare i log",
+  "logsExportFailureMessage": "Cove non è riuscito a salvare i log diagnostici. Controlla l’accesso al file e riprova.",
+  "close": "Chiudi"
 }

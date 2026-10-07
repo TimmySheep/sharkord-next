@@ -142,6 +142,13 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
     func presentError(_ message: String, context: String? = nil) {
         errorMessage = message
         errorContext = context
+        ClientLogStore.shared.recordFailure("voice.media.failed", code: context ?? "unknown")
+    }
+
+    func presentError(_ error: Error, context: String? = nil) {
+        ClientLogStore.shared.recordError("voice.\(context ?? "media").failed", error: error)
+        errorMessage = error.localizedDescription
+        errorContext = context
     }
 
     func setOutputMuted(_ muted: Bool) async throws {
@@ -198,7 +205,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
                     contentWorld: .page
                 )
             } catch {
-                presentError(error.localizedDescription)
+                presentError(error)
             }
         }
     }
@@ -269,7 +276,11 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
 
         if type == "status" {
             status = body["state"] as? String ?? "idle"
-            errorMessage = body["error"] as? String
+            let nextErrorMessage = body["error"] as? String
+            if let nextErrorMessage, !nextErrorMessage.isEmpty, nextErrorMessage != errorMessage {
+                ClientLogStore.shared.recordFailure("voice.media_worker.failed", code: "media_worker")
+            }
+            errorMessage = nextErrorMessage
             errorContext = body["errorContext"] as? String
             canPublishAudio = body["canPublishAudio"] as? Bool ?? false
             return
@@ -303,6 +314,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
                 let result = try await session.callVoiceMediaProcedure(path, input: input)
                 await reply(to: id, result: result, error: nil)
             } catch {
+                ClientLogStore.shared.recordError("voice.procedure.failed", error: error)
                 await reply(to: id, result: nil, error: error.localizedDescription)
             }
         }

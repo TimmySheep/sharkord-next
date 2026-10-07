@@ -161,7 +161,7 @@ final class PushToTalkController: ObservableObject {
             do {
                 try await voiceMedia.setMicrophoneMuted(muted)
             } catch {
-                self?.voiceMedia?.presentError(error.localizedDescription, context: "microphone")
+                self?.voiceMedia?.presentError(error, context: "microphone")
             }
         }
     }

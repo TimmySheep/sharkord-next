@@ -126,23 +126,34 @@ public sealed class TrpcWebSocketClient : IAsyncDisposable
         CancellationToken cancellationToken
     )
     {
-        await ConnectAsync(cancellationToken).ConfigureAwait(false);
-
-        var id = Interlocked.Increment(ref _nextId);
-        var completion = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[id] = completion;
-
         try
         {
-            await SendAsync(new TrpcRequest(id, method, path, input).ToJson(), cancellationToken).ConfigureAwait(false);
+            await ConnectAsync(cancellationToken).ConfigureAwait(false);
+
+            var id = Interlocked.Increment(ref _nextId);
+            var completion = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _pending[id] = completion;
+
+            try
+            {
+                await SendAsync(new TrpcRequest(id, method, path, input).ToJson(), cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                _pending.TryRemove(id, out _);
+                throw;
+            }
+
+            return await completion.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch
+        catch (Exception exception)
         {
-            _pending.TryRemove(id, out _);
+            ClientLogStore.Shared.RecordError(
+                $"trpc.{method.ToString().ToLowerInvariant()}.{path}",
+                exception
+            );
             throw;
         }
-
-        return await completion.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async Task ReceiveLoopAsync(CancellationToken cancellationToken)

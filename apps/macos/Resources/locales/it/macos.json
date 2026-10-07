@@ -94,5 +94,10 @@
   "keyboardShortcutConflict": "Questa scorciatoia è già assegnata a {{action}}.",
   "keyboardShortcutModifierRequired": "Usa Comando, Opzione o Controllo con questa scorciatoia.",
   "keyboardShortcutReturnReserved": "⇧↩ è riservato alle interruzioni di riga.",
-  "keyboardShortcutReservedForPushToTalk": "F13 è riservato alla funzione Push to Talk."
+  "keyboardShortcutReservedForPushToTalk": "F13 è riservato alla funzione Push to Talk.",
+  "exportLogs": "Esporta i log",
+  "logsExportSuccessTitle": "Log esportati",
+  "logsExportSuccessMessage": "I log diagnostici sono stati salvati nella posizione selezionata.",
+  "logsExportFailureTitle": "Impossibile esportare i log",
+  "logsExportFailureMessage": "Cove non è riuscito a salvare i log diagnostici. Controlla l’accesso al file e riprova."
 }

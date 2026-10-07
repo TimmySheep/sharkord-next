@@ -50,9 +50,16 @@ public sealed class SharkordHttpClient
 
     public async Task<SharkordServerInfo> GetInfoAsync(CancellationToken cancellationToken = default)
     {
-        var response = await _http.GetAsync(new Uri(BaseUrl, "info"), cancellationToken).ConfigureAwait(false);
-
-        return await ReadAsync<SharkordServerInfo>(response, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var response = await _http.GetAsync(new Uri(BaseUrl, "info"), cancellationToken).ConfigureAwait(false);
+            return await ReadAsync<SharkordServerInfo>(response, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            ClientLogStore.Shared.RecordError("http.server_info.failed", exception);
+            throw;
+        }
     }
 
     public async Task<SharkordLoginResult> LoginAsync(
@@ -73,10 +80,17 @@ public sealed class SharkordHttpClient
             body["invite"] = invite;
         }
 
-        using var content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
-        var response = await _http.PostAsync(new Uri(BaseUrl, "login"), content, cancellationToken).ConfigureAwait(false);
-
-        return await ReadAsync<SharkordLoginResult>(response, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+            var response = await _http.PostAsync(new Uri(BaseUrl, "login"), content, cancellationToken).ConfigureAwait(false);
+            return await ReadAsync<SharkordLoginResult>(response, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            ClientLogStore.Shared.RecordError("http.login.failed", exception);
+            throw;
+        }
     }
 
     public async Task<SharkordTempFile> UploadAsync(
@@ -87,16 +101,23 @@ public sealed class SharkordHttpClient
         CancellationToken cancellationToken = default
     )
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(BaseUrl, "upload"));
-        request.Headers.Add("x-token", token);
-        request.Headers.Add("x-file-name", fileName);
-        request.Headers.Add("x-file-type", mimeType);
-        request.Content = new ByteArrayContent(data);
-        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(BaseUrl, "upload"));
+            request.Headers.Add("x-token", token);
+            request.Headers.Add("x-file-name", fileName);
+            request.Headers.Add("x-file-type", mimeType);
+            request.Content = new ByteArrayContent(data);
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
-        var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-
-        return await ReadAsync<SharkordTempFile>(response, cancellationToken).ConfigureAwait(false);
+            var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            return await ReadAsync<SharkordTempFile>(response, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            ClientLogStore.Shared.RecordError("http.upload.failed", exception);
+            throw;
+        }
     }
 
     /// <summary>Attachments are served from <c>/public/&lt;name&gt;</c>, signed only when the server enables it.</summary>

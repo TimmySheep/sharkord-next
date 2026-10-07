@@ -25,5 +25,12 @@
   "stopScreenShare": "停止分享",
   "mediaLocalUser": "你",
   "mediaScreen": "螢幕",
-  "mediaCamera": "攝影機"
+  "mediaCamera": "攝影機",
+  "exportLogs": "匯出記錄",
+  "logFileType": "記錄檔",
+  "logsExportSuccessTitle": "記錄已匯出",
+  "logsExportSuccessMessage": "診斷記錄已儲存至所選位置。",
+  "logsExportFailureTitle": "無法匯出記錄",
+  "logsExportFailureMessage": "Cove 無法儲存診斷記錄。請檢查檔案存取權限後再試一次。",
+  "close": "關閉"
 }

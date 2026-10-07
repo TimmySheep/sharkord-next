@@ -94,5 +94,10 @@
   "keyboardShortcutConflict": "Tato zkratka je již přiřazena k akci {{action}}.",
   "keyboardShortcutModifierRequired": "Použijte s touto zkratkou klávesu Command, Option nebo Control.",
   "keyboardShortcutReturnReserved": "⇧↩ je vyhrazeno pro zalomení řádku.",
-  "keyboardShortcutReservedForPushToTalk": "Klávesa F13 je vyhrazena pro funkci Push to Talk."
+  "keyboardShortcutReservedForPushToTalk": "Klávesa F13 je vyhrazena pro funkci Push to Talk.",
+  "exportLogs": "Exportovat protokoly",
+  "logsExportSuccessTitle": "Protokoly byly exportovány",
+  "logsExportSuccessMessage": "Diagnostické protokoly byly uloženy do vybraného umístění.",
+  "logsExportFailureTitle": "Protokoly se nepodařilo exportovat",
+  "logsExportFailureMessage": "Cove nemohl uložit diagnostické protokoly. Zkontrolujte přístup k souboru a zkuste to znovu."
 }

@@ -25,5 +25,12 @@
   "stopScreenShare": "Arrêter le partage",
   "mediaLocalUser": "Vous",
   "mediaScreen": "Écran",
-  "mediaCamera": "Caméra"
+  "mediaCamera": "Caméra",
+  "exportLogs": "Exporter les journaux",
+  "logFileType": "Fichiers journaux",
+  "logsExportSuccessTitle": "Journaux exportés",
+  "logsExportSuccessMessage": "Les journaux de diagnostic ont été enregistrés à l’emplacement choisi.",
+  "logsExportFailureTitle": "Impossible d’exporter les journaux",
+  "logsExportFailureMessage": "Cove n’a pas pu enregistrer les journaux de diagnostic. Vérifiez l’accès au fichier et réessayez.",
+  "close": "Fermer"
 }

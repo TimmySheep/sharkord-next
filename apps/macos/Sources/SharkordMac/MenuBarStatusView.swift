@@ -30,7 +30,7 @@ struct MenuBarStatusView: View {
                         do {
                             try await voiceMedia.setMicrophoneMuted(!isMuted)
                         } catch {
-                            voiceMedia.presentError(error.localizedDescription, context: "microphone")
+                            voiceMedia.presentError(error, context: "microphone")
                         }
                     }
                 }

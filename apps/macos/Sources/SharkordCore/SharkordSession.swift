@@ -282,10 +282,12 @@ public final class SharkordSession: ObservableObject {
         rememberLoginCredentials: Bool = false
     ) async {
         guard let baseURL = Self.normalize(host: host) else {
+            ClientLogStore.shared.recordFailure("session.connect.failed", code: "invalid_server_address")
             phase = .failed("Enter a valid server address")
             return
         }
 
+        ClientLogStore.shared.recordInfo("session.connect.started")
         isStopping = false
         reconnectAttempt = 0
         shouldRememberLoginCredentials = rememberLoginCredentials
@@ -320,9 +322,11 @@ public final class SharkordSession: ObservableObject {
             try await establish(baseURL: baseURL, token: login.token)
             if phase != .awaitingServerPassword {
                 phase = .connected
+                ClientLogStore.shared.recordInfo("session.connect.succeeded")
                 saveLoginCredentialsIfNeeded()
             }
         } catch {
+            ClientLogStore.shared.recordError("session.connect.failed", error: error)
             phase = .failed(Self.describe(error))
         }
     }
@@ -416,6 +420,7 @@ public final class SharkordSession: ObservableObject {
             phase = .connected
             saveLoginCredentialsIfNeeded()
         } catch {
+            ClientLogStore.shared.recordError("session.server_password.failed", error: error)
             lastError = Self.describe(error)
             phase = .awaitingServerPassword
         }
@@ -1170,6 +1175,12 @@ public final class SharkordSession: ObservableObject {
 
     private func handleUnexpectedDisconnect(_ error: Error?) {
         guard !isStopping, phase == .connected || phase == .connecting else { return }
+
+        if let error {
+            ClientLogStore.shared.recordError("session.disconnected", error: error)
+        } else {
+            ClientLogStore.shared.recordFailure("session.disconnected", code: "connection_closed")
+        }
 
         guard let credentials, let token else {
             phase = .failed(Self.describe(error))

@@ -164,6 +164,9 @@ struct ConnectView: View {
             .tint(Theme.accent)
             .disabled(!canSubmit)
             .keyboardShortcut(.defaultAction)
+
+            DiagnosticLogExportButton()
+                .frame(maxWidth: .infinity)
         }
         .padding(20)
         .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))

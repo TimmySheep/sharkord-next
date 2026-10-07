@@ -25,5 +25,12 @@
   "stopScreenShare": "Остановить показ экрана",
   "mediaLocalUser": "Вы",
   "mediaScreen": "Экран",
-  "mediaCamera": "Камера"
+  "mediaCamera": "Камера",
+  "exportLogs": "Экспортировать журналы",
+  "logFileType": "Файлы журналов",
+  "logsExportSuccessTitle": "Журналы экспортированы",
+  "logsExportSuccessMessage": "Диагностические журналы сохранены в выбранном месте.",
+  "logsExportFailureTitle": "Не удалось экспортировать журналы",
+  "logsExportFailureMessage": "Cove не удалось сохранить диагностические журналы. Проверьте доступ к файлу и повторите попытку.",
+  "close": "Закрыть"
 }
