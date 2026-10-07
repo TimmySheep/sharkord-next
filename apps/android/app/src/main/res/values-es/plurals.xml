@@ -1,0 +1,7 @@
+<resources>
+    <plurals name="reply_count">
+        <item quantity="one">%1$d respuesta</item>
+        <item quantity="other">%1$d respuestas</item>
+        <item quantity="many">%1$d respuestas</item>
+    </plurals>
+</resources>
