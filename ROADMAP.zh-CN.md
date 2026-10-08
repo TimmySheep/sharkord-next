@@ -1,20 +1,16 @@
-# Sharkord Next — 路线图
+# Covy — 路线图
 > 本文是 [`ROADMAP.md`](ROADMAP.md) 的中文翻译。英文版为权威版本，如有歧义以英文版为准。
 **语言：** [English](ROADMAP.md) | 中文
 
 本路线图刻意保持保守：它列出我们打算做的事、**我们已决定不做的事**，以及每项决定背后的依据。下文每一条论断都链接到 [`docs/`](docs/) 中的一份文档，这些文档是针对 `c611bb4` 版本的实际源码撰写的。
 
-## 优先级顺序（已确定）
+## 当前重点（已确定）
 
-1. **macOS，原生优先** — Swift + SwiftUI，媒体 worker 使用受限的本地 WebView。
-2. **Windows，原生优先** — C# + WinUI 3，媒体 worker 使用受限的本地 WebView。
-3. **iPhone + iPad，原生优先** — 一个 Apple 项目，复用 macOS 本来就需要的那套 Swift 核心。
-4. **Apple Watch，原生优先** — 已声明；腕上按键说话客户端，需先过可行性验证。
-5. 直连（P2P）语音，然后是自托管质量，与原生开发工作并行推进。
+Covy 是 Sharkord 的兼容客户端，不提供独立服务端。当前集中 **Android、iOS 和 Apple Watch**；Apple Watch 属于 iOS / watchOS 同一产品方向，但持续语音必须先通过真机验证。
 
-**Android 原生客户端已开始开发**，代码位于 [`apps/android`](apps/android)。本 fork 中的 PWA/移动 Web 工作仍计划向上游提议。
+Windows 和 macOS 原生客户端 **暂缓**，保留已有成果，不承诺近期交付。桌面用户优先使用 Sharkord Web UI。移动端不再以 macOS 先完成为前提，共享核心按实际需要复用。
 
-状态图例：**✅ 已完成** · **🔜 下一步** · **🧪 需要可行性验证（spike）** · **📋 已计划** · **⛔ 不做**
+下方 Track 编号仅保留为历史引用，不代表开发顺序。桌面、P2P 和独立服务端发行相关历史计划不是当前承诺；当前优先级覆盖旧策略文档的排序。
 
 ## 指导原则
 
@@ -35,7 +31,7 @@
 | **让线路协议（wire protocol）产生分歧** | 每个第三方客户端都依赖现有的 tRPC-over-WebSocket + mediasoup 信令。一个自创协议的 fork，无法被它想吸引的生态所使用。 |
 | **对 Web 客户端做大重写** | 参考客户端是可用的。我们不碰它的架构。 |
 
-## Track 1 — macOS 原生（第一）
+## Track 1 — macOS 原生（暂缓）
 
 | 项目 | 状态 |
 | --- | --- |
@@ -47,7 +43,7 @@
 设计、模块划分和平台 API 矩阵：[`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)。
 已知风险：macOS 上的全局快捷键需要辅助功能（Accessibility）权限；原生媒体意味着必须为 Swift 封装 mediasoup 客户端——目前没有官方的 Swift 客户端。
 
-## Track 2 — Windows 原生（第二）
+## Track 2 — Windows 原生（暂缓）
 
 | 项目 | 状态 |
 | --- | --- |
@@ -57,16 +53,18 @@
 
 **今天 Windows 语音尚无可用引擎**（不存在 C# 的 mediasoup 客户端）。因此文本先行，语音由 M4 把关，而不是直接承诺。完整风险表见 [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)。
 
-## Track 3 — iPhone + iPad 原生（第三）
+## Track 3 — iPhone + iPad 原生（当前重点）
 
 | 项目 | 状态 |
 | --- | --- |
 | 一个服务于 iPhone 和 iPad 的 Apple 项目，复用为 macOS 构建的 Swift 核心 | 📋 |
 | 使用平台音频会话的语音、APNs 通知、后台行为 | 📋 |
 
-先做 macOS 是刻意的：两者都用 Swift，因此为 Track 1 编写的核心会被复用而非重写。开工前值得一读的已记录约束：在 iOS 上录音会话无法从后台启动，且 `playAndRecord` 会被来电抢占。
+iOS 不再等待 macOS，按需要复用已有 Swift 核心。开工前值得一读的已记录约束：在 iOS 上录音会话无法从后台启动，且 `playAndRecord` 会被来电抢占。
 
-## Track 4 — Apple Watch 原生（声明为第四）
+## Track 4 — Apple Watch 原生（当前重点，待验证）
+
+下方服务端接入桥仅为架构研究选项，不代表承诺开发 Covy 专属后端。优先兼容已有 Sharkord 实例；涉及服务端的新要求须先与上游及维护者讨论，再实施。
 
 一个只做腕上对讲机的客户端：进入一个语音频道、按住说话、听到频道、退出。不做文字，一次只在一个频道。这是**已声明的意图**，**不是**功能承诺 —— 因为下面那个平台问题还没有答案，而答案决定它到底能不能做出来。
 
@@ -82,7 +80,7 @@
 
 为什么值得为手表单开一条线：按键说话是唯一一种手表胜过手机的通话方式，而 Apple 已在 watchOS 27 撤掉了自家的 Walkie-Talkie。但撤掉它对第三方**没有帮助** —— 系统版是以 FaceTime Audio 的 VoIP 服务运行的，从来没走第三方那条例外。相关限制连同**一手来源**记录在 [`docs/APPLE_WATCH.zh-CN.md`](docs/APPLE_WATCH.zh-CN.md)：watchOS 只在音频流、VoIP + CallKit、tvOS 配对三种情况下允许低层网络（TN3135）；Push to Talk 框架与 `pushtotalk` 推送类型在 watchOS 上都不存在；模拟器永远放行低层网络，所以只有真机数据算数；而已知的那次收回虽然有社区绕过办法，但尚未在真实音频下验证。
 
-## Track 5 — 直连（P2P）语音
+## Track 5 — 直连（P2P）语音（暂缓的研究方向）
 
 目前*所有*媒体都通过服务器 SFU 转发（`routed, not mixed`），因此一个 N 人频道会消耗主机 N−1 路上行流（[RTC](docs/RTC_ARCHITECTURE.md)）。对 1 对 1 通话而言，这纯属额外开销。
 
@@ -106,13 +104,13 @@
 
 经验法则：如果一项改动能惠及所有自托管者或客户端开发者，它就属于上游。只有专属于本项目自身方向的东西才在本仓库维护。
 
-## Track 7 — 自托管质量
+## Track 7 — Sharkord 部署兼容性（与上游协作）
 
 | 项目 | 状态 |
 | --- | --- |
 | 记录在隧道（tunnel）和 NAT 后导致语音失败的媒体/ICE 约束（announced address、端口对等、TCP 回退限制） | 🔜（部分见 [`docs/RTC_ARCHITECTURE.md` §6](docs/RTC_ARCHITECTURE.md)） |
 | 诊断客户端侧上报的「Failed to initialize voice connection」：目前服务端流程是能跑完的，所以故障在媒体路径——很可能是 announced address 或 UDP 可达性 | 🧪 |
-| 一旦我们发布服务端改动，就发布自己的固定版本镜像（特征：不使用 `latest`，始终用版本标签） | 📋 |
+| 独立服务端镜像发行不属于 Covy 当前范围；服务端使用 Sharkord 上游发行版 | 不推进 |
 | 存储指引：签名 URL 默认是**关闭**的，因此除非服务器启用签名，附件 URL 是可公开读取的 | 📋 |
 
 ## Android 原生客户端，开发中
@@ -124,4 +122,4 @@
 
 欢迎通过 issue 提出建议。只有当某项路线图条目在 `docs/` 中的证据部分足够充分、能够描述出改动面时，它才会被提升为待办工作——这是本项目为自己设定的门槛，也正是为什么在任何代码被改动之前，就先写好了那套 `docs/`。
 
-此处的里程碑编号反映上文的优先级顺序（macOS 先于 Windows，Windows 先于 iOS，iOS 先于 watchOS）。[`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) 中的设计仍然适用；改变的只是各原生 Track 的先后顺序。
+Track 编号保留用于引用；当前执行顺序以本页顶部为准。桌面研究保留，但暂缓开发。

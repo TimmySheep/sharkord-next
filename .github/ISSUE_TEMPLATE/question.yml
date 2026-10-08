@@ -1,5 +1,5 @@
 name: Question
-description: Use this template for questions about the project, such as how to use it or how it works.
+description: Ask about Covy, the unofficial compatible client for Sharkord.
 title: "[Question]: "
 labels: ["question"]
 assignees: []
@@ -10,7 +10,8 @@ body:
       value: |
         Please search for existing questions before submitting a new one. It's possible your question has already been answered in the documentation or in a previous issue.
 
-         Check [Common Questions](https://sharkord.com/docs/common-questions) for answers to frequently asked questions.
+        For Covy scope and contribution questions, read this repository's README and CONTRIBUTING.md.
+        For Sharkord server setup, check [upstream documentation](https://sharkord.com/docs/common-questions).
 
   - type: textarea
     id: question

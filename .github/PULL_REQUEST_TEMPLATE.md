@@ -1,33 +1,37 @@
-<!--
-READ BEFORE CREATING A PULL REQUEST
+<!-- read this repository's CONTRIBUTING.md before submitting. link an issue first; agree on significant scope before implementation. -->
 
-https://github.com/Sharkord/sharkord/blob/development/CONTRIBUTING.md
+## Related Issue
 
-PRs that do not follow it may be closed without review. The ones people miss most:
+Fixes # / Refs #
 
-  - the title must be `fix(issue-number): short description` (or `feat`/`chore`)
-  - the PR must target the `development` branch
-  - it must reference an issue that was discussed first
+## Problem and scope
 
-Everything in these comment blocks is invisible in the submitted pull request,
-so there is no need to delete them.
--->
+- Problem / user need:
+- Affected platform(s): Android / iOS / Apple Watch / other
+- Modules or files changed:
+- Why this belongs in Covy rather than upstream Sharkord:
 
-## Summary
+## Changes
 
-Closes #
+- What changed and why:
+- What is explicitly out of scope:
+- Sharkord compatibility impact and tested server version:
 
-<!-- What changed and why. Keep it to what a reviewer needs in order to read the diff. -->
+## Verification
+
+- Build / test commands and actual results:
+- Device and OS version (for platform changes):
+- Screenshots / recordings (for UI changes):
+- Not tested, limitations and regression risks:
 
 ## Checklist
 
-- [ ] References an issue that has already been discussed
-- [ ] Targets the `development` branch
-- [ ] Covers one feature or fix, not several
-- [ ] `bun run magic` passes (format, types, lint)
-- [ ] `bun run test` passes
-- [ ] Tests added or updated where the change needed them
-
-## Additional Context
-
-<!-- Optional. Screenshots, related issues, anything that helps the reviewer. -->
+- [ ] Links an Issue identifying the problem and planned scope
+- [ ] Significant features, architecture, dependencies or deferred desktop work discussed with the maintainer first
+- [ ] Targets `development` and addresses one focused problem
+- [ ] Relevant platform build and tests run; non-applicable or blocked checks explained above
+- [ ] Behaviour changes have tests or a specific explanation of the test limitation
+- [ ] Relevant docs updated; no unrelated refactors or formatting changes
+- [ ] Compatibility with Sharkord preserved, or impact explicitly discussed
+- [ ] Logs and screenshots contain no tokens, private messages or personal information
+- [ ] I understand and take responsibility for this contribution, including AI-assisted work

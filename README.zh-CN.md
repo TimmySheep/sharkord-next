@@ -1,145 +1,52 @@
-# Sharkord Next
+# Covy
 
-**Sharkord Next 是一个基于 [Sharkord](https://github.com/Sharkord/sharkord) 的非官方社区项目。**
-它与 Sharkord 项目及其维护者之间没有隶属、背书或支持关系。通用性修复与改进会回流给上游。
+**Covy 是面向 [Sharkord](https://github.com/Sharkord/sharkord) 的非官方、开源兼容客户端，不是独立通信平台，也不是独立服务端项目。**
+Covy 连接 Sharkord 服务器：后端、账号、频道与媒体基础设施由 Sharkord 提供，Covy 专注原生客户端体验。Covy 不隶属于 Sharkord，也没有获得其维护者的背书。
+
+**当前重点：Android、iOS 和 Apple Watch。欢迎一起来构建这些客户端。**
 
 **语言：** [English](README.md) | 中文
-
-一个轻量、可自托管、类 Discord 的实时通信平台（文字 + 语音），目标是**真正的原生客户端**，而不是套着网页的 Electron 壳。
 
 [![CI](https://github.com/TimmySheep/sharkord-next/actions/workflows/ci.yml/badge.svg)](https://github.com/TimmySheep/sharkord-next/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/TimmySheep/sharkord-next)](LICENSE)
 
----
+## 为什么先做移动端？
 
-## 我们打算做什么（以及不做什么）
+单个维护者无法持续同时推进五个平台的原生客户端。Sharkord 已经提供桌面 Web UI：Windows 和 macOS 用户可以直接在浏览器打开自己的 Sharkord 实例，使用上游网页客户端已有的功能。因此，原生移动体验与腕上语音的缺口更迫切，是 Covy 当前投入的重点。
 
-以下是本项目自己的计划，**按优先级排列**。原生界面是默认偏好，不是技术教条：目标是做出轻巧、响应快、直接连接同一服务端的客户端。应选择满足产品与媒体要求、维护负担也合适的轻量方案；完整网页套壳或随客户端捆绑本地服务器，都需要用实测收益证明额外运行与分发成本值得。详见[路线图中的轻量客户端原则](ROADMAP.zh-CN.md#指导原则)。
-
-### 1. macOS 原生（第一优先）
-
-Swift + SwiftUI，必要时用 AppKit。主界面保持原生；受限 WKWebView 仅承载本地打包的 `mediasoup-client` 媒体 worker，不加载服务器网页或插件 UI。音视频媒体仍待权限、网络与远端播放的端到端验收。系统集成目标包括菜单栏常驻、全局按键说话（push-to-talk）热键、原生屏幕捕获（ScreenCaptureKit）和系统音频。
-设计与依据：[`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
-
-### 2. Windows 原生（第二）
-
-C# + WinUI 3，主界面原生；受限 WebView2 仅承载同一个本地媒体 worker。音频、摄像头和屏幕共享路径已接入源码，但仍待 Windows 构建与真实媒体验收。系统托盘、全局热键和 WASAPI 音频仍是后续工作。
-设计与依据：[`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
-
-### 3. iPhone + iPad 原生（第三）
-
-统一的一个 Apple 工程，Swift + SwiftUI，复用 macOS 那边本来就要写的 Swift 核心。语音、APNs 通知、后台行为。**先做 macOS 会让这一步更省而不是更晚。**
-设计与依据：[`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
-
-### 4. Apple Watch 原生（已声明，需先过可行性验证）
-
-一个只做**腕上对讲机**的客户端：**进入**一个语音频道、**按住说话**、**听到频道**、**退出**。不做文字，一次只在一个频道 —— 重点就是形态本身，因为按键说话（push-to-talk）是唯一一种"手表比手机更顺手"的通话方式。
-
-**这是"已声明的意图"，不是承诺。** watchOS 只允许第三方 App 在极窄的例外条件下使用低层网络（[TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos)），而本设计依赖的"音频流例外"目前带着一个 Apple 已登记在案的缺陷（**FB24377808**，报告于 2026-08）：音频会话激活后约 36 秒网络路径被收回、不会自行恢复，所以必须**定时续期**才能把连接握着。社区里已经有一个绕过办法 —— 在到期前重新激活，收回就会被重新排程（据报告者实测，且不打断路径与已建立的连接）—— 但它**没有在真实音频下验证过**，也**没有在 watchOS 27 发布后复测过**。因此在 watchOS 上能否维持一个持续的语音会话，必须在**真机上量出来**，而这一测量**决定我们能不能对外声称"语音可用"**。界面与设计工作**与之并行推进** —— 它不依赖这个答案，而且无论结果如何都能移植到 iOS；但在测量出结果之前，我们不会把任何东西说成"能用"。如果答案是"不行"，我们会直接写在这个 README 里，而不是发布一个每半分钟卡一次的东西。
-设计与一手证据、验证计划：[`docs/APPLE_WATCH.zh-CN.md`](docs/APPLE_WATCH.zh-CN.md)
-
-### Android：原生客户端开发中
-
-本仓库自己的原生 Android 客户端正在 [`apps/android`](apps/android) 下积极开发，采用 Kotlin 和 Jetpack Compose。构建方式见[项目说明](apps/android/README.md)。
-
-### 不做：本仓库不做 PWA / 移动端网页
-
-网页客户端的三处缺口（没有 service worker、没有 `viewport-fit=cover`、没有 iOS standalone meta）是**上游客户端的通用改进**。改在上游，**所有自建实例和所有第三方客户端都受益**；改在这里，只有我们受益。所以我们把它**向上游提议**，不在这里自己做：见 [Track 6](ROADMAP.zh-CN.md)。
-
-### 另外还有：P2P 直连语音
-
-目前**所有媒体都经服务器转发**，所以自建者的上行带宽就是天花板。为 1:1 通话提供直连路径（服务器转发作为兜底）属于 [Track 5](ROADMAP.zh-CN.md)。
-
-| 平台 | 决定 | 理由 |
-| --- | --- | --- |
-| **macOS**（原生，Swift） | **做** —— 第一优先 | 无人占位；现有桌面端全是 Electron 套壳 |
-| **Windows**（原生，WinUI 3） | **做** —— 第二 | 无人占位；先文字，语音过验证 |
-| **iPhone + iPad**（原生，Swift） | **做** —— 第三 | 无人占位；复用 macOS 本来就要写的 Swift 核心 |
-| **Apple Watch**（原生，Swift） | **已声明** —— 需先过验证 | 腕上按键说话是"语音频道变成对讲机"的形态；watchOS 的网络限制尚未解决 |
-| **Android** | **开发中** | 本仓库的 Kotlin/Compose 原生客户端位于 `apps/android` |
-| **PWA / 移动端网页** | **向上游提议** | 通用改进，改在上游才能惠及所有实例 |
-| **网页客户端** | 保留，作为参考客户端 | 它是所有客户端的兼容基线 |
-
-## 当前状态
-
-**地基阶段。** 本仓库目前是上游 `Sharkord/sharkord` 的忠实副本，基线提交 `c611bb4`（`v0.0.25` 之后 6 个提交），**完整保留了上游的 git 历史**。服务端与参考网页客户端**没有做任何行为改动** —— 那部分就是上游代码；[`apps/`](apps/) 下的原生客户端是本项目自己的新增内容。和上游一样，整体处于 **alpha**：会有 bug、未完成功能和破坏性变更。
-
-| 部分 | 状态 |
+| 平台 | 当前方向 |
 | --- | --- |
-| 服务端（`apps/server`） | 上游代码，未改动。可构建、可运行；**1458 个服务端测试通过** |
-| 参考网页客户端（`apps/client`） | 上游代码，未改动。可构建、可运行（Vite 7.3.1） |
-| 原生客户端 | **已开始** —— macOS、Windows 与 Android 的客户端源码已在 [`apps/`](apps/) 下（状态见各自的 README）；Apple Watch 已声明，需先过可行性验证（见上） |
-| 文档 | 架构、RTC、生态调研、原生策略四份都在 [`docs/`](docs/) |
+| **Android** | 核心重点：[`apps/android`](apps/android) 下的 Kotlin / Jetpack Compose 原生客户端 |
+| **iOS（iPhone；现有 Apple 工程也包含 iPad）** | 核心重点：[`apps/apple-mobile`](apps/apple-mobile) 下的 Swift / SwiftUI 原生客户端 |
+| **Apple Watch** | 与 iOS 一起推进的 watchOS 方向：腕上按住说话，需通过真机网络与音频可行性验证 |
+| **Windows / macOS 原生客户端** | 暂缓，不是放弃。保留已有源码与研究，不承诺近期交付 |
+| **桌面网页端** | 使用 Sharkord 已有 Web UI；Covy 不另建桌面网页平台 |
 
-## 服务端已经具备的能力
+这些是优先级，不代表三个客户端已经完成或功能对齐。Apple Watch 的目标是进入一个语音频道、按住说话、听到频道、退出。持续语音、后台行为与耗电必须在真机验证，界面或模拟器跑通不能证明语音可用。见 [`docs/APPLE_WATCH.zh-CN.md`](docs/APPLE_WATCH.zh-CN.md)。
 
-以下全部是上游的功能，未做改动 —— 写出来是为了明确这个副本继承了什么：
+## 与 Sharkord 的关系
 
-- **语音频道**，含视频与屏幕共享，基于内置的 mediasoup SFU
-- **文字频道**，支持分类、主题串、回复、表情回应、置顶与搜索
-- **私信**（成员之间）
-- **角色与权限**，支持按频道对角色和用户单独覆盖
-- **自定义表情**、@提及 与频道引用
-- **邀请链接**，带使用次数限制与自动赋角色
-- **文件上传**，带每用户存储配额与可选的签名 URL
-- **插件**，通过 [plugin SDK](packages/plugin-sdk) 同时扩展服务端与客户端
+- **所需后端：** 已有的 [Sharkord 服务器](https://github.com/Sharkord/sharkord)。Covy 不提供独立服务端或托管服务。
+- 仓库保留上游服务端（`apps/server`）、网页客户端（`apps/client`）、共享包与 Git 历史，用于开发、兼容性测试及保留来源。保留这些代码不意味着 Covy 是新的服务端产品。
+- 保持与 Sharkord 现有协议兼容，不把 Covy 专属后端作为默认使用前提。
+- 通用服务端修复与 Web / PWA 改进应向上游讨论和贡献；客户端特有工作在这里推进。
+- 仓库 URL 目前仍为 `TimmySheep/sharkord-next`；**Covy** 是客户端产品名。上游原始文档保留在 [`upstream-notes/`](upstream-notes/)。
 
-## 为什么要做一个 fork
+## 开始使用与开发
 
-上游做得不错，我们希望保持可合并（mergeable）。做这个 fork 是因为今天有三件事成立（[证据](docs/ECOSYSTEM_RESEARCH.zh-CN.md)）：
+1. 按照 [Sharkord 官方文档](https://sharkord.com/docs) 与[上游发行版](https://github.com/Sharkord/sharkord/releases)部署或使用已有实例。
+2. 桌面端直接在浏览器打开该实例的 Web UI，无须等待 Covy 原生桌面客户端。
+3. 开发 Covy 请看 [Android 构建说明](apps/android/README.md)或 [Apple 移动端构建说明](apps/apple-mobile/README.md)。各平台的支持与验收状态需分别确认；此首页不是发布公告。
 
-1. **没有原生桌面端或移动端客户端。** 上游只有网页客户端；社区关于桌面/移动应用的讨论从 2026-02 开到现在都没有承诺（[#105](https://github.com/Sharkord/sharkord/discussions/105)）。桌面侧存在的都是 Electron 套壳。
-2. **网页客户端是"桌面优先"的单页应用**，不是可安装的应用：没有 service worker、没有 `viewport-fit=cover`、没有 iOS standalone meta。（[审计](docs/ECOSYSTEM_RESEARCH.zh-CN.md)）
-3. **媒体只走服务器转发（SFU）。** 自建者最先用尽的就是带宽，而且没有 1v1 直连选项。（[RTC 架构](docs/RTC_ARCHITECTURE.zh-CN.md)）
+请勿把 owner token、会话令牌、私密聊天或其他敏感信息放进 Issue、截图或日志。
 
-## 快速开始
+## 欢迎一起构建 Covy
 
-服务端是单一进程（Bun + mediasoup，一个 SQLite 文件，无外部数据库），同时提供 API 和网页客户端。
+欢迎参与 Android、iOS、Apple Watch 可行性验证、Bug 反馈、界面与无障碍改进、测试、兼容性检查及文档工作。
 
-> [!WARNING]
-> 首次启动时，服务端会生成一个**所有者令牌（owner token）**并打印到控制台。它既是**授予所有者权限的凭据**，也是**签发所有会话与文件 URL 的密钥** —— 拿到它的人**既能夺取所有权，也能冒充任意账号**。不要让它进入日志、截图或 issue 报告，妥善保存，且不要丢失。
+**提交 PR 前，请先在[本仓库](https://github.com/TimmySheep/sharkord-next/issues)新建或关联 Issue。** 说明问题或使用场景、受影响平台、计划改动与验证方式。较大功能、架构调整、依赖引入及桌面原生开发，先与维护者讨论范围再实现。每个 PR 聚焦一个问题，方便定位、审查和合并。
 
-**方式 A：上游的独立二进制（最快试用）**。上游提供 Linux、macOS、Windows 的单文件二进制，把服务端和客户端打包在一起：
-
-```bash
-# Linux x64 —— 来自 https://github.com/Sharkord/sharkord/releases
-curl -L https://github.com/Sharkord/sharkord/releases/latest/download/sharkord-linux-x64 -o sharkord
-chmod +x sharkord && ./sharkord
-```
-
-本仓库**尚未发布自己的二进制**，而且当前代码与上游完全一致，所以用上游的发行版就是试同一个东西。
-
-**方式 B：Docker（自托管推荐）**
-
-```bash
-# 使用本仓库的 Dockerfile 自行构建（本 fork 目前未发布镜像）
-docker build -t sharkord-next .
-
-docker run -d --name sharkord-next \
-  -p 4991:4991/tcp \
-  -p 40000:40000/tcp -p 40000:40000/udp \
-  -v "$PWD/data:/home/bun/.config/sharkord" \
-  -e PUID=1000 -e PGID=1000 \
-  sharkord-next
-```
-
-然后打开 <http://localhost:4991>。首次启动时所有者令牌会打印在日志里 —— 从 `docker logs sharkord-next` 取走并妥善保存；有些部署场景更适合不让它落到日志里。
-
-**方式 C：从源码构建运行**，见下面「从源码开发」。
-
-**关键端口**
-
-| 端口 | 协议 | 用途 |
-| --- | --- | --- |
-| `4991` | TCP | 网页界面、REST、tRPC、WebSocket 信令 |
-| `40000` | UDP（+TCP） | WebRTC 媒体（mediasoup） |
-
-**放在隧道 / 反向代理后面时**：网页与信令走 TCP，媒体走 UDP。几乎每一例"语音连不上"都出在下面两条：
-
-1. **媒体端口两端必须一致**（`local_port == remote_port`），因为 mediasoup 通告的是自己的监听端口。
-2. **通告的媒体地址必须让客户端能到达**。通过 `SHARKORD_WEBRTC_ANNOUNCED_ADDRESS`（对应配置项 `webRtc.announcedAddress`）设置；否则上游会回退到探测到的公网 IP，在走中继时可能是错的。
-
-环境变量只在运行时生效，**不会回写**到 `config.ini`，所以请把它们保存在 `compose.yml` / 服务定义里，并把容器当作可随时重建的。
+请阅读 [贡献指南](CONTRIBUTING.zh-CN.md)与[路线图](ROADMAP.zh-CN.md)。Issue 表单和 PR 模板帮助明确：**解决什么问题、改了哪里、实际验证了什么**。进入路线图或已有 Issue，不等于承诺合并或发布。
 
 ## 从源码开发
 
@@ -168,34 +75,15 @@ bun run test
 
 ## 文档
 
-英文是主要语言，中文版本以 `*.zh-CN.md` 与英文版并排放置。
+- [路线图](ROADMAP.zh-CN.md)与[贡献指南](CONTRIBUTING.zh-CN.md)
+- [架构](docs/ARCHITECTURE.zh-CN.md)与 [RTC 架构](docs/RTC_ARCHITECTURE.zh-CN.md)
+- [生态研究](docs/ECOSYSTEM_RESEARCH.zh-CN.md)
+- [原生策略研究](docs/NATIVE_STRATEGY.zh-CN.md)：历史设计，不代表当前优先级
+- [Apple Watch 研究与验证计划](docs/APPLE_WATCH.zh-CN.md)
+- [AGENTS.md](AGENTS.md)：代码规约；[DEVELOPMENT.md](DEVELOPMENT.md)：上游开发说明
 
-| 文档 | 回答什么问题 | 英文 |
-| --- | --- | --- |
-| [`docs/ARCHITECTURE.zh-CN.md`](docs/ARCHITECTURE.zh-CN.md) | 代码在哪、启动顺序、数据层、插件系统、怎么加一个接口 | [English](docs/ARCHITECTURE.md) |
-| [`docs/RTC_ARCHITECTURE.zh-CN.md`](docs/RTC_ARCHITECTURE.zh-CN.md) | 媒体实际怎么流动、mediasoup 生命周期、P2P 该从哪里切入 | [English](docs/RTC_ARCHITECTURE.md) |
-| [`docs/ECOSYSTEM_RESEARCH.zh-CN.md`](docs/ECOSYSTEM_RESEARCH.zh-CN.md) | 已有客户端现状、上游动态、PWA / 移动端网页审计 | [English](docs/ECOSYSTEM_RESEARCH.md) |
-| [`docs/NATIVE_STRATEGY.zh-CN.md`](docs/NATIVE_STRATEGY.zh-CN.md) | 共享核心的选型，以及 macOS / Windows / iOS 的工程设计 | [English](docs/NATIVE_STRATEGY.md) |
-| [`docs/APPLE_WATCH.zh-CN.md`](docs/APPLE_WATCH.zh-CN.md) | 为什么要做 Apple Watch 客户端、watchOS 允许什么、卡住它的 Apple 缺陷、以及验证计划 | [English](docs/APPLE_WATCH.md) |
+研究文档描述其审阅的版本，不保证当前发行版仍然相同。当前产品优先级以此首页和路线图为准。
 
-上游自己的文档（对本代码库仍然适用）在 <https://sharkord.com/docs>；上游的本地开发笔记保留在 [`DEVELOPMENT.md`](DEVELOPMENT.md)。写代码时的代码规约以 [`AGENTS.md`](AGENTS.md) 为准。
+## 致谢与许可
 
-## 参与贡献
-
-见 [`CONTRIBUTING.md`](CONTRIBUTING.md)；计划与"明确不做"的清单见 [`ROADMAP.zh-CN.md`](ROADMAP.zh-CN.md)。
-
-## 与上游的关系
-
-- 上游：<https://github.com/Sharkord/sharkord> —— 作为本地 `upstream` remote 保留。
-- 本仓库的 `development` 跟随上游 `development` 并向前合并，因此贡献在两个方向上都能合并。
-- 通用修复与 PWA / 移动端网页的改进**向上游提**，不留在本地。
-- 上游原始的 README、贡献指南与路线图**逐字保留**在 [`upstream-notes/`](upstream-notes/)；本仓库保留了上游**完整的提交历史**，因此贡献者列表与 tag 中会包含上游作者与上游版本 —— 属正常现象。
-- 商标与品牌属于 Sharkord 项目；本 fork 只在"说明基于什么"的意义上使用这个名字。
-
-## 致谢
-
-建立在（未改动的）上游技术栈之上：[Bun](https://bun.sh)、[tRPC](https://trpc.io)、[mediasoup](https://mediasoup.org)、[Drizzle ORM](https://orm.drizzle.team)、[React](https://react.dev)、[Radix UI](https://www.radix-ui.com)、[Tailwind CSS](https://tailwindcss.com)。
-
-## 许可证
-
-MIT，见 [`LICENSE`](LICENSE)。原始 Sharkord 的版权声明已保留；对 Sharkord Next 的贡献同样按 MIT 条款接受。
+Covy 建立在 Sharkord 及其贡献者的工作之上。Sharkord 名称与品牌属于上游项目。采用 MIT 许可，见 [LICENSE](LICENSE)；保留上游版权声明。Covy 的贡献同样按 MIT 条款接受。

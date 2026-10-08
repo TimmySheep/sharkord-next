@@ -1,5 +1,7 @@
 # Sharkord Next — 原生客户端策略
 
+> 当前定位：Covy 是 Sharkord 兼容客户端，重点为 Android、iOS 与 Apple Watch；Windows/macOS 原生端暂缓。以下是历史技术研究，不是当前开发排序或功能验收。以 [路线图](../ROADMAP.zh-CN.md)为准。
+
 > 本文是 [`NATIVE_STRATEGY.md`](NATIVE_STRATEGY.md) 的中文翻译。英文版为权威版本，如有歧义以英文版为准。
 
 为第一批原生目标平台（iPhone + iPad、macOS、Windows）以及那个本应避免它们把同一套业务逻辑重复实现三遍的共享核心而编写的设计文档。

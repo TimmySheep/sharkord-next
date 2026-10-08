@@ -1,4 +1,4 @@
-# Sharkord Next — Roadmap
+# Covy — Roadmap
 
 This roadmap is deliberately conservative: it lists what we intend to do, **what we have decided not to
 do**, and the evidence behind each decision. Every claim below links to a document in [`docs/`](docs/) that
@@ -6,18 +6,13 @@ was written against the actual source at `c611bb4`.
 
 **Languages:** English | [中文](ROADMAP.zh-CN.md)
 
-## Priority order (decided)
+## Current focus (decided)
 
-1. **macOS, native-first** — Swift + SwiftUI, with a restricted local media worker view.
-2. **Windows, native-first** — C# + WinUI 3, with a restricted local media worker view.
-3. **iPhone + iPad, native-first** — one Apple project, sharing the Swift core macOS needs anyway.
-4. **Apple Watch, native-first** — declared; a wrist push-to-talk client, gated on a feasibility spike.
-5. Direct (P2P) voice, then self-hosting quality, in parallel with the native work.
+Covy is a compatible client for Sharkord, not an independent server project. Focus on **Android, iOS and Apple Watch**. Apple Watch is part of the iOS / watchOS product effort, but persistent voice is gated on real-device validation.
 
-**Android development is now underway** in [`apps/android`](apps/android). PWA/mobile-web work in this
-fork remains proposed upstream. Details below.
+Windows and macOS native clients are **deferred**, with existing work retained and no near-term delivery commitment. Desktop users should use Sharkord's web UI. Mobile work does not depend on shipping macOS first; reuse shared core code where useful.
 
-Status legend: **✅ done** · **🔜 next** · **🧪 needs a spike** · **📋 planned** · **⛔ not doing**
+Track numbers below are retained as historical references, not execution order. Desktop, P2P and independent server-release plans are not current commitments. This focus supersedes older priority ordering in strategy documents.
 
 ## Guiding principles
 
@@ -38,7 +33,7 @@ Status legend: **✅ done** · **🔜 next** · **🧪 needs a spike** · **📋
 | **Diverging the wire protocol** | Every third-party client depends on tRPC-over-WebSocket + mediasoup signalling as it exists. A fork that invents its own protocol is unusable by the ecosystem it wants to attract. |
 | **A large rewrite of the web client** | The reference client works. We leave its architecture alone. |
 
-## Track 1 — macOS, native (first)
+## Track 1 — macOS, native (deferred)
 
 | Item | Status |
 | --- | --- |
@@ -51,7 +46,7 @@ Design, module split and the platform API matrix: [`docs/NATIVE_STRATEGY.md`](do
 Known risk: global hotkeys on macOS require Accessibility permission, and native media means the mediasoup
 client must be wrapped for Swift — there is no official Swift client.
 
-## Track 2 — Windows, native (second)
+## Track 2 — Windows, native (deferred)
 
 | Item | Status |
 | --- | --- |
@@ -63,18 +58,19 @@ client must be wrapped for Swift — there is no official Swift client.
 first and voice is gated on M4 rather than promised. See
 [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) for the full risk table.
 
-## Track 3 — iPhone + iPad, native (third)
+## Track 3 — iPhone + iPad, native (current focus)
 
 | Item | Status |
 | --- | --- |
 | One Apple project for iPhone and iPad, reusing the Swift core built for macOS | 📋 |
 | Voice with the platform audio session, APNs notifications, background behaviour | 📋 |
 
-Doing macOS first is deliberate: both are Swift, so the core written for Track 1 is reused rather than
-rewritten. Documented constraints worth reading before starting: a recording session cannot be started
+iOS no longer waits for macOS; reuse existing Swift core code where useful. Documented constraints worth reading before starting: a recording session cannot be started
 from the background on iOS, and `playAndRecord` is pre-empted by incoming calls.
 
-## Track 4 — Apple Watch, native (declared fourth)
+## Track 4 — Apple Watch, native (current focus, feasibility-gated)
+
+Any server-side bridge below is an architectural research option, not a commitment to a Covy-only backend. Prefer compatibility with an existing Sharkord instance; server requirements must be discussed with upstream and the maintainer before implementation.
 
 A wrist-first push-to-talk client: join one voice channel, tap to talk, hear the channel, leave. No text,
 one channel at a time. Declared as intent — **not** as a feature promise, because the platform question
@@ -101,7 +97,7 @@ framework and the `pushtotalk` push type do not exist on watchOS; the simulator 
 networking, so only real hardware counts; and the known revocation has a community workaround that is still
 unvalidated with real audio.
 
-## Track 5 — Direct (P2P) voice
+## Track 5 — Direct (P2P) voice (deferred research)
 
 Today *all* media is relayed through the server SFU (`routed, not mixed`), so an N-person channel costs
 the host N−1 upstream streams ([RTC](docs/RTC_ARCHITECTURE.md)). For 1:1 calls that is pure overhead.
@@ -128,13 +124,13 @@ is listed with `file:line` evidence in [`docs/RTC_ARCHITECTURE.md` §7](docs/RTC
 Rule of thumb: if a change benefits everyone who self-hosts or writes a client, it belongs upstream. Only
 things that are specific to this project's own direction are carried here.
 
-## Track 7 — Self-hosting quality
+## Track 7 — Sharkord deployment compatibility (upstream collaboration)
 
 | Item | Status |
 | --- | --- |
 | Document the media/ICE constraints that break voice behind tunnels and NAT (announced address, port equality, TCP fallback limits) | 🔜 (partly in [`docs/RTC_ARCHITECTURE.md` §6](docs/RTC_ARCHITECTURE.md)) |
 | Diagnose client-side "Failed to initialize voice connection" reports: the server-side flow completes today, so the failure is in the media path — likely announced address or UDP reachability | 🧪 |
-| Publish our own pinned image once we ship server-side changes (fingerprint: no `latest`, always a version tag) | 📋 |
+| Independent server image releases are outside Covy's current scope; use upstream Sharkord releases | Not pursued |
 | Storage guidance: signed URLs are **off** by default, so attachment URLs are publicly readable unless the server enables signing | 📋 |
 
 ## Android client, in progress
@@ -148,7 +144,4 @@ Proposals are welcome as issues. A roadmap item is only promoted to work when it
 `docs/` is strong enough to describe the change surface — that is the bar this project set for itself, and
 it is why the `docs/` set was written before any code was touched.
 
-Milestone numbering here reflects the priority order above (macOS before Windows before iOS before
-watchOS). The designs
-in [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md) still apply; only the ordering of the native
-tracks was changed.
+Track numbering is retained for references; the focus at the top governs execution. Desktop research is retained, but development is deferred.

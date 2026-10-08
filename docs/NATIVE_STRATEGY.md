@@ -1,5 +1,7 @@
 # Sharkord Next — Native Client Strategy
 
+> Current direction: Covy is a compatible client for Sharkord, focused on Android, iOS and Apple Watch. Windows/macOS native work is deferred. The following is historical technical research, not current priority ordering or feature acceptance. See the [roadmap](../ROADMAP.md).
+
 > 中文版: [NATIVE_STRATEGY.zh-CN.md](NATIVE_STRATEGY.zh-CN.md)
 
 Design document for the first native targets (iPhone + iPad, macOS, Windows) and for the shared

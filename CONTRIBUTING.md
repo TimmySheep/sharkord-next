@@ -1,4 +1,4 @@
-# Contributing to Sharkord Next
+# Contributing to Covy
 
 **Languages:** English | [中文](CONTRIBUTING.zh-CN.md)
 
@@ -18,24 +18,17 @@ before your first PR. The short version: kebab-case file names, named exports ov
 arrow functions, immutability, no em dashes in code or commit messages, and user-facing strings go
 through i18n (never hardcoded).
 
-## Where to start
+## Welcome: identify the problem before changing code
 
-Small, self-contained work that is ready to pick up:
+Covy is an unofficial compatible client for Sharkord, not an independent server project. We welcome **Android, iOS and Apple Watch** implementation, testing, UI, accessibility, compatibility research and documentation. Native desktop work is deferred; general server and web / PWA improvements belong upstream first.
 
-- **Mobile web / PWA** — the three concrete gaps (no service worker, no `viewport-fit=cover`, no iOS
-  standalone meta) are documented with file-level evidence in
-  [`docs/ECOSYSTEM_RESEARCH.md` §5.3](docs/ECOSYSTEM_RESEARCH.md). Each is a contained PR.
-- **Documentation** — every document in `docs/` is tracked research. If you find a claim that no longer
-  matches the code, fixing it is a welcome contribution.
-- **Android** — this repository's native Kotlin + Jetpack Compose client is under active development
-  in [`apps/android`](apps/android); see its [README](apps/android/README.md) for build instructions.
-  The separate [`Vigno04/sharkord-android`](https://github.com/Vigno04/sharkord-android) remains an
-  ecosystem reference.
-- **Anything upstream would also want** — general bug fixes are best offered upstream first, so both
-  projects benefit and our diff stays small.
+1. Search existing Issues. Every PR must reference a new or existing Issue in this repository.
+2. Explain the problem / use case, affected platform, Covy version or commit and Sharkord server version. Bugs need reproduction steps, expected and actual behaviour; features need a reason users need them.
+3. Identify the modules, intended scope and verification plan. Comment on an existing Issue if you want to contribute rather than opening a duplicate.
+4. Agree on direction with the maintainer before implementing new features, architecture or protocol changes, dependencies, or deferred desktop work. Small fixes and documentation corrections still link an Issue but do not need a lengthy design discussion.
+5. Keep each PR focused on one problem. Avoid unrelated refactors or formatting changes. The maintainer may request a smaller scope or decline a merge.
 
-If you are unsure whether an idea fits, open an issue and ask. "Needs discussion" is a normal state here,
-not a rejection.
+Redact tokens, private messages and personal information from logs and screenshots. AI assistance is welcome, but contributors must understand and take responsibility for their changes; generated code without execution evidence is not sufficient.
 
 ## Development setup
 
@@ -72,7 +65,7 @@ Useful scripts (all from the repository root):
 
 ## Branch and commit conventions
 
-- `development` mirrors upstream. Do not rewrite its history with force pushes.
+- `development` is the integration branch and tracks upstream compatibility. Do not rewrite its history with force pushes.
 - Branch off `development`, keep the branch focused, name it after the work
   (`fix/mobile-safe-area`, `feat/p2p-signalling`).
 - Commits follow upstream's conventional style, with the issue or PR reference when there is one:
@@ -84,16 +77,17 @@ Useful scripts (all from the repository root):
   ```
 
 - Sign nothing special, but **do** use your own git identity. If you are contributing from this machine,
-  the identity in use is `TimmySheep <100548146+TimmySheep@users.noreply.github.com>`.
+  use your own name and email, not the maintainer's identity.
 
 ## Pull requests
 
 A good PR here is small and verifiable. Before you open one:
 
-1. `bun run magic` and `bun run test` are clean locally.
-2. New behaviour has a test, or the PR body explains why a test is not practical.
-3. Documentation under `docs/` is updated when behaviour it describes changes.
-4. The PR body says **what changed, why, and what you verified** — including commands and their output.
+1. Link the Issue (`Fixes #123` for a resolved issue, `Refs #123` for related work) and target `development`. State the affected platform, modules and compatibility impact.
+2. Run the relevant platform build and tests and report exact commands and results. For TypeScript / shared / server changes, run `bun run magic` and `bun run test`. For documentation-only changes, check links and formatting; explain non-applicable checks rather than claiming they passed.
+3. New behaviour has a test, or the PR body explains why a test is not practical.
+4. Documentation under `docs/` is updated when behaviour it describes changes.
+5. The PR body says **what changed, why, and what you verified** — including commands and their output.
    Claims that were not actually verified should be labelled as such; this project documents verified
    versus unverified explicitly and expects the same in PRs.
 
@@ -117,7 +111,7 @@ the resolution in the merge commit message.
 - Contributions are accepted under the **MIT license**, matching upstream (`inbound = outbound`).
 - Keep upstream copyright notices intact.
 - Do not use the Sharkord name or logo in a way that suggests this fork is official. Describe it as
-  "an unofficial community project based on Sharkord" — the same wording used in the README.
+  "an unofficial compatible client for Sharkord" — the same wording used in the README.
 
 Upstream's original contribution guide (written for the upstream project, and still worth reading for its
 scope and PR philosophy) is preserved verbatim at

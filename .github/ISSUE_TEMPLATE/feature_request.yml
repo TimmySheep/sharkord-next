@@ -1,31 +1,58 @@
-name: Feature Request
-description: Suggest an idea for Sharkord. Please provide as much detail as possible to help us understand and evaluate your request.
-title: "[Feature]: "
-labels: ["feature", "needs-triage"]
-assignees: []
-
+name: Covy Feature / Contribution Proposal
+description: Discuss a user need and proposed contribution scope before implementation.
+title: '[Proposal]: '
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Please check the [Roadmap](https://github.com/Sharkord/sharkord/blob/development/ROADMAP.md)
-        and [what Sharkord is not](https://github.com/Sharkord/sharkord/blob/development/CONTRIBUTING.md#what-sharkord-is-not)
-        before requesting new features.
-        Large features should be discussed before implementation.
-        If your feature does not align with the project's goals, it may be closed.
-
-  - type: textarea
-    id: problem
-    attributes:
-      label: Problem
-      description: What problem does this solve?
-    validations:
-      required: true
-
-  - type: textarea
-    id: solution
-    attributes:
-      label: Proposed Solution
-      description: Describe your proposed solution
-    validations:
-      required: true
+- type: markdown
+  attributes:
+    value: 'Covy is an unofficial compatible client for Sharkord. Search existing Issues first. Current
+      focus: Android, iOS and Apple Watch; native desktop work is deferred. Redact tokens, private messages
+      and personal information.'
+- type: dropdown
+  id: platform
+  attributes:
+    label: Affected platform
+    options:
+    - Android
+    - iOS / iPadOS
+    - Apple Watch / watchOS
+    - Windows native (deferred)
+    - macOS native (deferred)
+    - Documentation / shared compatibility
+    - Other
+  validations:
+    required: true
+- type: textarea
+  id: problem
+  attributes:
+    label: Problem / user need
+    description: Explain a concrete use case, not just a missing feature.
+  validations:
+    required: true
+- type: textarea
+  id: solution
+  attributes:
+    label: Proposed change and modules
+    description: Name the area or files and explain why this belongs in Covy.
+  validations:
+    required: true
+- type: textarea
+  id: scope
+  attributes:
+    label: Scope and compatibility
+    description: State what is included, excluded, and any server / protocol / dependency impact.
+  validations:
+    required: true
+- type: textarea
+  id: verification
+  attributes:
+    label: Verification plan
+    description: How will you demonstrate the feature works on the affected platform?
+  validations:
+    required: true
+- type: textarea
+  id: participation
+  attributes:
+    label: Would you like to contribute?
+    description: 'Optional: implementation, testing, design or documentation; mention related Issues.'
+  validations:
+    required: false
