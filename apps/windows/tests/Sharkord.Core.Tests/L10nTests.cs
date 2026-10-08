@@ -45,7 +45,14 @@ public class L10nTests
         "stopScreenShare",
         "mediaLocalUser",
         "mediaScreen",
-        "mediaCamera"
+        "mediaCamera",
+        "exportLogs",
+        "logFileType",
+        "logsExportSuccessTitle",
+        "logsExportSuccessMessage",
+        "logsExportFailureTitle",
+        "logsExportFailureMessage",
+        "close"
     ];
 
     public static IEnumerable<object[]> Languages =>
@@ -272,17 +279,35 @@ public class L10nTests
         var code = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml.cs"));
         var project = File.ReadAllText(SourceFile("Sharkord.App/Sharkord.App.csproj"));
         var iconPath = SourceFile("Sharkord.App/Assets/cove.ico");
+        var darkIconPath = SourceFile("Sharkord.App/Assets/cove-dark.ico");
 
         Assert.Contains("Title=\"cove\"", xaml);
-        Assert.Contains("AppWindow.GetFromWindowId(windowId).SetIcon(", code);
+        Assert.Contains("x:Name=\"RootGrid\"", xaml);
+        Assert.Contains("RootGrid.ActualThemeChanged += OnRootThemeChanged;", code);
+        Assert.Contains("RootGrid.ActualTheme == ElementTheme.Dark ? \"cove-dark.ico\" : \"cove.ico\"", code);
         Assert.Contains("<AssemblyName>cove</AssemblyName>", project);
         Assert.Contains("<AssemblyTitle>cove</AssemblyTitle>", project);
         Assert.Contains("<Product>cove</Product>", project);
         Assert.Contains("<ApplicationIcon>Assets\\cove.ico</ApplicationIcon>", project);
+        Assert.Contains("<Content Include=\"Assets\\cove-dark.ico\">", project);
         Assert.Contains("<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>", project);
         Assert.Contains("<ExcludeFromSingleFile>true</ExcludeFromSingleFile>", project);
         Assert.Contains("Name=\"CopyCoveIconToPublishDirectory\" AfterTargets=\"Publish\"", project);
+        Assert.Contains("SourceFiles=\"$(MSBuildProjectDirectory)\\Assets\\cove-dark.ico\"", project);
         Assert.True(File.Exists(iconPath));
+        Assert.True(File.Exists(darkIconPath));
+    }
+
+    [Fact]
+    public void WinUiExposesDiagnosticLogExport()
+    {
+        var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
+        var code = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml.cs"));
+
+        Assert.Contains("x:Name=\"ExportLogsButton\"", xaml);
+        Assert.Contains("Click=\"OnExportLogsClick\"", xaml);
+        Assert.Contains("FileSavePicker", code);
+        Assert.Contains("ClientLogStore.Shared.ExportLogsAsync", code);
     }
 
     /// <summary>

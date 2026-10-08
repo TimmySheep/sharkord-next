@@ -1,3 +1,4 @@
+import AppKit
 import SharkordCore
 import SwiftUI
 
@@ -28,12 +29,22 @@ struct VoiceChannelView: View {
 
             if joined && voiceMedia.status == "connected" {
                 if let errorMessage = voiceMedia.errorMessage {
-                    Text(errorMessage)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                        .lineSpacing(3)
-                        .padding(.horizontal, 14)
-                        .padding(.top, 8)
+                    HStack(spacing: 10) {
+                        Text(errorMessage)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .lineSpacing(3)
+
+                        if voiceMedia.errorContext == "microphone" ||
+                            voiceMedia.errorContext == "camera" ||
+                            voiceMedia.errorContext == "screenShare" {
+                            Button(L10n.t("openSystemSettings", ns: "macos"), action: openMediaPrivacySettings)
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
                 }
 
                 participantGrid
@@ -155,9 +166,25 @@ struct VoiceChannelView: View {
                             .background(Theme.elevated, in: Circle())
                         }
 
-                        Text(entry.user.name)
-                            .font(.system(size: 12, weight: .medium))
-                            .lineLimit(1)
+                        HStack(spacing: 5) {
+                            Text(entry.user.name)
+                                .font(.system(size: 12, weight: .medium))
+                                .lineLimit(1)
+
+                            if entry.user.id != session.ownUserId {
+                                VoiceParticipantVolumeButton(
+                                    userId: entry.user.id,
+                                    stream: .user
+                                )
+
+                                if hasScreenShareAudio(for: entry.user.id) {
+                                    VoiceParticipantVolumeButton(
+                                        userId: entry.user.id,
+                                        stream: .screenShare
+                                    )
+                                }
+                            }
+                        }
                     }
                     .padding(12)
                     .frame(maxWidth: .infinity)
@@ -189,20 +216,22 @@ struct VoiceChannelView: View {
 
     private var controls: some View {
         HStack(spacing: 14) {
-            controlButton(
-                micMuted ? "mic.slash.fill" : "mic.fill",
-                active: micMuted,
-                help: L10n.t(micMuted ? "unmuteMic" : "muteMic", ns: "macos")
-            ) {
-                Task {
-                    do {
-                        try await voiceMedia.setMicrophoneMuted(!micMuted)
-                    } catch {
-                        voiceMedia.presentError(error.localizedDescription)
+            if session.hasChannelPermission(channel.id, .speak) {
+                controlButton(
+                    micMuted ? "mic.slash.fill" : "mic.fill",
+                    active: micMuted,
+                    help: L10n.t(micMuted ? "unmuteMic" : "muteMic", ns: "macos")
+                ) {
+                    Task {
+                        do {
+                            try await voiceMedia.setMicrophoneMuted(!micMuted)
+                        } catch {
+                            voiceMedia.presentError(error, context: "microphone")
+                        }
                     }
                 }
+                .disabled(voiceMedia.status != "connected" || deafened)
             }
-            .disabled(voiceMedia.status != "connected" || !voiceMedia.canPublishAudio)
 
             if session.hasPermission(.enableWebcam),
                session.hasChannelPermission(channel.id, .webcam) {
@@ -215,7 +244,7 @@ struct VoiceChannelView: View {
                         do {
                             try await voiceMedia.setWebcamEnabled(ownState?.webcamEnabled != true)
                         } catch {
-                            voiceMedia.presentError(error.localizedDescription)
+                            voiceMedia.presentError(error, context: "camera")
                         }
                     }
                 }
@@ -231,7 +260,7 @@ struct VoiceChannelView: View {
                     do {
                         try await voiceMedia.setOutputMuted(!deafened)
                     } catch {
-                        voiceMedia.presentError(error.localizedDescription)
+                        voiceMedia.presentError(error, context: "audio")
                     }
                 }
             }
@@ -278,6 +307,7 @@ struct VoiceChannelView: View {
         .buttonStyle(.plain)
         .foregroundStyle(active ? Theme.accent : .secondary)
         .help(help)
+        .accessibilityLabel(help)
     }
 
     private var ownState: VoiceUserState? {
@@ -292,6 +322,12 @@ struct VoiceChannelView: View {
 
     private var deafened: Bool {
         ownState?.soundMuted ?? false
+    }
+
+    private func hasScreenShareAudio(for userId: Int) -> Bool {
+        session.producersByChannel[channel.id]?.contains {
+            $0.remoteId == userId && $0.kind == .screenAudio
+        } ?? false
     }
 
     private func connectVoice() {
@@ -320,7 +356,7 @@ struct VoiceChannelView: View {
                 )
             } catch {
                 try? await session.leaveVoice()
-                voiceMedia.presentError(error.localizedDescription)
+                voiceMedia.presentError(error)
             }
         }
     }
@@ -330,5 +366,100 @@ struct VoiceChannelView: View {
         Task {
             try? await session.leaveVoice()
         }
+    }
+
+    private func openMediaPrivacySettings() {
+        let section: String
+
+        switch voiceMedia.errorContext {
+        case "microphone":
+            section = "Privacy_Microphone"
+        case "camera":
+            section = "Privacy_Camera"
+        case "screenShare":
+            section = "Privacy_ScreenCapture"
+        default:
+            return
+        }
+
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(section)") else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
+    }
+}
+
+private struct VoiceParticipantVolumeButton: View {
+    @EnvironmentObject private var voiceMedia: VoiceMediaController
+
+    let userId: Int
+    let stream: VoiceAudioStream
+
+    @State private var isPresented = false
+
+    private var volume: Double {
+        voiceMedia.remoteAudioVolume(for: userId, stream: stream)
+    }
+
+    private var title: String {
+        let key = stream == .screenShare ? "screenShareAudioVolume" : "userVolume"
+        return L10n.t(key, ns: "sidebar")
+    }
+
+    var body: some View {
+        Button {
+            isPresented = true
+        } label: {
+            Image(systemName: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                .font(.system(size: 10))
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(volume == 0 ? Color.red : Color.secondary)
+        .help(title)
+        .accessibilityLabel(title)
+        .accessibilityValue("\(volumePercentage)%")
+        .popover(isPresented: $isPresented, arrowEdge: .top) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+
+                HStack(spacing: 8) {
+                    Button(action: toggleMute) {
+                        Image(systemName: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            .frame(width: 20)
+                    }
+                    .buttonStyle(.plain)
+                    .help(L10n.t(volume == 0 ? "unmuteAudio" : "muteAudio", ns: "sidebar"))
+                    .accessibilityLabel(L10n.t(volume == 0 ? "unmuteAudio" : "muteAudio", ns: "sidebar"))
+
+                    Slider(value: volumeBinding, in: 0 ... 1, step: 0.01)
+                        .accessibilityLabel(title)
+
+                    Text("\(volumePercentage)%")
+                        .font(.system(size: 11, design: .monospaced))
+                        .frame(width: 38, alignment: .trailing)
+                }
+            }
+            .padding(12)
+            .frame(width: 230)
+        }
+    }
+
+    private var volumeBinding: Binding<Double> {
+        Binding(
+            get: { volume },
+            set: { voiceMedia.setRemoteAudioVolume($0, for: userId, stream: stream) }
+        )
+    }
+
+    private var volumePercentage: Int {
+        Int((volume * 100).rounded())
+    }
+
+    private func toggleMute() {
+        voiceMedia.toggleRemoteAudioMute(for: userId, stream: stream)
     }
 }

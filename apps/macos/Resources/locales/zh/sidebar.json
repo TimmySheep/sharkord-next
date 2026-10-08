@@ -74,6 +74,9 @@
   "categoryDeleted": "分类已删除",
   "failedDeleteCategory": "删除分类失败",
   "userVolume": "用户音量",
+  "screenShareAudioVolume": "屏幕共享音量",
+  "muteAudio": "静音",
+  "unmuteAudio": "取消静音",
   "microphone": "麦克风",
   "noiseSuppression": "降噪"
 }

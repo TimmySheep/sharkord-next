@@ -85,7 +85,7 @@ struct ReactionChip: View {
                 in: Capsule()
             )
             .overlay(
-                Capsule().stroke(group.mine ? Theme.accent : .white.opacity(0.06), lineWidth: 1)
+                Capsule().stroke(group.mine ? Theme.accent : Color.primary.opacity(0.08), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

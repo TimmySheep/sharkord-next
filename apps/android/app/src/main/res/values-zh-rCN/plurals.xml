@@ -1,4 +1,7 @@
 <resources>
+    <plurals name="voice_call_participant_count">
+        <item quantity="other">%1$d 人</item>
+    </plurals>
     <plurals name="reply_count">
         <item quantity="other">%1$d 条回复</item>
     </plurals>

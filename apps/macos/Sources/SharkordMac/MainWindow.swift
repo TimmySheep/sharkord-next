@@ -13,6 +13,7 @@ struct MainWindow: View {
     @State private var settingsSection: SettingsSection?
     @State private var replyTarget: SharkordMessage?
     @State private var editing: SharkordMessage?
+    @State private var showsWelcomeSetup = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -57,11 +58,27 @@ struct MainWindow: View {
             SettingsView(initialSection: section)
                 .frame(minWidth: 720, minHeight: 480)
         }
+        .sheet(isPresented: $showsWelcomeSetup, onDismiss: rememberWelcomeDismissal) {
+            WelcomeProfileSetupView()
+                .environmentObject(session)
+                .frame(width: 500)
+                .interactiveDismissDisabled()
+        }
         .onAppear {
-            if session.showWelcomeDialog {
-                settingsSection = .profile
+            let key = welcomeDismissalKey
+
+            if session.showWelcomeDialog, !UserDefaults.standard.bool(forKey: key) {
+                showsWelcomeSetup = true
             }
         }
+    }
+
+    private var welcomeDismissalKey: String {
+        "cove.welcome.dismissed.\(session.serverId).\(session.ownUserId)"
+    }
+
+    private func rememberWelcomeDismissal() {
+        UserDefaults.standard.set(true, forKey: welcomeDismissalKey)
     }
 
     @ViewBuilder
@@ -86,6 +103,8 @@ struct MainWindow: View {
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
+            DiagnosticLogExportButton()
+
             if session.settings?.enableSearch != false {
                 Button {
                     showsSearch = true

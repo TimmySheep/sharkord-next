@@ -9,7 +9,8 @@ enum Theme {
     static let accent = Color(red: 0x14 / 255, green: 0x47 / 255, blue: 0xE6 / 255)
     static let sidebar = Color(nsColor: .windowBackgroundColor)
     static let panel = Color(nsColor: .controlBackgroundColor)
-    static let elevated = Color(nsColor: .underPageBackgroundColor)
+    static let elevated = Color.primary.opacity(0.045)
+    static let input = Color(nsColor: .textBackgroundColor)
 
     static let avatarPalette: [Color] = [
         Color(red: 0x14 / 255, green: 0x47 / 255, blue: 0xE6 / 255),

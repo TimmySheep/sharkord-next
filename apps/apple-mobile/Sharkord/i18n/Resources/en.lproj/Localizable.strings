@@ -1,18 +1,23 @@
 /* Sharkord iOS - English */
 
 /* connect */
-"connect.title" = "Sign in to Sharkord";
-"connect.subtitle" = "Enter your server address and account. This version talks to the real server: messages, voice and screen sharing are live.";
+"connect.title" = "Sign in to cove";
 "connect.server" = "Server address";
 "connect.serverPlaceholder" = "https://chat.example.com";
 "connect.identity" = "Account";
 "connect.identityPlaceholder" = "your account";
 "connect.password" = "Password";
 "connect.passwordPlaceholder" = "your password";
-"connect.serverPassword" = "Server password (optional)";
-"connect.serverPasswordPlaceholder" = "only if the server asks for one";
+"connect.serverPassword" = "Server password";
+"connect.serverPasswordPlaceholder" = "Optional";
 "connect.submit" = "Connect";
 "connect.connecting" = "Connecting…";
+"connect.rememberLogin" = "Remember this account and sign in automatically";
+"connect.quickSignIn" = "Continue with saved account";
+"connect.forgetSavedLogin" = "Forget saved account";
+"connect.credentialStorageFailed" = "Secure sign-in details could not be updated.";
+"connect.serverPasswordRequired" = "Server password required";
+"connect.joinServer" = "Join server";
 
 /* navigation */
 "nav.channels" = "Channels";
@@ -20,6 +25,12 @@
 "nav.settings" = "Settings";
 "nav.directMessages" = "Direct messages";
 "nav.voiceChannels" = "Voice channels";
+"dm.newMessage" = "New message";
+"dm.searchMembers" = "Search members";
+"dm.emptyTitle" = "No conversations yet";
+"dm.emptyBody" = "Start a conversation with someone on this server.";
+"dm.noMembers" = "No members found";
+"dm.openFailed" = "Could not start the conversation";
 
 /* channels and messages */
 "channel.loadOlder" = "Load older messages";
@@ -39,6 +50,7 @@
 
 /* voice */
 "voice.call" = "Voice";
+"voice.openChat" = "Open channel chat";
 "voice.join" = "Join voice";
 "voice.leave" = "Leave voice";
 "voice.controls" = "Call controls";
@@ -70,6 +82,14 @@
 "voice.error.micBlockedByDeafen" = "Turn the speaker on before opening the microphone.";
 "voice.error.screenShareNotAllowed" = "You do not have permission to share the screen here.";
 "voice.error.screenShareUnavailable" = "Screen sharing is not available on this device right now.";
+"voice.error.cameraNotAllowed" = "You do not have permission to use a camera in this voice channel.";
+"voice.error.cameraAccessRequired" = "Allow camera access in Settings to share video.";
+"voice.error.cameraUnavailable" = "No usable camera is available on this device.";
+"voice.camera.title" = "Camera";
+"voice.camera.start" = "Start camera";
+"voice.camera.stop" = "Stop camera";
+"voice.camera.switch" = "Switch camera";
+"voice.quality.auto" = "Automatic quality";
 "voice.error.transportFailed" = "The voice connection failed.";
 "voice.liveActivity.topic" = "Voice channel";
 "voice.liveActivity.previewChannel" = "Lounge";
@@ -82,7 +102,7 @@
 
 /* settings */
 "settings.language" = "Language";
-"settings.languageHint" = "English, Simplified Chinese, Spanish, French and German are supported in this version.";
+"settings.developer" = "Developer";
 "settings.liveActivity" = "Dynamic Island";
 "settings.liveActivityStart" = "Preview a live activity";
 "settings.liveActivityStop" = "Stop the preview";
@@ -91,13 +111,34 @@
 "settings.server" = "Server";
 "settings.account" = "Account";
 "settings.disconnect" = "Disconnect";
-"settings.disconnectHint" = "Leaves the server and returns to the sign in screen.";
-"settings.about" = "About this version";
-"settings.aboutBody" = "First feature version: sign in, channels, messages, reactions, voice with mic control, screen sharing and five languages. Things like file uploads, threads, plugins and moderation screens are still to come.";
+"settings.diagnostics" = "Diagnostics";
+"settings.viewLogs" = "View logs";
+"settings.exportLogs" = "Export logs";
+"settings.shareLogs" = "Share log file";
+"settings.noLogs" = "No logs have been recorded yet.";
+"settings.exportFailed" = "Could not create the log export.";
 
 /* common */
 "common.save" = "Save";
 "common.cancel" = "Cancel";
+"common.done" = "Done";
+"message.thread" = "Open thread";
+"message.replyCount" = "%d replies";
+"message.attachFile" = "Attach file";
+"message.removeAttachment" = "Remove attachment";
+"message.attachmentLimit" = "The server file limit has been reached.";
+"message.fileTooLarge" = "This file is larger than the server allows.";
+"message.previewFailed" = "Image preview could not be loaded.";
+"search.title" = "Search messages";
+"search.placeholder" = "Search messages and files";
+"search.searching" = "Searching…";
+"search.noResults" = "No results found";
+"search.tryAnother" = "Try a different search.";
+"search.messages" = "Messages";
+"search.files" = "Files";
+"search.truncated" = "There may be more results. Refine your search.";
+"search.minimumLength" = "Enter at least two characters to search.";
+"search.attachment" = "Attachment";
 
 /* v2 design additions */
 "nav.voice" = "Voice";
@@ -117,11 +158,11 @@
 "connect.cardTitle" = "Connect to server";
 "connect.moreOptions" = "More connection options";
 "connect.fewerOptions" = "Fewer options";
-"channel.searchPlaceholder" = "Search channels or members";
+"channel.searchPlaceholder" = "Search channels";
 "channel.currentMembers" = "Members in this channel";
 "screenshare.infoTitle" = "Live discovery connected";
 "screenshare.infoBody" = "Lists and negotiation signaling go through the Sharkord server; video media travels WebRTC/ICE peer to peer and is not relayed by the server.";
-"screenshare.startHint" = "Once started the system captures this screen and sends it over the current voice channel. This version does not share system audio.";
+"screenshare.startHint" = "This build shares the Cove app through the current voice channel. Other apps and the iOS Home Screen are not captured.";
 "screenshare.myScreen" = "This device's screen";
 
 /* watch (Apple Watch radio) */

@@ -14,7 +14,7 @@
 
 ## 一、已实现并实测的能力
 
-下表状态以「本机实测通过」为准，不是「写完代码」。macOS 端 46 个测试、Windows Core 端 53 个测试全部通过；
+下表状态以「本机实测通过」为准，不是「写完代码」。macOS 端 68 个测试、Windows Core 端 53 个测试全部通过；
 macOS 其中 6 个、Windows Core 其中 2 个是打**真实服务器**的端到端测试。
 
 | 能力 | 服务端接口 | macOS | Windows Core |
@@ -23,13 +23,14 @@ macOS 其中 6 个、Windows Core 其中 2 个是打**真实服务器**的端到
 | 登录 / 自动注册 | `POST /login` | ✅ | ✅ |
 | 连接 + 握手 + 加入 | WS + `others.handshake` / `others.joinServer` | ✅ | ✅ |
 | 令牌持久化 | 钥匙串（macOS）/ DPAPI 规划中（Core 只持有令牌） | ✅ | 部分 |
+| 自动登录凭据 | 服务器、身份标识、账号密码与服务器密码存 macOS 钥匙串 | 已实现；钥匙串运行时待验收 | — |
 | 频道树（分类 → 文字/语音） | join 载荷 + `channels.*` 事件 | ✅ | ✅ |
 | 分类 / 频道增删改 + 排序 | `categories.*` / `channels.*` | ✅ | 事件消费 ✅ |
 | 频道权限覆盖（角色 / 用户） | `channels.getPermissions` / `updatePermissions` / `deletePermissions` | ✅ | — |
 | 消息历史（游标分页） | `messages.get` | ✅ | ✅ |
 | 消息跳转窗口（含 `hasNewer`） | `messages.get` + `targetMessageId` | ✅ | — |
 | 发送消息（含回复、线程、附件 ID） | `messages.send` | ✅ | ✅ |
-| 编辑 / 删除消息 | `messages.edit` / `messages.delete` | ✅ | ✅ |
+| 编辑 / 删除消息（删除前确认） | `messages.edit` / `messages.delete` | ✅ | ✅ |
 | 富文本（提及 / 频道引用 / 自定义 emoji / 链接 / 代码块） | 与 `sanitize-html.ts` 白名单逐字对齐 | ✅ | — |
 | 表情回应（自定义 + 标准） | `messages.toggleReaction` | ✅ | ✅ |
 | 消息置顶 | `messages.togglePin` / `messages.getPinned` | ✅ | — |
@@ -39,6 +40,8 @@ macOS 其中 6 个、Windows Core 其中 2 个是打**真实服务器**的端到
 | 已读回执 / 未读角标 | `channels.markAsRead` + `onReadStateUpdate` / `onReadStateDelta` | ✅ | ✅ |
 | 私信列表 / 打开会话 | `dms.get` / `dms.open` + `dms.onConversationOpen` | ✅ | ✅ |
 | 附件上传（多选 / 拖拽 / 粘贴图片） | `POST /upload` | ✅ | Core ✅（UI 未接） |
+| 图片预览（缩放 / 拖动 / 复制链接） | 消息内图片与图片附件 | 源码与缩放边界测试 ✅；GUI 待验收 | — |
+| 消息音视频播放（附件与嵌入媒体链接） | 文件扩展名 + 消息媒体元数据 | AVPlayer 接入与分类/去重测试 ✅；真实播放待验收 | — |
 | 角色管理（增删改、权限勾选、默认角色、存储配额覆盖） | `roles.*` | ✅ | — |
 | 自定义表情管理（上传 / 改名 / 删除） | `emojis.*` | ✅ | — |
 | 邀请码管理（创建 / 复制链接 / 删除） | `invites.*` | ✅ | — |
@@ -46,8 +49,13 @@ macOS 其中 6 个、Windows Core 其中 2 个是打**真实服务器**的端到
 | 用户资料（名称 / 头像 / 横幅 / 资料色 / 简介 / 改密） | `users.update` / `changeAvatar` / `changeBanner` / `updatePassword` | ✅ | — |
 | 服务器设置（General / Storage） | `others.getSettings` / `updateSettings` / `getStorageSettings` | ✅ | — |
 | 服务器更新 | `others.getUpdate` / `others.updateServer` | ✅ | — |
-| 插件管理（列表 / 启停 / 移除 / 日志 / 能力 / 设置只读） | `plugins.*` | ✅ | — |
+| 插件管理（市场安装更新 / 设置编辑 / 能力角色规则 / 命令 / 日志） | `plugins.*` | ✅；插件 React UI 仍缺 | — |
+| 桌面通知与未读 Dock/菜单栏计数 | `UNUserNotificationCenter` / 本地状态 | 已接入；权限与 GUI 待验收 | — |
+| F13 按键通话 | macOS Input Monitoring / voice state | 已接入；权限与 GUI 待验收 | — |
+| 欢迎资料与服务器密码流程 | `users.update` / `others.joinServer` | 已接入；GUI 待验收 | — |
+| 外观（系统 / 浅色 / 深色） | SwiftUI color scheme 与主界面动态表面颜色 | 单测 ✅；全界面 GUI 待验收 | — |
 | 语音控制面（加入 / 离开 / 静音 / 闭麦 / 摄像头与屏幕共享标志 / 反应 / 移动成员） | `voice.*` | ✅ | — |
+| 单人音量（语音与屏幕共享音频） | 本机偏好 + mediasoup 音频轨道 | macOS 源码与偏好测试 ✅；GUI/真实媒体待验收 | 共用媒体桥已更新；Windows 控件未接 |
 | 语音媒体传输（音频 / 摄像头 / 屏幕共享） | mediasoup WebRTC | 源码已接入，待 macOS 权限与真机媒体验收 | 源码已接入，待 Windows 编译与媒体验收 |
 | 实时消息事件 | `messages.onNew` / `onUpdate` / `onDelete` / `onThreadReplyCountUpdate` | ✅ | ✅ |
 | 实时用户事件 | `users.onJoin` / `onLeave` / `onUpdate` / `onCreate` / `onDelete` | ✅ | ✅ |
@@ -80,16 +88,16 @@ Windows 是 `TrpcProtocol.cs` / `TrpcWebSocketClient.cs`。消息 HTML 的解析
    `Permission denied: tool 'list-windows' has no reviewed risk classification`，
    按规程未绕过、已暂停该路径，等权限补齐后重跑。
 
-### 2.2 尚未实现的功能（网页端有，原生端还没有）
+### 2.2 功能差异与待验收
 
 | 领域 | 缺口 |
 | --- | --- |
 | **语音媒体** | macOS / Windows 已接入共享 `mediasoup-client` worker，覆盖音频、摄像头和屏幕共享的发送/接收路径；但本轮没有完成设备权限、WebRTC 网络与远端播放的端到端验收。Windows 还缺本轮 WinUI 编译与 GUI 验收。屏幕共享入口位于媒体画面内，因为浏览器要求由页面真实用户操作触发屏幕选择器。 |
-| **插件 UI** | 插件 UI 在网页端是针对 `window.__SHARKORD_*` 运行的 React；当前 WebView 仅承载受限媒体页面，不加载服务器插件。原生端已能列出插件、启停、移除、看日志与能力清单，但**插件设置是只读展示**、插件能力权限编辑器未做、插件命令执行界面未做（Core 的 `executePluginCommand` 已就绪）。v1 明确不做插件 UI。 |
-| **通知** | 桌面通知（`UNUserNotificationCenter`）、未读汇总、系统托盘常驻均未做；未读角标只在侧栏显示。 |
-| **全局快捷键 / 按键通话** | macOS `CGEventTap`（需辅助功能权限）、Windows `RegisterHotKey` / 低级钩子，均未做。 |
-| **欢迎对话框 / 服务器密码对话框** | 用「资料」设置页与连接页的密码输入近似实现，没有做成独立的模态对话框与倒计时流程。 |
-| **外观** | 主题（深色 token 固定）、字号调节、无障碍（VoiceOver / 讲述人）未做。 |
+| **语音媒体运行时** | macOS / Windows 已接入共享 `mediasoup-client` worker，覆盖音频、摄像头和屏幕共享的发送/接收路径；设备权限、WebRTC 网络与远端播放仍缺端到端验收。Windows 还缺 WinUI 编译与 GUI 验收。 |
+| **插件 UI** | 插件 UI 在网页端是针对 `window.__SHARKORD_*` 运行的 React；当前 WebView 仅承载受限媒体页面，不加载服务器插件。原生管理、设置编辑、能力规则、命令、日志和市场安装更新已接入，插件 React tabs/components 尚未实现。 |
+| **通知与按键通话验收** | macOS 桌面通知、Dock/菜单栏未读数和 F13 PTT 已接入；仍需实际验证通知权限与 Input Monitoring 授权。Windows 对应功能未接入。 |
+| **首次连接流程验收** | macOS 已实现服务器密码提示、欢迎资料模态流程和钥匙串自动登录；Windows 仍待实现。macOS 新界面还没有逐屏 GUI 验收，自动登录凭据也未做真实钥匙串读写验收。 |
+| **外观与无障碍** | macOS 已支持系统、浅色、深色外观，连接页改用动态系统颜色；仍待 GUI 复验浅色模式。字号调节和完整 VoiceOver / 键盘导航审查仍未完成。Windows 外观设置未实现。 |
 | **打包与签名** | 已发布 macOS ARM64 开发 DMG（ad-hoc 签名、未公证）和 Windows x64 自包含便携 ZIP（未签名、不是 MSIX）；均无自动更新。 |
 
 ### 2.3 已知工程风险
@@ -198,7 +206,7 @@ cd apps/macos && swift run SharkordMac
 
 ### 覆盖范围
 
-- **macOS**：9 个命名空间 × 10 语言，共 938 键/语言，含原生专属 `macos` 命名空间（18 键）。
+- **macOS**：9 个命名空间 × 10 语言，共 994 键/语言，含原生专属 `macos` 命名空间（74 键）。
 - **Windows**：2 个命名空间 × 10 语言。`windows` 命名空间 9 条是 WinUI 壳专有文案
   （标语、服务器地址、服务器密码、邀请码、输入框占位、发送、系统消息作者、语言标签、跟随系统选项），
   另 3 条（`identityLabel` / `passwordLabel` / `connectBtn`）与网页端同名同义，直接读共享的

@@ -7,20 +7,20 @@ import UniformTypeIdentifiers
 /// Shift+Enter (newline), cannot take over ArrowUp on an empty field and cannot intercept
 /// pasted images, and all three matter here.
 final class ComposerTextView: NSTextView {
+    var sendShortcut: KeyboardShortcutBinding? = .returnKey
     var onSubmit: () -> Void = {}
     var onCancel: () -> Void = {}
     var onEditLast: () -> Void = {}
     var onPasteFiles: ([URL]) -> Void = { _ in }
 
     override func keyDown(with event: NSEvent) {
-        switch event.keyCode {
-        case 36, 76:
-            if event.modifierFlags.contains(.shift) {
-                super.keyDown(with: event)
-            } else {
-                onSubmit()
-            }
+        if sendShortcut?.matches(keyCode: event.keyCode, modifiers: event.modifierFlags) == true {
+            onSubmit()
 
+            return
+        }
+
+        switch event.keyCode {
         case 53:
             onCancel()
 
@@ -67,6 +67,7 @@ struct ComposerTextEditor: NSViewRepresentable {
     @Binding var text: String
 
     var isEnabled: Bool = true
+    var sendShortcut: KeyboardShortcutBinding? = .returnKey
     var onTextChange: (String) -> Void = { _ in }
     var onSubmit: () -> Void = {}
     var onCancel: () -> Void = {}
@@ -112,6 +113,7 @@ struct ComposerTextEditor: NSViewRepresentable {
 
         context.coordinator.owner = self
 
+        textView.sendShortcut = sendShortcut
         textView.onSubmit = onSubmit
         textView.onCancel = onCancel
         textView.onEditLast = onEditLast
@@ -149,6 +151,7 @@ struct ComposerTextEditor: NSViewRepresentable {
 /// Message composer: text, attachments, reply or edit context, emoji and a send button.
 struct Composer: View {
     @EnvironmentObject private var session: SharkordSession
+    @EnvironmentObject private var keyboardShortcuts: KeyboardShortcutsController
 
     let channel: SharkordChannel
     var parentMessageId: Int? = nil
@@ -209,6 +212,7 @@ struct Composer: View {
                     ComposerTextEditor(
                         text: $text,
                         isEnabled: canSend && !uploading,
+                        sendShortcut: keyboardShortcuts.preferences.sendMessage,
                         onTextChange: { _ in signalTyping() },
                         onSubmit: send,
                         onCancel: cancel,

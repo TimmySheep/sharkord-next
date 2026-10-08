@@ -8,6 +8,7 @@ public final class SharkordSession: ObservableObject {
     public enum Phase: Equatable {
         case disconnected
         case connecting
+        case awaitingServerPassword
         case connected
         case failed(String)
     }
@@ -46,6 +47,7 @@ public final class SharkordSession: ObservableObject {
     @Published public internal(set) var pluginLogs: [PluginLogEntry] = []
 
     @Published public internal(set) var selectedChannelId: Int?
+    @Published public internal(set) var incomingMessage: SharkordMessage?
     @Published public internal(set) var messagesByChannel: [Int: [SharkordMessage]] = [:]
     @Published public internal(set) var hasMoreOlderByChannel: [Int: Bool] = [:]
     @Published public internal(set) var hasNewerByChannel: [Int: Bool] = [:]
@@ -59,6 +61,7 @@ public final class SharkordSession: ObservableObject {
     @Published public internal(set) var producersByChannel: [Int: [VoiceProducerEvent]] = [:]
     @Published public internal(set) var pluginPushes: [PluginPushEvent] = []
     @Published public internal(set) var lastError: String?
+    @Published public internal(set) var loginCredentialsSaveFailed = false
 
     // MARK: plumbing
 
@@ -69,10 +72,14 @@ public final class SharkordSession: ObservableObject {
     private var voiceProducerSubscriptionTasks: [Task<Void, Never>] = []
     private var reconnectAttempt = 0
     private var isStopping = false
+    private var didAttemptAutomaticLogin = false
+    private var shouldRememberLoginCredentials = false
+    private var pendingHandshakeHash: String?
     var subscriptionTasks: [Task<Void, Never>] = []
     private var cursors: [Int: MessagesCursor] = [:]
     private var loadedChannels: Set<Int> = []
     private let keychain = KeychainTokenStore()
+    private let loginCredentialStore = KeychainLoginCredentialsStore()
 
     static let reconnectDelays: [UInt64] = [1, 2, 4, 8, 8]
 
@@ -147,6 +154,10 @@ public final class SharkordSession: ObservableObject {
 
     /// The union of the viewer's role permissions.
     public func hasPermission(_ permission: Permission) -> Bool {
+        if isOwner() {
+            return true
+        }
+
         guard let ownUser, let roleIds = ownUser.roleIds else {
             return false
         }
@@ -162,8 +173,16 @@ public final class SharkordSession: ObservableObject {
             return entry.allows(permission)
         }
 
-        // dm channels carry no explicit permission rows and are always usable
-        return channel(for: channelId)?.isDm ?? false
+        guard let channel = channel(for: channelId) else {
+            return false
+        }
+
+        // the server includes dm channels only for participants and gives them no permission rows
+        if channel.isDm {
+            return true
+        }
+
+        return isOwner() || !channel.isPrivate
     }
 
     public var canManageUsers: Bool { hasPermission(.manageUsers) }
@@ -259,15 +278,20 @@ public final class SharkordSession: ObservableObject {
         identity: String,
         password: String,
         serverPassword: String? = nil,
-        invite: String? = nil
+        invite: String? = nil,
+        rememberLoginCredentials: Bool = false
     ) async {
         guard let baseURL = Self.normalize(host: host) else {
+            ClientLogStore.shared.recordFailure("session.connect.failed", code: "invalid_server_address")
             phase = .failed("Enter a valid server address")
             return
         }
 
+        ClientLogStore.shared.recordInfo("session.connect.started")
         isStopping = false
         reconnectAttempt = 0
+        shouldRememberLoginCredentials = rememberLoginCredentials
+        loginCredentialsSaveFailed = false
         phase = .connecting
         lastError = nil
 
@@ -296,10 +320,114 @@ public final class SharkordSession: ObservableObject {
             keychain.setToken(login.token, for: baseURL.absoluteString)
 
             try await establish(baseURL: baseURL, token: login.token)
-            phase = .connected
+            if phase != .awaitingServerPassword {
+                phase = .connected
+                ClientLogStore.shared.recordInfo("session.connect.succeeded")
+                saveLoginCredentialsIfNeeded()
+            }
         } catch {
+            ClientLogStore.shared.recordError("session.connect.failed", error: error)
             phase = .failed(Self.describe(error))
         }
+    }
+
+    public func attemptAutomaticLogin(enabled: Bool) async {
+        guard !didAttemptAutomaticLogin else {
+            return
+        }
+
+        didAttemptAutomaticLogin = true
+
+        guard enabled, let saved = loginCredentialStore.credentials() else {
+            return
+        }
+
+        await connect(
+            host: saved.host,
+            identity: saved.identity,
+            password: saved.password,
+            serverPassword: saved.serverPassword,
+            rememberLoginCredentials: true
+        )
+    }
+
+    public func updateSavedLoginPassword(_ password: String) {
+        guard let current = credentials else {
+            return
+        }
+
+        credentials = Credentials(
+            host: current.host,
+            identity: current.identity,
+            password: password,
+            serverPassword: current.serverPassword,
+            invite: current.invite
+        )
+
+        guard shouldRememberLoginCredentials,
+              let saved = loginCredentialStore.credentials(),
+              saved.host == current.host,
+              saved.identity == current.identity
+        else {
+            return
+        }
+
+        let updated = StoredLoginCredentials(
+            host: saved.host,
+            identity: saved.identity,
+            password: password,
+            serverPassword: saved.serverPassword
+        )
+        loginCredentialsSaveFailed = !loginCredentialStore.setCredentials(updated)
+    }
+
+    public func dismissLoginCredentialsSaveFailure() {
+        loginCredentialsSaveFailed = false
+    }
+
+    private func saveLoginCredentialsIfNeeded() {
+        guard shouldRememberLoginCredentials, let credentials else {
+            return
+        }
+
+        let saved = StoredLoginCredentials(
+            host: credentials.host,
+            identity: credentials.identity,
+            password: credentials.password,
+            serverPassword: credentials.serverPassword
+        )
+        loginCredentialsSaveFailed = !loginCredentialStore.setCredentials(saved)
+    }
+
+    public func submitServerPassword(_ password: String) async {
+        guard !password.isEmpty, let pendingHandshakeHash, let credentials else {
+            return
+        }
+
+        self.credentials = Credentials(
+            host: credentials.host,
+            identity: credentials.identity,
+            password: credentials.password,
+            serverPassword: password,
+            invite: credentials.invite
+        )
+        phase = .connecting
+        lastError = nil
+
+        do {
+            try await finishJoin(handshakeHash: pendingHandshakeHash, password: password)
+            self.pendingHandshakeHash = nil
+            phase = .connected
+            saveLoginCredentialsIfNeeded()
+        } catch {
+            ClientLogStore.shared.recordError("session.server_password.failed", error: error)
+            lastError = Self.describe(error)
+            phase = .awaitingServerPassword
+        }
+    }
+
+    public func cancelServerPasswordPrompt() {
+        disconnect()
     }
 
     public func disconnect() {
@@ -321,6 +449,7 @@ public final class SharkordSession: ObservableObject {
 
         token = nil
         credentials = nil
+        pendingHandshakeHash = nil
         http = nil
         serverInfo = nil
         serverId = ""
@@ -344,6 +473,7 @@ public final class SharkordSession: ObservableObject {
         pluginsMetadata = []
         pluginLogs = []
         selectedChannelId = nil
+        incomingMessage = nil
         messagesByChannel = [:]
         hasMoreOlderByChannel = [:]
         hasNewerByChannel = [:]
@@ -373,13 +503,30 @@ public final class SharkordSession: ObservableObject {
 
         let handshakeValue = try await client.query("others.handshake")
         let handshake = try handshakeValue.decode(SharkordHandshake.self)
+        pendingHandshakeHash = handshake.handshakeHash
 
-        var joinInput: [String: JSONValue] = [
-            "handshakeHash": .string(handshake.handshakeHash)
-        ]
+        if handshake.hasPassword {
+            guard let serverPassword = credentials?.serverPassword, !serverPassword.isEmpty else {
+                phase = .awaitingServerPassword
+                return
+            }
 
-        if handshake.hasPassword, let serverPassword = credentials?.serverPassword, !serverPassword.isEmpty {
-            joinInput["password"] = .string(serverPassword)
+            try await finishJoin(handshakeHash: handshake.handshakeHash, password: serverPassword)
+            return
+        }
+
+        try await finishJoin(handshakeHash: handshake.handshakeHash, password: nil)
+    }
+
+    private func finishJoin(handshakeHash: String, password: String?) async throws {
+        guard let client else {
+            throw TRPCClientError(code: "DISCONNECTED", message: "The server connection is not available.")
+        }
+
+        var joinInput: [String: JSONValue] = ["handshakeHash": .string(handshakeHash)]
+
+        if let password {
+            joinInput["password"] = .string(password)
         }
 
         let joinValue = try await client.query("others.joinServer", input: .object(joinInput))
@@ -434,7 +581,9 @@ public final class SharkordSession: ObservableObject {
         // messages
         subscribe(client, "messages.onNew") { [weak self] value in
             guard let message = try? value.decode(SharkordMessage.self) else { return }
-            self?.upsert(message, markUnread: message.userId != self?.ownUserId)
+            guard let self else { return }
+            self.incomingMessage = message
+            self.upsert(message, markUnread: message.userId != self.ownUserId)
         }
 
         subscribe(client, "messages.onUpdate") { [weak self] value in
@@ -1026,6 +1175,12 @@ public final class SharkordSession: ObservableObject {
 
     private func handleUnexpectedDisconnect(_ error: Error?) {
         guard !isStopping, phase == .connected || phase == .connecting else { return }
+
+        if let error {
+            ClientLogStore.shared.recordError("session.disconnected", error: error)
+        } else {
+            ClientLogStore.shared.recordFailure("session.disconnected", code: "connection_closed")
+        }
 
         guard let credentials, let token else {
             phase = .failed(Self.describe(error))

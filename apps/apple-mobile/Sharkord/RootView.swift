@@ -9,7 +9,7 @@ struct RootView: View {
     var body: some View {
         Group {
             switch session.phase {
-            case .disconnected, .failed:
+            case .disconnected, .awaitingServerPassword, .failed:
                 ConnectView()
             case .connecting:
                 connecting
@@ -18,7 +18,7 @@ struct RootView: View {
             }
         }
         .background(BrandBackground())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(session.phase == .connected ? .dark : nil)
         .animation(.easeInOut(duration: 0.18), value: model.isConnected)
     }
 

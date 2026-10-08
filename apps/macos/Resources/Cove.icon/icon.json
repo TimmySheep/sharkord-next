@@ -1,0 +1,34 @@
+{
+  "fill": "none",
+  "groups": [
+    {
+      "name": "Cove",
+      "layers": [
+        {
+          "name": "Cove artwork",
+          "image-name-specializations": [
+            {
+              "value": "Cove-Light.png"
+            },
+            {
+              "appearance": "dark",
+              "value": "Cove-Dark.png"
+            }
+          ],
+          "glass": false
+        }
+      ],
+      "shadow": {
+        "kind": "none",
+        "opacity": 0
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}

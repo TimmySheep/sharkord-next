@@ -9,9 +9,11 @@ struct MessageRow: View {
 
     let message: SharkordMessage
     let onReply: (SharkordMessage) -> Void
+    let onOpenThread: (SharkordMessage) -> Void
 
     @State private var isEditing = false
     @State private var editedText = ""
+    @State private var previewFile: SharkordFile?
 
     private static let quickReactions = ["👍", "❤️", "😂", "🎉", "😮"]
 
@@ -42,6 +44,8 @@ struct MessageRow: View {
                 if !reactionGroups.isEmpty {
                     reactions
                 }
+
+                threadButton
             }
         }
         .padding(.horizontal, 14)
@@ -59,6 +63,12 @@ struct MessageRow: View {
                 onReply(message)
             } label: {
                 Label(L10n.t("message.reply"), systemImage: "arrowshape.turn.up.left")
+            }
+
+            Button {
+                onOpenThread(message)
+            } label: {
+                Label(L10n.t("message.thread"), systemImage: "bubble.left.and.bubble.right")
             }
 
             if message.userId == session.ownUserId && message.editable != false {
@@ -93,6 +103,29 @@ struct MessageRow: View {
                 Task { try? await session.editMessage(message.id, text: text) }
             }
             Button(L10n.t("common.cancel"), role: .cancel) {}
+        }
+        .fullScreenCover(item: $previewFile) { file in
+            NavigationStack {
+                AsyncImage(url: session.publicFileURL(for: file)) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFit()
+                    } else if phase.error != nil {
+                        ContentUnavailableView(L10n.t("message.previewFailed"), systemImage: "exclamationmark.triangle")
+                    } else {
+                        ProgressView()
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.black)
+                .navigationTitle(file.originalName)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(L10n.t("common.done")) { previewFile = nil }
+                    }
+                }
+            }
+            .preferredColorScheme(.dark)
         }
     }
 
@@ -146,12 +179,56 @@ struct MessageRow: View {
     private func attachments(_ files: [SharkordFile]) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             ForEach(files) { file in
-                Label(file.originalName, systemImage: "paperclip")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                if file.mimeType.hasPrefix("image/"), let url = session.publicFileURL(for: file) {
+                    Button {
+                        previewFile = file
+                    } label: {
+                        AsyncImage(url: url) { phase in
+                            if let image = phase.image {
+                                image.resizable().scaledToFit()
+                            } else if phase.error != nil {
+                                Label(file.originalName, systemImage: "photo.badge.exclamationmark")
+                                    .foregroundStyle(SharkordTheme.textSecondary)
+                            } else {
+                                ProgressView()
+                                    .frame(width: 44, height: 44)
+                            }
+                        }
+                        .frame(maxWidth: 260, maxHeight: 200, alignment: .leading)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                } else if let url = session.publicFileURL(for: file) {
+                    Link(destination: url) {
+                        Label(file.originalName, systemImage: "paperclip")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                } else {
+                    Label(file.originalName, systemImage: "paperclip")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
         }
+    }
+
+    private var threadButton: some View {
+        let count = session.replyCount(for: message)
+        return Button {
+            onOpenThread(message)
+        } label: {
+            Label(
+                count > 0 ? L10n.format("message.replyCount", count) : L10n.t("message.thread"),
+                systemImage: "bubble.left.and.bubble.right"
+            )
+            .font(.caption.weight(.medium))
+            .foregroundStyle(SharkordTheme.accentSoft)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 3)
     }
 
     private var reactionGroups: [ReactionGroup] {

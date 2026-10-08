@@ -167,9 +167,14 @@ public actor TRPCWebSocketClient {
         let id = allocateId()
         let request = TRPCRequest(id: id, method: method, path: path, input: input)
 
-        return try await withCheckedThrowingContinuation { continuation in
-            pending[id] = continuation
-            Task { await self.transmit(request, id: id) }
+        do {
+            return try await withCheckedThrowingContinuation { continuation in
+                pending[id] = continuation
+                Task { await self.transmit(request, id: id) }
+            }
+        } catch {
+            ClientLogStore.shared.recordError("trpc.\(method.rawValue).\(path)", error: error)
+            throw error
         }
     }
 

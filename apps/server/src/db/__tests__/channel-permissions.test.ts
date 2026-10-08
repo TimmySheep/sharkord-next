@@ -5,6 +5,7 @@ import { tdb } from '../../__tests__/setup';
 import {
   channelUserCan,
   getAffectedUserIdsForChannel,
+  getAllChannelUserPermissions,
   getChannelsForUser
 } from '../queries/channels';
 import { channelUserPermissions } from '../schema';
@@ -55,6 +56,24 @@ describe('channelUserCan', () => {
       false
     );
     expect(await channelUserCan(5, 3, ChannelPermission.VIEW_CHANNEL)).toBe(
+      true
+    );
+  });
+});
+
+describe('getAllChannelUserPermissions', () => {
+  test('should report public channel permissions as allowed', async () => {
+    const permissions = await getAllChannelUserPermissions(2);
+
+    expect(permissions[2]?.permissions[ChannelPermission.SHARE_SCREEN]).toBe(
+      true
+    );
+  });
+
+  test('should report private channel permissions as allowed for the owner', async () => {
+    const permissions = await getAllChannelUserPermissions(1);
+
+    expect(permissions[4]?.permissions[ChannelPermission.SHARE_SCREEN]).toBe(
       true
     );
   });

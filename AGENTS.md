@@ -403,6 +403,19 @@ This command will output a list of missing translations, including the language,
 
 Every new behaviour needs tests and the whole suite must pass, see [Testing](#testing).
 
+## Native app versioning
+
+- For every future user-requested change to either native mobile client, update the Android app
+  and iPhone app versions together, even if the code change is limited to one platform.
+- Starting with the next requested client change, use `1.1`, then increment the minor component
+  once for each subsequent requested client change (`1.2`, `1.3`, and so on). Set Android's
+  `versionName` and the iPhone app target's `MARKETING_VERSION` to the same value.
+- Keep Android `versionCode` and the iPhone app target's `CURRENT_PROJECT_VERSION` monotonic when
+  bumping a release version. Keep unrelated targets, including Apple Watch, aligned only when
+  they are part of the requested change.
+- Do not change versions for the request that established this rule; it applies beginning with
+  the next requested native-client modification.
+
 ## Style
 
 - Never use dashes (—) in code, comments, UI strings or commit messages.

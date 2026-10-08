@@ -25,5 +25,12 @@
   "stopScreenShare": "停止共享",
   "mediaLocalUser": "你",
   "mediaScreen": "屏幕",
-  "mediaCamera": "摄像头"
+  "mediaCamera": "摄像头",
+  "exportLogs": "导出日志",
+  "logFileType": "日志文件",
+  "logsExportSuccessTitle": "日志已导出",
+  "logsExportSuccessMessage": "诊断日志已保存到所选位置。",
+  "logsExportFailureTitle": "无法导出日志",
+  "logsExportFailureMessage": "Cove 无法保存诊断日志。请检查文件访问权限后重试。",
+  "close": "关闭"
 }

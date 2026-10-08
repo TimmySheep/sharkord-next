@@ -25,5 +25,12 @@
   "stopScreenShare": "Dejar de compartir",
   "mediaLocalUser": "Tú",
   "mediaScreen": "Pantalla",
-  "mediaCamera": "Cámara"
+  "mediaCamera": "Cámara",
+  "exportLogs": "Exportar registros",
+  "logFileType": "Archivos de registro",
+  "logsExportSuccessTitle": "Registros exportados",
+  "logsExportSuccessMessage": "Los registros de diagnóstico se guardaron en la ubicación seleccionada.",
+  "logsExportFailureTitle": "No se pudieron exportar los registros",
+  "logsExportFailureMessage": "Cove no pudo guardar los registros de diagnóstico. Comprueba el acceso al archivo e inténtalo de nuevo.",
+  "close": "Cerrar"
 }

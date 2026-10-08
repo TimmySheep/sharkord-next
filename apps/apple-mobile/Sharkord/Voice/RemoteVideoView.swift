@@ -8,6 +8,7 @@ struct RemoteVideoStream: Identifiable {
     let remoteId: Int
     let kind: StreamKind
     let track: RTCVideoTrack
+    let qualityLayers: [StreamQualityLayer]
 }
 
 /// Renders one remote WebRTC video track (camera or screen share).

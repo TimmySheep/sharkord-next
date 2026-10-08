@@ -12,7 +12,8 @@ below, and the full per-feature table lives in [`../README.md`](../README.md).
 ```
 apps/macos/
   Package.swift
-  Resources/cove.icns            # app bundle icon, generated from apps/assets/cove-icon.png
+  Resources/Cove.icon/           # light and dark macOS app icon appearances
+  Resources/cove.icns            # light appearance fallback and SwiftPM launch icon
   Resources/cove-icon.png        # transparent logo shown on the connection screen
   Sources/SharkordCore/          # transport + session (the future packages/apple-core)
     JSONValue.swift              # dynamic JSON for the tRPC envelope
@@ -21,11 +22,12 @@ apps/macos/
     SharkordHTTPClient.swift     # GET /info, POST /login, POST /upload, /public
     Models.swift                 # decodable DTOs
     MessageHTML.swift            # the web client's message HTML, parsed and generated
-    KeychainTokenStore.swift     # JWT in the login keychain
+    KeychainTokenStore.swift      # JWT in the login keychain
+    KeychainLoginCredentialsStore.swift # optional login credentials in Keychain
     SharkordSession.swift        # login -> handshake -> join -> state + live subscriptions
     SharkordSession+*.swift      # one file per route domain, mirroring apps/server/src/routers
   Sources/SharkordMac/           # the SwiftUI app
-    L10n.swift                   # 8-language lookup over the web client's locale files
+    L10n.swift                   # 10-language lookup over the web client's locale files
     ConnectView.swift            # server address, identity, password
     MainWindow.swift             # sidebar + channel + thread + members + sheets
     SidebarView.swift            # server menu, category/channel tree, DMs, user controls
@@ -59,9 +61,11 @@ document's plan).
 
 ## Build and run
 
-The Dock icon uses the shared cove icon. `swift run` launches the development executable;
-`package-app.sh` assembles the named `cove.app` bundle with the privacy metadata needed for
-microphone, camera and screen capture.
+The packaged Dock and Finder icon uses the light or dark appearance from `Cove.icon` on
+supported macOS versions, with `cove.icns` as the compatibility fallback. `swift run` launches
+the development executable with the light icon; `package-app.sh` compiles the icon resources
+and assembles the named `cove.app` bundle with the privacy metadata needed for microphone,
+camera and screen capture.
 
 ```bash
 cd apps/macos
@@ -100,9 +104,9 @@ delete categories, channels, roles, emojis and invites, and change server settin
 
 ## What works today (verified)
 
-The current offline `swift test` run passes 46 tests. Earlier isolated-server runs also
-passed six protocol-level end-to-end tests; neither result validates camera, microphone or
-screen capture in the embedded media view.
+The current offline `swift test` run passes 68 tests (29 Swift Testing and 39 XCTest).
+Earlier isolated-server runs also passed six protocol-level end-to-end tests; neither result
+validates camera, microphone or screen capture in the embedded media view.
 
 - tRPC WebSocket framing: `connectionParams` first frame, `?connectionParams=1`, one
   envelope per request, batched-array decoding, `PING`/`PONG` keepalive, `reconnect`.
@@ -110,7 +114,8 @@ screen capture in the embedded media view.
 - `others.handshake` -> `others.joinServer`, and the join payload's categories, channels,
   users, roles, emojis and public settings.
 - Messages: `messages.get` (cursor pagination and `targetMessageId` jump windows),
-  `messages.send` (replies, threads, attachment ids), `messages.edit`, `messages.delete`,
+  `messages.send` (replies, threads, attachment ids), `messages.edit`,
+  `messages.delete` with a confirmation dialog,
   `messages.toggleReaction`, `messages.togglePin`, `messages.getPinned`,
   `messages.getThread`, `messages.search`, `messages.signalTyping`.
 - Read state: `channels.markAsRead`, unread badges, "return to present" on `hasNewer`.
@@ -124,16 +129,23 @@ screen capture in the embedded media view.
 - User administration: list, detail (roles, storage, recent logins), kick, ban, unban,
   delete account, assign roles.
 - User settings: profile name/colour/bio, avatar and banner upload, password change,
-  notification preferences, language.
+  desktop notification preferences, appearance, push-to-talk and language.
+- The connection screen and main workspace use appearance-adaptive colours. Automatic login
+  is enabled by default and saves the server, identity, account password and optional server
+  password in macOS Keychain after joining; disabling it removes the saved credential item.
+  Keychain runtime read/write and the light-mode screen still need GUI acceptance.
 - Server settings: general (identity, branding, feature toggles) and storage (quotas, size
   limits, signed URLs, image optimisation) with the live disk and per-plugin usage read
   models.
-- Plugins: list, enable/disable, remove, read logs, capability list and settings
-  definitions. Server updates: version check and trigger.
+- Plugins: browse, search, install and update marketplace plugins; list, enable/disable,
+  remove, edit settings, configure role-based capability access, execute plugin commands
+  and read logs. Server updates: version check and trigger.
 - Rich text parity with the web client: the composer converts `@Name`, `#Channel`,
   `:emoji:` and bare URLs into the same semantic HTML the web editor produces, and the
   renderer draws bold, italic, underline, code, code blocks, links, mentions, channel
-  references, custom emoji and inline images. `MessageHTMLTests` pins the vocabulary.
+  references, custom emoji and inline images. Inline images and image attachments open in a
+  native viewer with zoom, pan and copy-link controls. Audio/video attachments and supported
+  audio/video metadata links use native AVPlayer controls. `MessageHTMLTests` pins the vocabulary.
 - Live subscriptions: `messages.onNew`/`onUpdate`/`onDelete`/`onTyping`/
   `onThreadReplyCountUpdate`, `users.onJoin`/`onLeave`/`onUpdate`/`onCreate`/`onDelete`,
   `channels.*`, `categories.*`, `emojis.*`, `roles.*`, `others.onServerSettingsUpdate`,
@@ -142,6 +154,7 @@ screen capture in the embedded media view.
 - Reconnect with the reference client's backoff `[1, 2, 4, 8, 8]s` and a re-join.
 - Voice control and media paths: join, leave, mute, deafen, audio, webcam and screen capture
   through the bundled mediasoup worker; reactions and moderator moves use the server routes.
+  Remote voice and screen-share audio have separate per-user volume controls, persisted locally.
   Runtime media permissions and remote playback still need platform testing.
 - i18n: all 10 languages and 8 web namespaces, with
   `{{placeholder}}` interpolation and `_one`/`_other` plurals. Strings the web client has
@@ -154,22 +167,27 @@ screen capture in the embedded media view.
   bundled `mediasoup-client` worker in a restricted WKWebView. The browser capture permission,
   device selection, ICE connectivity and remote playback have not been exercised end to end.
   Screen sharing starts from a localized button inside the media surface because the browser
-  requires a real page interaction before presenting its source picker.
-- **Plugin UI.** Plugin UI in the web client runs React against `window.__SHARKORD_*`;
-  it needs a broader WebView host than the restricted media surface, which is out of scope
-  for v1. The plugin settings editor is read-only and there is no capability permission editor or command
-  console, though `SharkordCore` already has the routes for all three.
-- **Welcome and server-password dialogs.** Approximated by the connection page and the
-  profile settings, not the web client's modal flow with its countdown.
-- **Desktop notifications, unread aggregation, menu bar presence, global PTT.** Unread
-  badges live in the sidebar only.
-- **Theme and accessibility.** The fixed dark palette pins the app's color scheme to dark so system semantic text colors stay readable when macOS is in light mode; no VoiceOver pass.
+   requires a real page interaction before presenting its source picker.
+- **Message media runtime acceptance.** Audio/video attachments and metadata links are routed
+  to AVPlayer, but playback against real server files and external media URLs has not been
+  exercised. AVPlayer codec support can differ from a browser's.
+- **Plugin client UI.** Plugin UI in the web client runs React against `window.__SHARKORD_*`;
+  it needs a broader WebView host than the restricted media surface. Native marketplace and
+  server-side management are available, but rendering plugin-provided React components is not.
+- **Desktop notification and hotkey runtime acceptance.** Notification policy has unit tests,
+  and native notifications, unread dock/menu-bar badges and F13 push-to-talk are implemented.
+  Their interaction with real notification preferences and Input Monitoring permission still
+  needs a GUI pass. Push-to-talk requires the user to grant Input Monitoring in System Settings.
+- **Accessibility and visual review.** The app supports system, light and dark appearance and
+  has labels for voice controls, but has not had a full VoiceOver or keyboard-navigation pass.
+  The connection screen's light-mode fix and automatic-login Keychain read/write still need
+  GUI acceptance.
 - **Formal distribution and updates.** The preview `.app` and DMG use the `cove` name and
   icon, but are ad-hoc signed and not notarized. There is no Developer ID signing, automated
   packaging pipeline or Sparkle update support.
-- **Per-screen visual review.** Compiled, unit-tested and exercised end-to-end over the
-  protocol, but not walked through by hand. An automated screenshot pass was attempted and
-  stopped on a `cua-driver` permission denial rather than worked around.
+- **Per-screen visual review.** Compiled and unit-tested, but the new dialogs, menu-bar
+  controls and settings surfaces have not been walked through by hand. An automated screenshot
+  pass was previously stopped on a `cua-driver` permission denial rather than worked around.
 
 ## Notes
 

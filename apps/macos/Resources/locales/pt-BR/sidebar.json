@@ -74,6 +74,9 @@
   "categoryDeleted": "Categoria excluída",
   "failedDeleteCategory": "Falha ao excluir categoria",
   "userVolume": "Volume do usuário",
+  "screenShareAudioVolume": "Volume do áudio do compartilhamento de tela",
+  "muteAudio": "Silenciar áudio",
+  "unmuteAudio": "Ativar áudio",
   "microphone": "Microfone",
   "noiseSuppression": "Supressão de ruído"
 }

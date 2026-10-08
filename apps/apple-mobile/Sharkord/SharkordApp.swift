@@ -4,6 +4,10 @@ import SwiftUI
 struct SharkordApp: App {
     @StateObject private var model = AppModel()
 
+    init() {
+        DiagnosticsLogger.shared.start(app: "iPhone")
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

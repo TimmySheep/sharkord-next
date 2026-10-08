@@ -17,6 +17,7 @@ type TNativeEvent = {
   kind?: string;
   added?: boolean;
   canPublishAudio?: boolean;
+  errorContext?: string;
 };
 
 type TBridgeWindow = Window & {
@@ -82,12 +83,14 @@ const consumers = new Map<
   string,
   { consumer: Consumer; element: TMediaElement }
 >();
+const remoteAudioVolumes = new Map<string, number>();
 let device: Device | undefined;
 let sendTransport: Transport | undefined;
 let receiveTransport: Transport | undefined;
 let microphoneStream: MediaStream | undefined;
 let microphoneProducer: Producer | undefined;
 let microphoneTrack: MediaStreamTrack | undefined;
+let canSpeak = false;
 let canPublishAudio = false;
 let cameraStream: MediaStream | undefined;
 let cameraProducer: Producer | undefined;
@@ -120,8 +123,8 @@ const postToNative = (message: unknown) => {
   bridgeWindow.chrome?.webview?.postMessage(message);
 };
 
-const notify = (state: string, error?: string) => {
-  postToNative({ type: 'status', state, error, canPublishAudio });
+const notify = (state: string, error?: string, errorContext?: string) => {
+  postToNative({ type: 'status', state, error, canPublishAudio, errorContext });
   syncScreenShareButton();
 };
 
@@ -233,6 +236,7 @@ const consume = async (remoteId: number, kind: string) => {
       audio.autoplay = true;
       audio.srcObject = new MediaStream([consumer.track]);
       audio.muted = outputMuted;
+      audio.volume = remoteAudioVolumes.get(key) ?? 1;
       document.body.append(audio);
       consumers.set(key, { consumer, element: audio });
       await audio.play();
@@ -257,7 +261,11 @@ const consume = async (remoteId: number, kind: string) => {
     setGalleryVisible(true);
     await video.play();
   } catch (error) {
-    notify('connected', error instanceof Error ? error.message : String(error));
+    notify(
+      'connected',
+      error instanceof Error ? error.message : String(error),
+      'connection'
+    );
   }
 };
 
@@ -279,6 +287,25 @@ const closeConsumer = (remoteId: number, kind: string) => {
   consumers.delete(key);
 };
 
+const setRemoteAudioVolume = (
+  remoteId: number,
+  kind: string,
+  volume: number
+) => {
+  if (kind !== 'audio' && kind !== 'screen_audio') return;
+
+  const key = `${remoteId}:${kind}`;
+  const normalized = Number.isFinite(volume)
+    ? Math.min(Math.max(volume, 0), 1)
+    : 1;
+  remoteAudioVolumes.set(key, normalized);
+
+  const entry = consumers.get(key);
+  if (entry?.element instanceof HTMLAudioElement) {
+    entry.element.volume = normalized;
+  }
+};
+
 const updateLocalPreview = () => {
   const preview = document.getElementById(
     'local-preview'
@@ -298,6 +325,7 @@ const closeMedia = () => {
   microphoneProducer?.close();
   microphoneProducer = undefined;
   microphoneTrack = undefined;
+  canSpeak = false;
   canPublishAudio = false;
   microphoneStream?.getTracks().forEach((track) => track.stop());
   microphoneStream = undefined;
@@ -368,6 +396,66 @@ const configureTransport = (transport: Transport, isProducer: boolean) => {
   }
 };
 
+const openMicrophone = async () => {
+  if (!canSpeak) {
+    throw new Error(
+      'You do not have permission to speak in this voice channel.'
+    );
+  }
+  if (!sendTransport) {
+    throw new Error('Voice media is not connected.');
+  }
+  if (microphoneProducer && microphoneTrack) return;
+
+  const transport = sendTransport;
+  const generation = mediaGeneration;
+  let stream: MediaStream | undefined;
+  let producer: Producer | undefined;
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        autoGainControl: true,
+        echoCancellation: true,
+        noiseSuppression: true
+      },
+      video: false
+    });
+    const track = stream.getAudioTracks()[0];
+
+    if (!track) {
+      throw new Error('No microphone audio track is available.');
+    }
+
+    track.enabled = false;
+
+    if (generation !== mediaGeneration || sendTransport !== transport) {
+      throw new Error('Voice media is no longer connected.');
+    }
+
+    producer = await transport.produce({
+      track,
+      appData: { kind: 'audio' },
+      codecOptions: { opusDtx: true, opusFec: true }
+    });
+
+    if (generation !== mediaGeneration || sendTransport !== transport) {
+      producer.close();
+      throw new Error('Voice media is no longer connected.');
+    }
+
+    microphoneStream = stream;
+    microphoneProducer = producer;
+    microphoneTrack = track;
+    microphoneMuted = true;
+    canPublishAudio = true;
+  } catch (error) {
+    producer?.close();
+    stream?.getTracks().forEach((track) => track.stop());
+    throw error;
+  }
+};
+
 const start = async (
   channelId: number,
   routerRtpCapabilities: unknown,
@@ -378,6 +466,8 @@ const start = async (
   if (activeChannelId === channelId) return;
   closeMedia();
   activeChannelId = channelId;
+  canSpeak = canProduceAudio;
+  canPublishAudio = canSpeak;
   canShareScreen = canPublishScreen;
   mediaLabels = labels;
   shareScreenLabel = labels.share;
@@ -415,36 +505,10 @@ const start = async (
 
     let microphoneError: string | undefined;
 
-    if (canProduceAudio) {
+    if (canSpeak) {
       try {
-        microphoneStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            autoGainControl: true,
-            echoCancellation: true,
-            noiseSuppression: true
-          },
-          video: false
-        });
-        const track = microphoneStream.getAudioTracks()[0];
-
-        if (!track) {
-          throw new Error('No microphone audio track is available.');
-        }
-
-        track.enabled = false;
-        microphoneMuted = true;
-        microphoneProducer = await nextSendTransport.produce({
-          track,
-          appData: { kind: 'audio' },
-          codecOptions: { opusDtx: true, opusFec: true }
-        });
-        microphoneTrack = track;
-        canPublishAudio = true;
+        await openMicrophone();
       } catch (error) {
-        microphoneStream?.getTracks().forEach((track) => track.stop());
-        microphoneStream = undefined;
-        microphoneTrack = undefined;
-        microphoneProducer = undefined;
         microphoneError =
           error instanceof Error ? error.message : String(error);
       }
@@ -474,7 +538,11 @@ const start = async (
     await Promise.all(
       remoteStreams.map(({ remoteId, kind }) => consume(remoteId, kind))
     );
-    notify('connected', microphoneError);
+    notify(
+      'connected',
+      microphoneError,
+      microphoneError ? 'microphone' : undefined
+    );
   } catch (error) {
     closeMedia();
     const message = error instanceof Error ? error.message : String(error);
@@ -639,7 +707,8 @@ const setScreenShareEnabled = async (enabled: boolean) => {
         stopScreenShare().catch((error: unknown) => {
           notify(
             'connected',
-            error instanceof Error ? error.message : String(error)
+            error instanceof Error ? error.message : String(error),
+            'screenShare'
           );
         });
       },
@@ -676,17 +745,28 @@ const setScreenShareEnabled = async (enabled: boolean) => {
 };
 
 const setMicrophoneMuted = async (muted: boolean) => {
-  if (!microphoneProducer || !microphoneTrack)
+  if (!sendTransport || activeChannelId === undefined) {
     throw new Error('Voice media is not connected.');
+  }
+  if (!canSpeak) {
+    throw new Error(
+      'You do not have permission to speak in this voice channel.'
+    );
+  }
+  if (!muted && (!microphoneProducer || !microphoneTrack)) {
+    await openMicrophone();
+  }
 
   const previous = microphoneMuted;
-  microphoneTrack.enabled = !muted;
+  if (muted && microphoneTrack) microphoneTrack.enabled = false;
   microphoneMuted = muted;
 
   try {
     await callNative('voice.updateState', { micMuted: muted });
+    if (microphoneTrack) microphoneTrack.enabled = !muted;
+    notify('connected');
   } catch (error) {
-    microphoneTrack.enabled = !previous;
+    if (microphoneTrack) microphoneTrack.enabled = !previous;
     microphoneMuted = previous;
     throw error;
   }
@@ -738,13 +818,17 @@ const stop = () => {
   notify('idle');
 };
 
-const reportActionError = async (action: () => Promise<void>) => {
+const reportActionError = async (
+  action: () => Promise<void>,
+  errorContext: string
+) => {
   try {
     await action();
   } catch (error) {
     notify(
       activeChannelId === undefined ? 'failed' : 'connected',
-      error instanceof Error ? error.message : String(error)
+      error instanceof Error ? error.message : String(error),
+      errorContext
     );
     throw error;
   }
@@ -753,13 +837,14 @@ const reportActionError = async (action: () => Promise<void>) => {
 (window as TBridgeWindow & { coveVoice?: unknown }).coveVoice = {
   start,
   stop,
+  setRemoteAudioVolume,
   setMicrophoneMuted: (muted: boolean) =>
-    reportActionError(() => setMicrophoneMuted(muted)),
+    reportActionError(() => setMicrophoneMuted(muted), 'microphone'),
   setOutputMuted: (muted: boolean) =>
-    reportActionError(() => setOutputMuted(muted)),
+    reportActionError(() => setOutputMuted(muted), 'audio'),
   setWebcamEnabled: (enabled: boolean) =>
-    reportActionError(() => setWebcamEnabled(enabled)),
-  stopScreenShare: () => reportActionError(stopScreenShare)
+    reportActionError(() => setWebcamEnabled(enabled), 'camera'),
+  stopScreenShare: () => reportActionError(stopScreenShare, 'screenShare')
 };
 
 document
@@ -771,7 +856,8 @@ document
     action.catch((error: unknown) => {
       notify(
         activeChannelId === undefined ? 'failed' : 'connected',
-        error instanceof Error ? error.message : String(error)
+        error instanceof Error ? error.message : String(error),
+        'screenShare'
       );
     });
   });

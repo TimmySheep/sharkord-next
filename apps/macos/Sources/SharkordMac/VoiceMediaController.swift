@@ -8,7 +8,9 @@ import WebKit
 final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHandler, WKUIDelegate, WKNavigationDelegate {
     @Published private(set) var status = "idle"
     @Published private(set) var errorMessage: String?
+    @Published private(set) var errorContext: String?
     @Published private(set) var canPublishAudio = false
+    @Published private(set) var remoteAudioVolumes = VoiceAudioVolumeSettings.load()
 
     private weak var session: SharkordSession?
     private var webView: WKWebView?
@@ -17,6 +19,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
     private var knownProducerKeys = Set<String>()
     private var ready = false
     private var readyContinuations: [CheckedContinuation<Void, Never>] = []
+    private var previousRemoteAudioVolumes: [String: Double] = [:]
 
     func bind(to session: SharkordSession) {
         guard self.session !== session else {
@@ -96,12 +99,15 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         currentChannelId = channelId
         knownProducerKeys.removeAll()
         errorMessage = nil
+        errorContext = nil
         status = "connecting"
         await waitUntilReady()
 
         guard let webView else {
             throw TRPCClientError(code: "INTERNAL_SERVER_ERROR", message: "The voice media engine is unavailable.")
         }
+
+        try await applyRemoteAudioVolumes(to: webView)
 
         let capabilitiesData = try JSONEncoder().encode(routerRtpCapabilities)
         let capabilities = try JSONSerialization.jsonObject(with: capabilitiesData, options: [.fragmentsAllowed])
@@ -133,6 +139,18 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         )
     }
 
+    func presentError(_ message: String, context: String? = nil) {
+        errorMessage = message
+        errorContext = context
+        ClientLogStore.shared.recordFailure("voice.media.failed", code: context ?? "unknown")
+    }
+
+    func presentError(_ error: Error, context: String? = nil) {
+        ClientLogStore.shared.recordError("voice.\(context ?? "media").failed", error: error)
+        errorMessage = error.localizedDescription
+        errorContext = context
+    }
+
     func setOutputMuted(_ muted: Bool) async throws {
         guard let webView else {
             throw TRPCClientError(code: "DISCONNECTED", message: "The voice media engine is unavailable.")
@@ -144,6 +162,68 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
             in: nil,
             contentWorld: .page
         )
+    }
+
+    func remoteAudioVolume(for userId: Int, stream: VoiceAudioStream) -> Double {
+        VoiceAudioVolumeSettings.volume(
+            userId: userId,
+            stream: stream,
+            in: remoteAudioVolumes
+        )
+    }
+
+    func setRemoteAudioVolume(_ volume: Double, for userId: Int, stream: VoiceAudioStream) {
+        guard userId > 0 else {
+            return
+        }
+
+        let key = VoiceAudioVolumeSettings.key(userId: userId, stream: stream)
+        let normalized = VoiceAudioVolumeSettings.clamped(volume)
+        var updated = remoteAudioVolumes
+        updated[key] = normalized
+        remoteAudioVolumes = updated
+        VoiceAudioVolumeSettings.save(updated)
+
+        if normalized > 0 {
+            previousRemoteAudioVolumes[key] = normalized
+        }
+
+        guard let webView, currentChannelId != nil else {
+            return
+        }
+
+        Task {
+            do {
+                _ = try await webView.callAsyncJavaScript(
+                    "window.coveVoice?.setRemoteAudioVolume(userId, kind, volume)",
+                    arguments: [
+                        "userId": userId,
+                        "kind": stream.rawValue,
+                        "volume": normalized
+                    ],
+                    in: nil,
+                    contentWorld: .page
+                )
+            } catch {
+                presentError(error)
+            }
+        }
+    }
+
+    func toggleRemoteAudioMute(for userId: Int, stream: VoiceAudioStream) {
+        let key = VoiceAudioVolumeSettings.key(userId: userId, stream: stream)
+        let current = remoteAudioVolume(for: userId, stream: stream)
+
+        if current > 0 {
+            previousRemoteAudioVolumes[key] = current
+            setRemoteAudioVolume(0, for: userId, stream: stream)
+        } else {
+            setRemoteAudioVolume(
+                previousRemoteAudioVolumes[key] ?? VoiceAudioVolumeSettings.defaultVolume,
+                for: userId,
+                stream: stream
+            )
+        }
     }
 
     func setWebcamEnabled(_ enabled: Bool) async throws {
@@ -163,6 +243,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         currentChannelId = nil
         knownProducerKeys.removeAll()
         errorMessage = nil
+        errorContext = nil
         status = "idle"
         canPublishAudio = false
 
@@ -180,11 +261,6 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         }
     }
 
-    func presentError(_ message: String) {
-        status = "failed"
-        errorMessage = message
-    }
-
     func userContentController(
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage
@@ -200,7 +276,12 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
 
         if type == "status" {
             status = body["state"] as? String ?? "idle"
-            errorMessage = body["error"] as? String
+            let nextErrorMessage = body["error"] as? String
+            if let nextErrorMessage, !nextErrorMessage.isEmpty, nextErrorMessage != errorMessage {
+                ClientLogStore.shared.recordFailure("voice.media_worker.failed", code: "media_worker")
+            }
+            errorMessage = nextErrorMessage
+            errorContext = body["errorContext"] as? String
             canPublishAudio = body["canPublishAudio"] as? Bool ?? false
             return
         }
@@ -233,6 +314,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
                 let result = try await session.callVoiceMediaProcedure(path, input: input)
                 await reply(to: id, result: result, error: nil)
             } catch {
+                ClientLogStore.shared.recordError("voice.procedure.failed", error: error)
                 await reply(to: id, result: nil, error: error.localizedDescription)
             }
         }
@@ -269,6 +351,21 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
 
         await withCheckedContinuation { continuation in
             readyContinuations.append(continuation)
+        }
+    }
+
+    private func applyRemoteAudioVolumes(to webView: WKWebView) async throws {
+        for entry in VoiceAudioVolumeSettings.entries(in: remoteAudioVolumes) {
+            _ = try await webView.callAsyncJavaScript(
+                "window.coveVoice?.setRemoteAudioVolume(userId, kind, volume)",
+                arguments: [
+                    "userId": entry.userId,
+                    "kind": entry.stream.rawValue,
+                    "volume": entry.volume
+                ],
+                in: nil,
+                contentWorld: .page
+            )
         }
     }
 

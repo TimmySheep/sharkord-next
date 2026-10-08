@@ -25,5 +25,12 @@
   "stopScreenShare": "Stop sharing",
   "mediaLocalUser": "You",
   "mediaScreen": "Screen",
-  "mediaCamera": "Camera"
+  "mediaCamera": "Camera",
+  "exportLogs": "Export logs",
+  "logFileType": "Log files",
+  "logsExportSuccessTitle": "Logs exported",
+  "logsExportSuccessMessage": "The diagnostic logs were saved to the selected location.",
+  "logsExportFailureTitle": "Could not export logs",
+  "logsExportFailureMessage": "Cove could not save the diagnostic logs. Check file access and try again.",
+  "close": "Close"
 }

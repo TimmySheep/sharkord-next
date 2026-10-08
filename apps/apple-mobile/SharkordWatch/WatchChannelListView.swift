@@ -48,6 +48,13 @@ struct WatchChannelListView: View {
                     section(L10n.t("nav.directMessages"), channels: directMessages)
                 }
 
+                NavigationLink {
+                    WatchDiagnosticsView()
+                } label: {
+                    Label(L10n.t("settings.viewLogs"), systemImage: "doc.text")
+                        .font(.caption.weight(.semibold))
+                }
+
                 Button(role: .destructive) {
                     Task {
                         await model.disconnect()

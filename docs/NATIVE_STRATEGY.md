@@ -466,3 +466,34 @@ but a restricted WKWebView (macOS) or WebView2 (Windows) now hosts the locally b
   ICE connectivity and remote playback have not had end-to-end runtime acceptance. The current
   WinUI changes have not been rebuilt on Windows. Do not treat the presence of the source paths as
   proof of working cross-platform media.
+
+## Lightweight, native-first client principle (2026-10-07)
+
+Native UI is the default preference, not a purity requirement. The goal is a responsive client with a
+small runtime footprint, in the spirit of the lightweight experience the user values in TeamSpeak 3.
+Technology choices should be based on the complete user experience and measured cost, not labels such
+as native, WebView, or Electron.
+
+- Treat roughly **100 MB or less of idle memory** and very low idle CPU as an aspiration for the desktop
+  client, not a hard release gate. This records the user's personal experience target; it is not a
+  verified TeamSpeak 3 measurement. Revisit the budget after measuring a defined Windows baseline.
+- Record downloadable package size, installed footprint, and runtime memory/CPU separately. A small ZIP
+  does not imply low memory use, and a large bundled server binary does not by itself prove high idle CPU.
+- Compare the complete application process tree on the same Windows machine: after startup and a settled
+  idle period, during text use, voice receive/send, camera, and screen sharing. Include WebView2 browser,
+  renderer, GPU/helper processes and any local server. Record working set or private memory and aggregate
+  CPU over a consistent interval; do not compare only the main window process.
+- Prefer the current product shape as the first candidate: a native primary UI talking to the user's
+  existing server, with WebView2 restricted to the local mediasoup worker. Do not bundle a local Sharkord
+  server into the remote-server client unless local hosting is an explicit product requirement.
+- Initialize expensive media/browser components only when needed if measurements show that deferring
+  them improves idle use without harming voice readiness. In the current Windows source,
+  `EnsureCoreWebView2Async` is called from the media view's `Loaded` handler; verify on Windows whether
+  the initially collapsed view starts WebView2 during idle before deciding whether to defer it.
+- A full web UI, Electron shell, WinForms host, or bundled server is not categorically forbidden. It must
+  earn its extra runtime, distribution, security, and maintenance cost in a fair comparison. If the
+  native-first candidate misses the budget, benchmark alternatives, including a minimal native shell or
+  native media binding, before committing to a larger redesign.
+
+These are user priorities and evaluation criteria, not claims that the present Windows build already
+meets the target. Windows runtime measurements and UI/media acceptance remain pending.

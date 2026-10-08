@@ -14,16 +14,16 @@
 
 ## 我们打算做什么（以及不做什么）
 
-以下是本项目自己的计划，**按优先级排列**。**"原生"是重点**：这个生态里现存的桌面客户端都是加载网页的 Electron 套壳，本项目要做的是与服务端直接通信的**真原生应用**。
+以下是本项目自己的计划，**按优先级排列**。原生界面是默认偏好，不是技术教条：目标是做出轻巧、响应快、直接连接同一服务端的客户端。应选择满足产品与媒体要求、维护负担也合适的轻量方案；完整网页套壳或随客户端捆绑本地服务器，都需要用实测收益证明额外运行与分发成本值得。详见[路线图中的轻量客户端原则](ROADMAP.zh-CN.md#指导原则)。
 
 ### 1. macOS 原生（第一优先）
 
-Swift + SwiftUI，必要时用 AppKit。**不用 Electron，不嵌 web view，不套壳网页客户端**。要做真正的系统集成：菜单栏常驻、全局按键说话（push-to-talk）热键、原生屏幕捕获（ScreenCaptureKit）、系统音频。先文字，后语音。
+Swift + SwiftUI，必要时用 AppKit。主界面保持原生；受限 WKWebView 仅承载本地打包的 `mediasoup-client` 媒体 worker，不加载服务器网页或插件 UI。音视频媒体仍待权限、网络与远端播放的端到端验收。系统集成目标包括菜单栏常驻、全局按键说话（push-to-talk）热键、原生屏幕捕获（ScreenCaptureKit）和系统音频。
 设计与依据：[`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
 
 ### 2. Windows 原生（第二）
 
-C# + WinUI 3，原生。先做文字。**语音要先过可行性验证**，因为**目前不存在任何 C# 的 mediasoup 客户端** —— 这是研究课题，不是一个任务。要做系统托盘、全局热键、WASAPI 音频、Windows.Graphics.Capture。
+C# + WinUI 3，主界面原生；受限 WebView2 仅承载同一个本地媒体 worker。音频、摄像头和屏幕共享路径已接入源码，但仍待 Windows 构建与真实媒体验收。系统托盘、全局热键和 WASAPI 音频仍是后续工作。
 设计与依据：[`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
 
 ### 3. iPhone + iPad 原生（第三）

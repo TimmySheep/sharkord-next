@@ -31,7 +31,9 @@ let package = Package(
                 "Sources/SharkordCore",
                 "Tests",
                 "README.md",
-                "package-app.sh"
+                "package-app.sh",
+                "Resources/Cove.icon",
+                "Resources/Assets.xcassets"
             ],
             sources: ["Sources/SharkordMac"],
             resources: [

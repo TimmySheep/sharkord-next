@@ -40,8 +40,9 @@ dotnet build src/Sharkord.App/Sharkord.App.csproj -p:Platform=x64
 dotnet test tests/Sharkord.Core.Tests/Sharkord.Core.Tests.csproj
 ```
 
-The app embeds `Assets/cove.ico` in `cove.exe` and publishes the file under `Assets/` beside
-the executable for the WinUI title bar and taskbar icon.
+The app embeds the light `Assets/cove.ico` in `cove.exe`. The published app includes both
+`cove.ico` and `cove-dark.ico` under `Assets/`; the WinUI window and taskbar icon follow the
+current system theme. The executable's Explorer icon remains the light appearance.
 
 `-p:Platform=x64` is required, not optional. `Sharkord.App.csproj` declares
 `Platforms=x64;ARM64`, so the default `AnyCPU` is not in that list and the build fails with

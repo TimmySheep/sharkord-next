@@ -45,7 +45,12 @@ public struct SharkordHTTPClient: Sendable {
     }
 
     public func serverInfo() async throws -> SharkordServerInfo {
-        try await get("/info")
+        do {
+            return try await get("/info")
+        } catch {
+            ClientLogStore.shared.recordError("http.server_info.failed", error: error)
+            throw error
+        }
     }
 
     public func login(identity: String, password: String, invite: String? = nil) async throws -> SharkordLoginResult {
@@ -58,7 +63,12 @@ public struct SharkordHTTPClient: Sendable {
             body["invite"] = .string(invite)
         }
 
-        return try await post("/login", body: .object(body))
+        do {
+            return try await post("/login", body: .object(body))
+        } catch {
+            ClientLogStore.shared.recordError("http.login.failed", error: error)
+            throw error
+        }
     }
 
     public func upload(
@@ -75,11 +85,14 @@ public struct SharkordHTTPClient: Sendable {
         request.setValue(String(data.count), forHTTPHeaderField: "content-length")
         request.setValue("application/octet-stream", forHTTPHeaderField: "content-type")
 
-        let (responseData, response) = try await session.upload(for: request, from: data)
-
-        try validate(response, data: responseData)
-
-        return try decoder.decode(SharkordTempFile.self, from: responseData)
+        do {
+            let (responseData, response) = try await session.upload(for: request, from: data)
+            try validate(response, data: responseData)
+            return try decoder.decode(SharkordTempFile.self, from: responseData)
+        } catch {
+            ClientLogStore.shared.recordError("http.upload.failed", error: error)
+            throw error
+        }
     }
 
     /// Attachments and avatars are served from `/public/<file name>`, with `accessToken`

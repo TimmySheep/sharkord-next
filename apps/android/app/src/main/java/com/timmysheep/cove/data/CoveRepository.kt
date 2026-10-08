@@ -26,6 +26,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.IOException
@@ -33,6 +34,7 @@ import java.io.IOException
 class CoveRepository {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mutableState = MutableStateFlow(SessionState())
+    private var searchRequestId = 0
     private var api: SharkordApi? = null
     private val subscriptions = mutableListOf<Job>()
     private var disconnectJob: Job? = null
@@ -80,16 +82,70 @@ class CoveRepository {
         mutableState.value = mutableState.value.copy(error = null)
     }
 
-    suspend fun selectChannel(channelId: Int) {
-        mutableState.value = mutableState.value.copy(activeChannelId = channelId, error = null)
-        if (mutableState.value.messagesByChannel[channelId].isNullOrEmpty()) {
-            loadMessages(channelId)
+    suspend fun selectChannel(channelId: Int, targetMessageId: Int? = null) {
+        mutableState.value = mutableState.value.copy(
+            activeChannelId = channelId,
+            activeThreadParentId = null,
+            highlightedMessageId = targetMessageId,
+            error = null
+        )
+        if (targetMessageId != null || mutableState.value.messagesByChannel[channelId].isNullOrEmpty()) {
+            loadMessages(channelId, targetMessageId)
         }
         markAsRead(channelId)
     }
 
     fun closeChannel() {
-        mutableState.value = mutableState.value.copy(activeChannelId = null)
+        mutableState.value = mutableState.value.copy(activeChannelId = null, activeThreadParentId = null)
+    }
+
+    suspend fun openThread(parentMessageId: Int, channelId: Int? = null) {
+        if (channelId != null && mutableState.value.activeChannelId != channelId) {
+            selectChannel(channelId)
+        }
+        var parent = mutableState.value.messagesByChannel.values.flatten().firstOrNull { it.id == parentMessageId }
+        if (parent == null) {
+            parent = runCatching {
+                currentApi().query("messages.getOne", buildJsonObject { put("messageId", parentMessageId) })
+                    .decode<Message>()
+            }.getOrNull()
+            if (parent != null) {
+                val loadedParent = parent
+                updateState { current ->
+                    val messages = current.messagesByChannel[loadedParent.channelId].orEmpty()
+                    current.copy(messagesByChannel = current.messagesByChannel + (
+                        loadedParent.channelId to (messages.filterNot { it.id == loadedParent.id } + loadedParent)
+                            .sortedWith(compareBy<Message> { it.createdAt }.thenBy { it.id })
+                    ))
+                }
+            }
+        }
+        if (parent == null) return
+        mutableState.value = mutableState.value.copy(
+            activeChannelId = parent.channelId,
+            activeThreadParentId = parentMessageId,
+            error = null
+        )
+        if (mutableState.value.threadMessagesByParent[parentMessageId].isNullOrEmpty()) {
+            loadThreadMessages(parentMessageId)
+        }
+    }
+
+    suspend fun openMessage(messageId: Int) {
+        runCatching {
+            currentApi().query("messages.getOne", buildJsonObject { put("messageId", messageId) })
+                .decode<Message>()
+        }.onSuccess { message ->
+            if (message.parentMessageId != null) {
+                openThread(message.parentMessageId, message.channelId)
+            } else {
+                selectChannel(message.channelId, message.id)
+            }
+        }.onFailure { reportError(it) }
+    }
+
+    fun closeThread() {
+        mutableState.value = mutableState.value.copy(activeThreadParentId = null)
     }
 
     suspend fun loadOlder(channelId: Int) {
@@ -117,18 +173,89 @@ class CoveRepository {
         }.onFailure { reportError(it) }
     }
 
-    suspend fun sendMessage(channelId: Int, text: String, replyToMessageId: Int?) {
+    suspend fun sendMessage(
+        channelId: Int,
+        text: String,
+        replyToMessageId: Int?,
+        fileIds: List<String> = emptyList(),
+        parentMessageId: Int? = null
+    ): Boolean {
         val trimmed = text.trim()
-        if (trimmed.isEmpty()) return
+        if (trimmed.isEmpty() && fileIds.isEmpty()) return false
         val escaped = trimmed.htmlEncode().replace("\n", "<br class=\"hard-break\">")
-        runCatching {
+        val result = runCatching {
             currentApi().mutate("messages.send", buildJsonObject {
                 put("channelId", channelId)
                 put("content", "<p>$escaped</p>")
-                put("files", JsonArray(emptyList()))
+                put("files", JsonArray(fileIds.map(::JsonPrimitive)))
+                parentMessageId?.let { put("parentMessageId", it) }
                 replyToMessageId?.let { put("replyToMessageId", it) }
             })
+        }
+        result.onFailure { reportError(it) }
+        return result.isSuccess
+    }
+
+    suspend fun uploadAttachment(data: ByteArray, fileName: String, mimeType: String): TemporaryFile =
+        currentApi().upload(data, fileName, mimeType)
+
+    suspend fun updateOwnProfile(name: String, profileColor: String, bio: String): Boolean = runCatching {
+        currentApi().mutate("users.update", buildJsonObject {
+            put("name", name)
+            put("profileColor", profileColor)
+            put("bio", bio)
+        })
+        updateState { current ->
+            current.copy(users = current.users.map { user ->
+                if (user.id == current.ownUserId) user.copy(name = name.trim(), profileColor = profileColor, bio = bio) else user
+            }.sortedBy { it.name.lowercase() })
+        }
+    }.onFailure(::reportError).isSuccess
+
+    suspend fun changeOwnProfileImage(isAvatar: Boolean, fileId: String?): Boolean = runCatching {
+        currentApi().mutate(if (isAvatar) "users.changeAvatar" else "users.changeBanner", buildJsonObject {
+            fileId?.let { put("fileId", it) }
+        })
+    }.onFailure(::reportError).isSuccess
+
+    suspend fun deleteTemporaryFile(fileId: String) {
+        runCatching {
+            currentApi().mutate("files.deleteTemporary", buildJsonObject { put("fileId", fileId) })
         }.onFailure { reportError(it) }
+    }
+
+    fun publicFileUrl(file: MessageFile): String? = api?.publicFileUrl(file)
+
+    suspend fun downloadPublicFile(url: String): ByteArray = currentApi().downloadPublicFile(url)
+
+    suspend fun searchMessages(query: String) {
+        val normalizedQuery = query.trim().take(24)
+        if (normalizedQuery.length < 2) {
+            clearSearch()
+            return
+        }
+
+        val requestId = ++searchRequestId
+        updateState { it.copy(searchResult = null, isSearching = true, searchError = null) }
+        runCatching {
+            currentApi().query("messages.search", buildJsonObject { put("query", normalizedQuery) })
+                .decode<MessageSearchResult>()
+        }.onSuccess { result ->
+            if (requestId == searchRequestId) {
+                updateState { it.copy(searchResult = result, isSearching = false, searchError = null) }
+            }
+        }.onFailure { error ->
+            if (requestId == searchRequestId) {
+                updateState {
+                    it.copy(isSearching = false, searchError = error.message ?: "Search failed")
+                }
+            }
+        }
+    }
+
+    fun clearSearch() {
+        searchRequestId += 1
+        updateState { it.copy(searchResult = null, isSearching = false, searchError = null) }
     }
 
     suspend fun editMessage(messageId: Int, text: String) {
@@ -172,14 +299,12 @@ class CoveRepository {
         }
     }
 
-    suspend fun openDirectMessage(userId: Int) {
-        runCatching {
+    suspend fun openDirectMessage(userId: Int): Boolean = runCatching {
             val result = currentApi().mutate("dms.open", buildJsonObject { put("userId", userId) })
                 .decode<OpenDirectMessageResponse>()
             loadDirectMessages()
             selectChannel(result.channelId)
-        }.onFailure { reportError(it) }
-    }
+        }.onFailure { reportError(it) }.isSuccess
 
     suspend fun refreshDirectMessages() {
         runCatching { loadDirectMessages() }.onFailure { reportError(it) }
@@ -198,6 +323,8 @@ class CoveRepository {
         updateState {
             it.copy(
                 voiceChannelId = channelId,
+                voiceAttemptChannelId = channelId,
+                voiceConnectionStatus = VoiceConnectionStatus.CONNECTING,
                 microphoneEnabled = false,
                 speakerEnabled = true,
                 sharingScreen = false,
@@ -216,23 +343,37 @@ class CoveRepository {
             updateState {
                 it.copy(
                     voiceChannelId = null,
+                    voiceAttemptChannelId = null,
+                    voiceConnectionStatus = VoiceConnectionStatus.DISCONNECTED,
                     microphoneEnabled = false,
                     speakerEnabled = true,
                     sharingScreen = false,
+                    cameraEnabled = false,
                     consumedRemoteStreams = emptySet()
                 )
             }
         }
     }
 
+    fun setVoiceConnectionStatus(status: VoiceConnectionStatus, channelId: Int? = null) {
+        updateState { current ->
+            current.copy(
+                voiceConnectionStatus = status,
+                voiceAttemptChannelId = channelId ?: current.voiceAttemptChannelId
+            )
+        }
+    }
+
     suspend fun updateVoiceState(
         micMuted: Boolean? = null,
         soundMuted: Boolean? = null,
+        webcamEnabled: Boolean? = null,
         sharingScreen: Boolean? = null
     ) {
         currentApi().mutate("voice.updateState", buildJsonObject {
             micMuted?.let { put("micMuted", it) }
             soundMuted?.let { put("soundMuted", it) }
+            webcamEnabled?.let { put("webcamEnabled", it) }
             sharingScreen?.let { put("sharingScreen", it) }
         })
     }
@@ -275,6 +416,21 @@ class CoveRepository {
         currentApi().mutate("voice.closeProducer", buildJsonObject { put("kind", kind) })
     }
 
+    suspend fun setConsumerQuality(remoteId: Int, kind: String, spatialLayer: Int?) {
+        currentApi().mutate("voice.setConsumerQuality", buildJsonObject {
+            put("remoteId", remoteId)
+            put("kind", kind)
+            if (spatialLayer == null) {
+                putJsonObject("quality") { put("mode", "auto") }
+            } else {
+                putJsonObject("quality") {
+                    put("mode", "layer")
+                    put("spatialLayer", spatialLayer)
+                }
+            }
+        })
+    }
+
     fun voiceProducerEvents() = currentApi().subscribe("voice.onNewProducer").mapNotNull { decodeOrNull<VoiceProducerEvent>(it) }
 
     fun voiceProducerClosedEvents() = currentApi().subscribe("voice.onProducerClosed").mapNotNull { decodeOrNull<VoiceProducerEvent>(it) }
@@ -283,6 +439,7 @@ class CoveRepository {
         microphoneEnabled: Boolean? = null,
         speakerEnabled: Boolean? = null,
         sharingScreen: Boolean? = null,
+        cameraEnabled: Boolean? = null,
         consumedRemoteStreams: Set<String>? = null
     ) {
         updateState { current ->
@@ -290,6 +447,7 @@ class CoveRepository {
                 microphoneEnabled = microphoneEnabled ?: current.microphoneEnabled,
                 speakerEnabled = speakerEnabled ?: current.speakerEnabled,
                 sharingScreen = sharingScreen ?: current.sharingScreen,
+                cameraEnabled = cameraEnabled ?: current.cameraEnabled,
                 consumedRemoteStreams = consumedRemoteStreams ?: current.consumedRemoteStreams
             )
         }
@@ -298,7 +456,12 @@ class CoveRepository {
     fun canUseChannelPermission(channelId: Int, permission: String): Boolean =
         hasChannelPermission(channelId, permission)
 
-    fun setError(message: String) {
+    fun canUseServerPermission(permission: String): Boolean =
+        mutableState.value.hasServerPermission(permission)
+
+    fun setError(message: String, cause: Throwable? = null) {
+        if (cause == null) AppDiagnosticsLog.warning("app", message)
+        else AppDiagnosticsLog.error("app", message, cause)
         mutableState.value = mutableState.value.copy(error = message)
     }
 
@@ -309,7 +472,7 @@ class CoveRepository {
             val baseUrl = credentials.host.toHttpUrlOrNull() ?: throw IOException("Enter a valid server address")
             val client = SharkordApi()
             candidate = client
-            client.serverInfo(baseUrl)
+            val serverInfo = client.serverInfo(baseUrl).decode<ServerInfo>()
             val login = client.login(baseUrl, credentials.identity, credentials.password)
             client.connect(baseUrl, login.token)
             val handshake = client.query("others.handshake").decode<Handshake>()
@@ -326,34 +489,37 @@ class CoveRepository {
                 connected = true,
                 serverAddress = credentials.host,
                 serverName = joined.serverName,
+                serverLogo = serverInfo.logo,
                 ownUserId = joined.ownUserId,
                 categories = joined.categories.sortedBy(Category::position),
                 channels = joined.channels,
                 users = joined.users.sortedBy { it.name.lowercase() },
+                roles = joined.roles,
                 voiceUsersByChannel = parseVoiceMap(joined.voiceMap),
                 unreadByChannel = joined.readStates.mapNotNull { (key, value) ->
                     key.toIntOrNull()?.let { channelId -> channelId to (value.jsonPrimitive.intOrNull ?: 0) }
                 }.toMap(),
                 channelPermissions = joined.channelPermissions,
-                publicSettings = joined.publicSettings,
-                activeChannelId = joined.channels.firstOrNull { it.type == ChannelType.TEXT && !it.isDm }?.id
+                publicSettings = joined.publicSettings
             )
             startSubscriptions(client)
             listenForDisconnect(client)
-            mutableState.value.activeChannelId?.let { selectChannel(it) }
-            try {
-                loadDirectMessages()
-            } catch (error: Throwable) {
-                if (error is CancellationException) throw error
-                reportError(error)
+            if (joined.publicSettings["directMessagesEnabled"]?.jsonPrimitive?.booleanOrNull == true) {
+                try {
+                    loadDirectMessages()
+                } catch (error: Throwable) {
+                    if (error is CancellationException) throw error
+                    reportError(error)
+                }
             }
             reconnectAttempt = 0
         } catch (error: Throwable) {
             candidate?.close()
             if (error is CancellationException) throw error
             if (api === candidate) api = null
+            AppDiagnosticsLog.error("connection", "server connection failed", error)
             mutableState.value = mutableState.value.copy(
-                connecting = false,
+                connecting = !showLoading && mutableState.value.connecting,
                 connected = false,
                 error = error.message ?: "Unable to connect"
             )
@@ -371,6 +537,19 @@ class CoveRepository {
                 val existing = current.messagesByChannel[event.channelId].orEmpty()
                 current.copy(messagesByChannel = current.messagesByChannel + (
                     event.channelId to existing.filterNot { it.id == event.messageId }
+                ), threadMessagesByParent = current.threadMessagesByParent.mapValues { (_, replies) ->
+                    replies.filterNot { it.id == event.messageId }
+                })
+            }
+        }
+        observe(client, "messages.onThreadReplyCountUpdate") { value ->
+            val event = decodeOrNull<ThreadReplyCountEvent>(value) ?: return@observe
+            updateState { current ->
+                val messages = current.messagesByChannel[event.channelId].orEmpty()
+                current.copy(messagesByChannel = current.messagesByChannel + (
+                    event.channelId to messages.map { message ->
+                        if (message.id == event.messageId) message.copy(replyCount = event.replyCount) else message
+                    }
                 ))
             }
         }
@@ -414,7 +593,13 @@ class CoveRepository {
         disconnectJob = scope.launch {
             client.disconnections.collect { error ->
                 if (api !== client || credentials == null) return@collect
-                updateState { it.copy(connected = false, error = error.message ?: "Connection lost") }
+                updateState {
+                    it.copy(
+                        connected = false,
+                        connecting = true,
+                        error = error.message ?: "Connection lost"
+                    )
+                }
                 scheduleReconnect()
             }
         }
@@ -431,7 +616,9 @@ class CoveRepository {
                 connectInternal(saved, showLoading = false)
                 if (mutableState.value.connected) return@launch
             }
-            updateState { it.copy(error = "Connection lost. Reconnect manually.") }
+            updateState {
+                it.copy(connecting = false, error = "Connection lost. Reconnect manually.")
+            }
         }
     }
 
@@ -443,11 +630,12 @@ class CoveRepository {
         }
     }
 
-    private suspend fun loadMessages(channelId: Int) {
+    private suspend fun loadMessages(channelId: Int, targetMessageId: Int? = null) {
         runCatching {
             currentApi().query("messages.get", buildJsonObject {
                 put("channelId", channelId)
                 put("limit", 50)
+                targetMessageId?.let { put("targetMessageId", it) }
             }).decode<MessagesPage>()
         }.onSuccess { page ->
             val messages = page.messages.sortedWith(compareBy<Message> { it.createdAt }.thenBy { it.id })
@@ -460,9 +648,50 @@ class CoveRepository {
         }.onFailure { reportError(it) }
     }
 
+    private suspend fun loadThreadMessages(parentMessageId: Int) {
+        val cursor = mutableState.value.threadCursors[parentMessageId]
+        runCatching {
+            currentApi().query("messages.getThread", buildJsonObject {
+                put("parentMessageId", parentMessageId)
+                put("limit", 50)
+                cursor?.let {
+                    putJsonObject("cursor") {
+                        put("createdAt", it.createdAt)
+                        put("id", it.id)
+                    }
+                }
+            }).decode<ThreadMessagesPage>()
+        }.onSuccess { page ->
+            val existing = mutableState.value.threadMessagesByParent[parentMessageId].orEmpty()
+            val knownIds = existing.mapTo(mutableSetOf()) { it.id }
+            val replies = page.messages.filterNot { it.id in knownIds }
+                .sortedWith(compareBy<Message> { it.createdAt }.thenBy { it.id })
+            updateState { current ->
+                current.copy(
+                    threadMessagesByParent = current.threadMessagesByParent +
+                        (parentMessageId to (existing + replies)),
+                    threadCursors = current.threadCursors + (parentMessageId to page.nextCursor)
+                )
+            }
+        }.onFailure { reportError(it) }
+    }
+
+    suspend fun loadOlderThread(parentMessageId: Int) = loadThreadMessages(parentMessageId)
+
     private suspend fun loadDirectMessages() {
-        val values = currentApi().query("dms.get").decode<List<DirectMessageConversation>>()
-        updateState { it.copy(conversations = values.sortedByDescending(DirectMessageConversation::lastMessageAt)) }
+        try {
+            val values = currentApi().query("dms.get").decode<List<DirectMessageConversation>>()
+            updateState {
+                it.copy(
+                    conversations = values.sortedByDescending(DirectMessageConversation::lastMessageAt),
+                    directMessagesLoaded = true
+                )
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            updateState { it.copy(directMessagesLoaded = true) }
+            throw error
+        }
     }
 
     private suspend fun markAsRead(channelId: Int) {
@@ -473,12 +702,23 @@ class CoveRepository {
 
     private fun applyMessage(value: JsonElement) {
         val message = decodeOrNull<Message>(value) ?: return
+        val isDirectMessage = mutableState.value.channels.any { it.id == message.channelId && it.isDm }
         updateState { current ->
+            if (message.parentMessageId != null) {
+                val replies = current.threadMessagesByParent[message.parentMessageId].orEmpty()
+                val updatedReplies = replies.filterNot { it.id == message.id } + message
+                return@updateState current.copy(threadMessagesByParent = current.threadMessagesByParent + (
+                    message.parentMessageId to updatedReplies.sortedWith(compareBy<Message> { it.createdAt }.thenBy { it.id })
+                ))
+            }
             val existing = current.messagesByChannel[message.channelId].orEmpty()
             val replaced = existing.filterNot { it.id == message.id } + message
             current.copy(messagesByChannel = current.messagesByChannel + (
                 message.channelId to replaced.sortedWith(compareBy<Message> { it.createdAt }.thenBy { it.id })
             ))
+        }
+        if (isDirectMessage) {
+            scope.launch { runCatching { loadDirectMessages() }.onFailure(::reportError) }
         }
     }
 
@@ -542,6 +782,7 @@ class CoveRepository {
     private fun currentApi(): SharkordApi = api ?: throw RpcException("Not connected", "DISCONNECTED")
 
     private fun reportError(error: Throwable) {
+        AppDiagnosticsLog.error("repository", "operation failed", error)
         updateState { it.copy(error = error.message ?: "Something went wrong") }
     }
 

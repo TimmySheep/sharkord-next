@@ -16,17 +16,18 @@ A lightweight, self-hostable, Discord-like communication platform — text and v
 
 ## What we are building (and what we are not)
 
-This is the project's own plan, in priority order. **Native is the whole point:** the desktop clients that
-exist in this ecosystem today are Electron wrappers that load the web app. This project builds real
-native applications that talk to the same server.
+This is the project's own plan, in priority order. **Native is the default, not a purity test.** We prefer
+small, responsive clients that talk directly to the same server. Choose the lightest maintainable approach
+that meets the product and media requirements; a full web wrapper or bundled local server must justify its
+extra runtime and distribution cost with measured benefits. See the lightweight-client principle in the
+[`roadmap`](ROADMAP.md#guiding-principles).
 
 ### 1. macOS — native (first)
 
-Swift + SwiftUI, AppKit where it is the right tool. No Electron and no wrapper around the web client:
-the interface is native, with a restricted WKWebView used only for the bundled `mediasoup-client`
-media worker. The worker carries voice, camera and screen-share media; the WKWebView does not load
-server pages or plugin UI. Runtime media acceptance is still pending. Planned system integration
-includes menu bar presence, global push-to-talk hotkeys and system audio.
+Swift + SwiftUI, AppKit where it is the right tool. The primary interface is native; a restricted
+WKWebView hosts only the locally bundled `mediasoup-client` media worker. It does not load server pages
+or plugin UI. Runtime media acceptance is still pending. Planned system integration includes menu bar
+presence, global push-to-talk hotkeys and system audio.
 Design and evidence: [`docs/NATIVE_STRATEGY.md`](docs/NATIVE_STRATEGY.md)
 
 ### 2. Windows — native (second)

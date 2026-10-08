@@ -1,9 +1,7 @@
 import SharkordCore
 import SwiftUI
 
-/// The voice tab: the live call for the channel the device is in, or the voice channel
-/// picker when no call is active. The three call controls live in `VoiceControlsBar`
-/// pinned under this screen.
+/// the voice channel picker used by the channel workspace.
 struct VoiceTabView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SharkordSession
@@ -122,17 +120,22 @@ struct VoiceRoomView: View {
                     micBlockedNote
                 }
 
-                participants
-
-                if !voice.remoteVideoStreams.isEmpty {
-                    RemoteStreamList()
-                }
-
                 if !isInThisCall {
                     SharkordPrimaryButton(title: L10n.t("voice.join"), symbol: "phone.fill") {
                         model.joinVoice(channelId)
                     }
                 }
+
+                participants
+
+                cameraControls
+
+                ScreenShareControls(channelId: channelId)
+
+                if !voice.remoteVideoStreams.isEmpty {
+                    RemoteStreamList()
+                }
+
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -141,20 +144,14 @@ struct VoiceRoomView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ScreenTitle(
-                text: channelName,
-                trailing: AnyView(StatusPill(text: L10n.t("members.online"), color: SharkordTheme.success))
-            )
-
-            Text(L10n.format("voice.memberCount", participantRows.count))
-                .font(.subheadline)
-                .foregroundStyle(SharkordTheme.textSecondary)
+        Group {
+            if let topic = session.channel(for: channelId)?.topic, !topic.isEmpty {
+                Text(topic)
+                    .font(.subheadline)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
-    }
-
-    private var channelName: String {
-        session.channel(for: channelId)?.name ?? L10n.t("voice.call")
     }
 
     private var isInThisCall: Bool {
@@ -168,7 +165,9 @@ struct VoiceRoomView: View {
     private var participants: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                CardHeading(icon: "person.2", text: L10n.t("channel.currentMembers"))
+                Text(L10n.t("channel.currentMembers"))
+                    .font(.headline)
+                    .foregroundStyle(SharkordTheme.textPrimary)
 
                 Spacer()
 
@@ -183,68 +182,62 @@ struct VoiceRoomView: View {
                     .foregroundStyle(SharkordTheme.textSecondary)
                     .padding(.vertical, 4)
             } else {
-                VStack(spacing: 16) {
+                LazyVGrid(columns: participantColumns, spacing: 12) {
                     ForEach(participantRows) { participant in
-                        participantRow(participant)
+                        participantTile(participant)
                     }
                 }
             }
         }
-        .sharkordCard(cornerRadius: 24)
     }
 
-    private func participantRow(_ participant: VoiceParticipant) -> some View {
+    private var participantColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 140), spacing: 12, alignment: .top)]
+    }
+
+    private func participantTile(_ participant: VoiceParticipant) -> some View {
         let isSelf = participant.id == session.ownUserId
 
-        return HStack(spacing: 12) {
+        return VStack(spacing: 10) {
             AvatarView(
                 name: participant.user.name,
-                diameter: 42,
+                diameter: 68,
                 isSpeaking: isSelf && voice.microphoneOn
             )
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 7) {
-                    Text(participant.user.name)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(SharkordTheme.textPrimary)
-                        .lineLimit(1)
+            HStack(spacing: 6) {
+                Text(participant.user.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(SharkordTheme.textPrimary)
+                    .lineLimit(1)
 
-                    if isSelf {
-                        Text(L10n.t("voice.youTag"))
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(SharkordTheme.textSecondary)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(SharkordTheme.field, in: Capsule())
-                    }
+                if isSelf {
+                    Text(L10n.t("voice.youTag"))
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(SharkordTheme.textSecondary)
+                }
+            }
+
+            HStack(spacing: 10) {
+                Image(systemName: participant.state.micMuted ? "mic.slash.fill" : "mic.fill")
+                    .foregroundStyle(participant.state.micMuted ? SharkordTheme.danger : SharkordTheme.success)
+
+                if participant.state.sharingScreen == true {
+                    Image(systemName: "rectangle.on.rectangle.fill")
+                        .foregroundStyle(SharkordTheme.accentSoft)
+                        .accessibilityLabel(L10n.t("voice.state.screenSharing"))
                 }
 
                 Text(stateText(participant.state))
-                    .font(.footnote)
+                    .font(.caption)
                     .foregroundStyle(SharkordTheme.textSecondary)
                     .lineLimit(1)
             }
-
-            Spacer(minLength: 6)
-
-            if participant.state.sharingScreen == true {
-                Image(systemName: "rectangle.on.rectangle.fill")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(SharkordTheme.accentSoft)
-                    .accessibilityLabel(L10n.t("voice.state.screenSharing"))
-            }
-
-            Image(systemName: participant.state.micMuted ? "mic.slash.fill" : "mic.fill")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(participant.state.micMuted ? SharkordTheme.danger : SharkordTheme.success)
-                .accessibilityHidden(true)
-
-            Image(systemName: participant.state.soundMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(participant.state.soundMuted ? SharkordTheme.danger : SharkordTheme.accentSoft)
-                .accessibilityHidden(true)
+            .font(.caption.weight(.semibold))
         }
+        .frame(maxWidth: .infinity, minHeight: 144)
+        .padding(12)
+        .background(SharkordTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var micBlockedNote: some View {
@@ -262,6 +255,59 @@ struct VoiceRoomView: View {
         .padding(.vertical, 13)
         .frame(maxWidth: .infinity, alignment: .leading)
         .sharkordCard(cornerRadius: 18)
+    }
+
+    private var cameraControls: some View {
+        let canUseCamera = session.hasPermission(.enableWebcam) &&
+            session.hasChannelPermission(channelId, .webcam)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            CardHeading(
+                icon: "video.fill",
+                text: L10n.t("voice.camera.title"),
+                tint: SharkordTheme.accentSoft
+            )
+
+            HStack(spacing: 12) {
+                Button {
+                    model.toggleCamera()
+                } label: {
+                    Label(
+                        L10n.t(voice.cameraOn ? "voice.camera.stop" : "voice.camera.start"),
+                        systemImage: voice.cameraOn ? "video.slash.fill" : "video.fill"
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(voice.cameraOn ? SharkordTheme.danger : SharkordTheme.accent)
+                .disabled(!isInThisCall || voice.cameraStarting || (!canUseCamera && !voice.cameraOn))
+
+                if voice.cameraOn {
+                    Button {
+                        model.switchCamera()
+                    } label: {
+                        Label(L10n.t("voice.camera.switch"), systemImage: "camera.rotate.fill")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            if voice.cameraOn, let track = voice.localCameraTrack {
+                RemoteVideoView(track: track)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 210)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(alignment: .bottomLeading) {
+                        Text(L10n.t("voice.youTag"))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.55), in: Capsule())
+                            .padding(10)
+                    }
+            }
+        }
+        .sharkordCard(cornerRadius: 24)
     }
 
     private func bannerView(_ text: String) -> some View {
@@ -321,6 +367,32 @@ struct RemoteStreamList: View {
                             .padding(.vertical, 6)
                             .background(.black.opacity(0.55), in: Capsule())
                             .padding(10)
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        if !stream.qualityLayers.isEmpty {
+                            Menu {
+                                Button(L10n.t("voice.quality.auto")) {
+                                    Task { await voice.setQuality(for: stream, spatialLayer: nil) }
+                                }
+                                ForEach(stream.qualityLayers, id: \.spatialLayer) { layer in
+                                    Button(layer.label) {
+                                        Task {
+                                            await voice.setQuality(
+                                                for: stream,
+                                                spatialLayer: layer.spatialLayer
+                                            )
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Image(systemName: "slider.horizontal.3")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(10)
+                                    .background(.black.opacity(0.55), in: Circle())
+                                    .padding(10)
+                            }
+                        }
                     }
             }
         }

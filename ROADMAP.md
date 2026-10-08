@@ -8,10 +8,10 @@ was written against the actual source at `c611bb4`.
 
 ## Priority order (decided)
 
-1. **macOS, native** — Swift + SwiftUI, no Electron.
-2. **Windows, native** — C# + WinUI 3, text first, voice gated on a spike.
-3. **iPhone + iPad, native** — one Apple project, sharing the Swift core macOS needs anyway.
-4. **Apple Watch, native** — declared; a wrist push-to-talk client, gated on a feasibility spike.
+1. **macOS, native-first** — Swift + SwiftUI, with a restricted local media worker view.
+2. **Windows, native-first** — C# + WinUI 3, with a restricted local media worker view.
+3. **iPhone + iPad, native-first** — one Apple project, sharing the Swift core macOS needs anyway.
+4. **Apple Watch, native-first** — declared; a wrist push-to-talk client, gated on a feasibility spike.
 5. Direct (P2P) voice, then self-hosting quality, in parallel with the native work.
 
 **Android development is now underway** in [`apps/android`](apps/android). PWA/mobile-web work in this
@@ -21,18 +21,19 @@ Status legend: **✅ done** · **🔜 next** · **🧪 needs a spike** · **📋
 
 ## Guiding principles
 
-1. **Native, not a wrapper.** No Electron shell that reloads the web app.
-2. **Stay mergeable with upstream.** We work in upstream's shape so improvements can flow both ways.
-3. **Bandwidth-aware.** Self-hosters run out of uplink before they run out of features.
-4. **Smallest thing that works.** Upstream's own rule; new abstractions need a second call site.
-5. **Verify before claiming.** Docs and PRs separate what was measured from what is expected.
+1. **Native-first, not native-only.** Prefer a native primary interface, but choose technology for the user experience and total cost, not purity. A bounded web runtime is reasonable when it solves a specific problem well.
+2. **Keep the client light, and measure it.** Low idle memory and CPU are product goals. TeamSpeak 3 is the user's personal experience reference; roughly 100 MB or less of idle memory and very low idle CPU are aspirations, not verified TeamSpeak measurements or hard release gates. Report package size, installed size, and runtime use separately.
+3. **Stay mergeable with upstream.** We work in upstream's shape so improvements can flow both ways.
+4. **Bandwidth-aware.** Self-hosters run out of uplink before they run out of features.
+5. **Smallest thing that works.** Upstream's own rule; new abstractions need a second call site.
+6. **Verify before claiming.** Compare the whole application process tree on the same Windows device in idle, text use, voice, camera, and screen-share states. Include WebView2 helpers and any bundled server; separate measured results from expectations.
 
 ## ⛔ What we are not doing
 
 | Not doing | Why |
 | --- | --- |
 | **PWA / mobile-web work in this fork** | The three web-client gaps are generic improvements to upstream's client. Fixed upstream, every self-hosted instance and third-party client benefits; fixed here, only we do. Proposed upstream in [Track 6](#track-6-upstream-collaboration). |
-| **An Electron desktop client** | Roughly a dozen thin Electron wrappers already exist. A native client is the differentiator; a wrapper is not. |
+| **A full web or Electron wrapper by default** | The native-first client remains the baseline. A wrapper is not categorically forbidden, but it must demonstrate a better overall result, including total process-tree memory and CPU, distribution size, compatibility, and maintenance cost. |
 | **A plugin sandbox / runtime rewrite** | Upstream's plugin model is deliberate (trusted, in-process, capability-gated). Replacing it breaks every existing plugin for no user-visible gain. |
 | **Diverging the wire protocol** | Every third-party client depends on tRPC-over-WebSocket + mediasoup signalling as it exists. A fork that invents its own protocol is unusable by the ecosystem it wants to attract. |
 | **A large rewrite of the web client** | The reference client works. We leave its architecture alone. |

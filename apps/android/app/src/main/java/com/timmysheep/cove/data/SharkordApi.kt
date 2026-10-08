@@ -39,6 +39,8 @@ import okhttp3.WebSocketListener
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -59,6 +61,8 @@ class SharkordApi {
     private val disconnectEvents = MutableSharedFlow<Throwable>(extraBufferCapacity = 1)
     private var socket: WebSocket? = null
     private var keepAliveJob: Job? = null
+    @Volatile private var uploadBaseUrl: HttpUrl? = null
+    @Volatile private var authToken: String? = null
     @Volatile private var explicitlyClosed = false
 
     val disconnections = disconnectEvents.asSharedFlow()
@@ -82,6 +86,8 @@ class SharkordApi {
 
     suspend fun connect(baseUrl: HttpUrl, token: String) {
         explicitlyClosed = false
+        uploadBaseUrl = baseUrl
+        authToken = token
         val ready = CompletableDeferred<Unit>()
         val request = Request.Builder().url(webSocketRequestUrl(baseUrl)).build()
 
@@ -104,6 +110,7 @@ class SharkordApi {
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                AppDiagnosticsLog.error("websocket", "connection failed", t)
                 ready.completeExceptionally(t)
                 failPending(t)
                 closeSubscriptions(t)
@@ -133,6 +140,48 @@ class SharkordApi {
     suspend fun query(path: String, input: JsonElement? = null): JsonElement = request("query", path, input)
 
     suspend fun mutate(path: String, input: JsonElement? = null): JsonElement = request("mutation", path, input)
+
+    suspend fun upload(data: ByteArray, fileName: String, mimeType: String): TemporaryFile = withContext(Dispatchers.IO) {
+        val baseUrl = uploadBaseUrl ?: throw RpcException("Not connected", "DISCONNECTED")
+        val token = authToken ?: throw RpcException("Not connected", "DISCONNECTED")
+        val encodedName = URLEncoder.encode(fileName.trim(), StandardCharsets.UTF_8.name()).replace("+", "%20")
+        val request = Request.Builder()
+            .url(baseUrl.newBuilder().addPathSegment("upload").build())
+            .header("x-token", token)
+            .header("x-file-name", encodedName)
+            .header("x-file-type", mimeType)
+            .post(data.toRequestBody("application/octet-stream".toMediaType()))
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                val message = runCatching {
+                    protocolJson.parseToJsonElement(body).jsonObject["error"]?.jsonPrimitive?.contentOrNull
+                }.getOrNull()
+                throw IOException(message ?: "Upload failed (${response.code})")
+            }
+            protocolJson.parseToJsonElement(body).decode<TemporaryFile>()
+        }
+    }
+
+    fun publicFileUrl(file: MessageFile): String? {
+        val baseUrl = uploadBaseUrl ?: return null
+        val builder = baseUrl.newBuilder().addPathSegment("public").addPathSegment(file.name)
+        if (file._accessToken != null && file._accessTokenExpiresAt != null) {
+            builder.addQueryParameter("accessToken", file._accessToken)
+            builder.addQueryParameter("expires", file._accessTokenExpiresAt.toString())
+        }
+        return builder.build().toString()
+    }
+
+    suspend fun downloadPublicFile(url: String): ByteArray = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(url).get().build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("File preview failed (${response.code})")
+            response.body?.bytes() ?: throw IOException("File preview was empty")
+        }
+    }
 
     fun subscribe(path: String, input: JsonElement? = null): Flow<JsonElement> = callbackFlow {
         val id = nextId.getAndIncrement()
@@ -175,6 +224,8 @@ class SharkordApi {
         keepAliveJob = null
         socket?.close(1000, "Client disconnected")
         socket = null
+        uploadBaseUrl = null
+        authToken = null
         failPending(RpcException("Connection closed", "DISCONNECTED"))
         closeSubscriptions(RpcException("Connection closed", "DISCONNECTED"))
     }
@@ -239,6 +290,7 @@ class SharkordApi {
         if (errorValue != null) {
             val code = (errorValue["data"] as? JsonObject)?.get("code")?.jsonPrimitive?.contentOrNull ?: "UNKNOWN"
             val message = errorValue["message"]?.jsonPrimitive?.contentOrNull ?: "Request failed"
+            AppDiagnosticsLog.error("trpc", "request failed code=$code message=$message")
             val error = RpcException(message, code)
             pending.remove(id)?.completeExceptionally(error)
             subscriptions.remove(id)?.close(error)
@@ -264,6 +316,10 @@ class SharkordApi {
                 val message = runCatching {
                     protocolJson.parseToJsonElement(body).jsonObject["error"]?.jsonPrimitive?.contentOrNull
                 }.getOrNull()
+                AppDiagnosticsLog.error(
+                    "http",
+                    "request failed method=${request.method} path=${request.url.encodedPath} status=${response.code}"
+                )
                 throw IOException(message ?: "Request failed (${response.code})")
             }
             protocolJson.parseToJsonElement(body)
@@ -307,4 +363,21 @@ class SharkordApi {
     }
 }
 
-inline fun <reified T> JsonElement.decode(): T = SharkordApi.protocolJson.decodeFromJsonElement(this)
+internal inline fun <reified T> JsonElement.decode(): T = try {
+    SharkordApi.protocolJson.decodeFromJsonElement(this)
+} catch (error: kotlinx.serialization.SerializationException) {
+    AppDiagnosticsLog.error(
+        "json",
+        "decode failed target=${T::class.java.simpleName} root=${diagnosticJsonShape(this)}",
+        error
+    )
+    throw error
+}
+
+@PublishedApi
+internal fun diagnosticJsonShape(value: JsonElement): String = when (value) {
+    is JsonObject -> "object keys=${value.keys.sorted().joinToString(",")}"
+    is JsonArray -> "array size=${value.size}"
+    JsonNull -> "null"
+    else -> "primitive"
+}

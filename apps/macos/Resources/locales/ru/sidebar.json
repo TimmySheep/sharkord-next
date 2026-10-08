@@ -74,6 +74,9 @@
   "categoryDeleted": "Категория удалена",
   "failedDeleteCategory": "Не удалось удалить категорию",
   "userVolume": "Громкость пользователя",
+  "screenShareAudioVolume": "Громкость звука демонстрации экрана",
+  "muteAudio": "Отключить звук",
+  "unmuteAudio": "Включить звук",
   "microphone": "Микрофон",
   "noiseSuppression": "Шумоподавление"
 }

@@ -11,6 +11,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Windowing;
 using Sharkord.Core;
 using Sharkord.Core.I18n;
+using Windows.Storage.Pickers;
 using Windows.System;
 using WinRT.Interop;
 
@@ -57,11 +58,9 @@ public sealed partial class MainWindow : Window
         _session = session;
         InitializeComponent();
 
-        var windowHandle = WindowNative.GetWindowHandle(this);
-        var windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
-        AppWindow.GetFromWindowId(windowId).SetIcon(
-            Path.Combine(AppContext.BaseDirectory, "Assets", "cove.ico")
-        );
+        RootGrid.ActualThemeChanged += OnRootThemeChanged;
+        SetWindowIconForCurrentTheme();
+        Closed += (_, _) => RootGrid.ActualThemeChanged -= OnRootThemeChanged;
 
         _languagePreference = ReadLanguagePreference();
         if (_languagePreference is null)
@@ -88,6 +87,21 @@ public sealed partial class MainWindow : Window
         };
     }
 
+    private void OnRootThemeChanged(FrameworkElement sender, object args)
+    {
+        SetWindowIconForCurrentTheme();
+    }
+
+    private void SetWindowIconForCurrentTheme()
+    {
+        var windowHandle = WindowNative.GetWindowHandle(this);
+        var windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
+        var iconName = RootGrid.ActualTheme == ElementTheme.Dark ? "cove-dark.ico" : "cove.ico";
+        AppWindow.GetFromWindowId(windowId).SetIcon(
+            Path.Combine(AppContext.BaseDirectory, "Assets", iconName)
+        );
+    }
+
     /// <summary>
     /// every user-facing literal in this window is assigned here, so a language change only
     /// has to re-run this one method. see <see cref="I18n.L10n"/> for the tables.
@@ -95,6 +109,7 @@ public sealed partial class MainWindow : Window
     private void ApplyLocalisation()
     {
         TaglineText.Text = L10n.T("tagline", ns: "windows");
+        ExportLogsButton.Content = L10n.T("exportLogs", ns: "windows");
         RefreshLanguagePicker();
         HostBox.Header = L10n.T("serverAddress", ns: "windows");
         IdentityBox.Header = L10n.T("identityLabel", ns: "connect");
@@ -191,6 +206,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
+            ClientLogStore.Shared.RecordError("preferences.language.read", exception);
             Debug.WriteLine($"Could not read the saved language preference: {exception.Message}");
             return null;
         }
@@ -205,8 +221,56 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
+            ClientLogStore.Shared.RecordError("preferences.language.save", exception);
             Debug.WriteLine($"Could not save the language preference: {exception.Message}");
         }
+    }
+
+    private async void OnExportLogsClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.Downloads,
+            SuggestedFileName = $"cove-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.log"
+        };
+        picker.FileTypeChoices.Add(
+            L10n.T("logFileType", ns: "windows"),
+            new List<string> { ".log" }
+        );
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+
+        try
+        {
+            var file = await picker.PickSaveFileAsync();
+            if (file is null)
+            {
+                return;
+            }
+
+            ClientLogStore.Shared.RecordInfo("diagnostics.export");
+            await ClientLogStore.Shared.ExportLogsAsync(file.Path);
+            await ShowLogExportResultAsync(didExport: true);
+        }
+        catch (Exception exception)
+        {
+            ClientLogStore.Shared.RecordError("diagnostics.export.failed", exception);
+            await ShowLogExportResultAsync(didExport: false);
+        }
+    }
+
+    private async Task ShowLogExportResultAsync(bool didExport)
+    {
+        var title = didExport ? "logsExportSuccessTitle" : "logsExportFailureTitle";
+        var message = didExport ? "logsExportSuccessMessage" : "logsExportFailureMessage";
+        var dialog = new ContentDialog
+        {
+            Title = L10n.T(title, ns: "windows"),
+            Content = L10n.T(message, ns: "windows"),
+            CloseButtonText = L10n.T("close", ns: "windows"),
+            XamlRoot = RootGrid.XamlRoot
+        };
+
+        await dialog.ShowAsync();
     }
 
     private void OnSessionChanged()
@@ -458,6 +522,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            ClientLogStore.Shared.RecordError("voice.webview.initialize", exception);
             VoiceErrorText.Text = exception.Message;
         }
     }
@@ -511,7 +576,12 @@ public sealed partial class MainWindow : Window
                     "connected" => "",
                     _ => ""
                 };
-                VoiceErrorText.Text = message["error"]?.GetValue<string>() ?? "";
+                var workerError = message["error"]?.GetValue<string>() ?? "";
+                if (!string.IsNullOrEmpty(workerError) && workerError != VoiceErrorText.Text)
+                {
+                    ClientLogStore.Shared.RecordFailure("voice.media_worker.failed", "media_worker");
+                }
+                VoiceErrorText.Text = workerError;
                 RefreshVoiceControls();
                 return;
             }
@@ -524,6 +594,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            ClientLogStore.Shared.RecordError("voice.webview.message", exception);
             VoiceErrorText.Text = exception.Message;
         }
     }
@@ -542,6 +613,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            ClientLogStore.Shared.RecordError("voice.procedure.failed", exception);
             response["error"] = exception.Message;
         }
 
@@ -616,6 +688,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            ClientLogStore.Shared.RecordError("voice.join.failed", exception);
             VoiceErrorText.Text = exception.Message;
             _voiceMediaStatus = "failed";
             if (_session.CurrentVoiceChannelId is not null)
@@ -626,6 +699,7 @@ public sealed partial class MainWindow : Window
                 }
                 catch (Exception leaveError)
                 {
+                    ClientLogStore.Shared.RecordError("voice.leave.failed", leaveError);
                     VoiceErrorText.Text = $"{exception.Message}\n{leaveError.Message}";
                 }
             }
@@ -688,6 +762,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            ClientLogStore.Shared.RecordError("voice.control.failed", exception);
             VoiceErrorText.Text = exception.Message;
         }
     }
@@ -706,6 +781,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            ClientLogStore.Shared.RecordError("voice.leave.failed", exception);
             VoiceErrorText.Text = exception.Message;
         }
 
@@ -804,6 +880,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            ClientLogStore.Shared.RecordError("chat.reaction.failed", exception);
             ChatErrorText.Text = exception.Message;
             Refresh();
         }
@@ -841,6 +918,7 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
+            ClientLogStore.Shared.RecordError("chat.message_send.failed", exception);
             ChatErrorText.Text = exception.Message;
         }
     }
