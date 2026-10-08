@@ -290,10 +290,12 @@ fun ChannelChatScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     items(messages, key = Message::id) { message ->
+                        val author = state.users.firstOrNull { it.id == message.userId }
                         MessageRow(
                             message = message,
                             model = model,
-                            authorName = state.users.firstOrNull { it.id == message.userId }?.name ?: stringResource(R.string.unknown_user),
+                            authorName = author?.name ?: stringResource(R.string.unknown_user),
+                            authorAvatar = author?.avatar,
                             isOwnMessage = message.userId == state.ownUserId,
                             ownUserId = state.ownUserId,
                             onOpenActions = { actionMessage = message },
@@ -459,6 +461,7 @@ private fun MessageRow(
     message: Message,
     model: CoveViewModel,
     authorName: String,
+    authorAvatar: MessageFile?,
     isOwnMessage: Boolean,
     ownUserId: Int,
     onOpenActions: () -> Unit,
@@ -478,7 +481,7 @@ private fun MessageRow(
             .padding(vertical = 8.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.Top
     ) {
-        UserAvatar(name = authorName, size = 38.dp)
+        UserAvatar(name = authorName, size = 38.dp, avatar = authorAvatar, model = model)
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -659,10 +662,12 @@ private fun ThreadMessagesSheet(
             }
             LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 items(replies, key = Message::id) { reply ->
+                    val author = state.users.firstOrNull { it.id == reply.userId }
                     MessageRow(
                         message = reply,
                         model = model,
-                        authorName = state.users.firstOrNull { it.id == reply.userId }?.name ?: stringResource(R.string.unknown_user),
+                        authorName = author?.name ?: stringResource(R.string.unknown_user),
+                        authorAvatar = author?.avatar,
                         isOwnMessage = reply.userId == state.ownUserId,
                         ownUserId = state.ownUserId,
                         onOpenActions = {},
@@ -1123,7 +1128,10 @@ private fun VoiceControlsBar(
             )
             VoiceIconControl(
                 modifier = Modifier.weight(1f),
-                contentDescription = stringResource(R.string.speaker),
+                contentDescription = stringResource(
+                    if (state.speakerEnabled) R.string.voice_control_disable_speaker
+                    else R.string.voice_control_enable_speaker
+                ),
                 icon = if (state.speakerEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                 active = state.speakerEnabled,
                 enabled = true,
@@ -1176,10 +1184,9 @@ private fun VoiceIconControl(
 ) {
     val colors = MaterialTheme.colorScheme
 
-    Column(
+    Box(
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        contentAlignment = Alignment.Center
     ) {
         Box(modifier = Modifier.size(48.dp)) {
             if (danger) {

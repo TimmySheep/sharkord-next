@@ -1,4 +1,24 @@
 <resources>
+    <string name="profile_settings_title">个人资料</string>
+    <string name="profile_name">显示名称</string>
+    <string name="profile_bio">个人简介</string>
+    <string name="profile_color">资料颜色</string>
+    <string name="profile_color_hint">输入十六进制颜色，例如 #5865F2。</string>
+    <string name="profile_color_invalid">请输入 3 位或 6 位十六进制颜色，例如 #abc 或 #123456。</string>
+    <string name="profile_save">保存资料</string>
+    <string name="profile_saved">个人资料已更新。</string>
+    <string name="profile_save_failed">无法更新个人资料。</string>
+    <string name="profile_avatar">头像</string>
+    <string name="profile_banner">个人横幅</string>
+    <string name="profile_choose_image">选择图片</string>
+    <string name="profile_remove_image">移除图片</string>
+    <string name="profile_upload_failed">无法上传或保存图片。</string>
+    <string name="profile_image_removed">图片已移除。</string>
+    <string name="profile_image_updated">图片已更新。</string>
+    <string name="profile_no_image">暂无图片</string>
+    <plurals name="voice_participant_count">
+        <item quantity="other">语音频道内 %1$d 人</item>
+    </plurals>
     <string name="app_name">cove</string>
     <string name="connect_title">连接到你的服务器</string>
     <string name="server_address">服务器地址</string>
@@ -10,6 +30,13 @@
     <string name="connecting">正在连接…</string>
     <string name="channels">频道</string>
     <string name="direct_messages">私信</string>
+    <string name="all_direct_messages">全部私信</string>
+    <string name="view_all_direct_messages">查看全部私信</string>
+    <string name="uncategorized_channels">其他频道</string>
+    <string name="direct_messages_disabled">此服务器已关闭私信功能。</string>
+    <string name="voice_connected_to">语音已连接 · %1$s</string>
+    <string name="voice_connecting_to">正在连接语音 · %1$s</string>
+    <string name="voice_disconnected">语音连接已结束</string>
     <string name="settings">设置</string>
     <string name="search_channels">搜索频道</string>
     <string name="no_channels">没有可用频道。</string>

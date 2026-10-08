@@ -1,4 +1,25 @@
 <resources>
+    <string name="profile_settings_title">Profil</string>
+    <string name="profile_name">Nom affiché</string>
+    <string name="profile_bio">À propos de moi</string>
+    <string name="profile_color">Couleur du profil</string>
+    <string name="profile_color_hint">Saisissez une couleur hexadécimale, par exemple #5865F2.</string>
+    <string name="profile_color_invalid">Utilisez une couleur hexadécimale de 3 ou 6 caractères, comme #abc.</string>
+    <string name="profile_save">Enregistrer le profil</string>
+    <string name="profile_saved">Profil mis à jour.</string>
+    <string name="profile_save_failed">Impossible de mettre à jour le profil.</string>
+    <string name="profile_avatar">Avatar</string>
+    <string name="profile_banner">Bannière du profil</string>
+    <string name="profile_choose_image">Choisir une image</string>
+    <string name="profile_remove_image">Supprimer l’image</string>
+    <string name="profile_upload_failed">Impossible d’envoyer ou d’enregistrer l’image.</string>
+    <string name="profile_image_removed">Image supprimée.</string>
+    <string name="profile_image_updated">Image mise à jour.</string>
+    <string name="profile_no_image">Aucune image</string>
+    <plurals name="voice_participant_count">
+        <item quantity="one">%1$d personne en vocal</item>
+        <item quantity="other">%1$d personnes en vocal</item>
+    </plurals>
     <string name="app_name">cove</string>
     <string name="connect_title">Connexion à votre serveur</string>
     <string name="server_address">Adresse du serveur</string>
@@ -9,7 +30,14 @@
     <string name="connect">Se connecter</string>
     <string name="connecting">Connexion…</string>
     <string name="channels">Salons</string>
-    <string name="direct_messages">Messages</string>
+    <string name="direct_messages">Messages directs</string>
+    <string name="all_direct_messages">Tous les messages directs</string>
+    <string name="view_all_direct_messages">Voir tous les messages directs</string>
+    <string name="uncategorized_channels">Autres salons</string>
+    <string name="direct_messages_disabled">Les messages directs sont désactivés sur ce serveur.</string>
+    <string name="voice_connected_to">Connecté · %1$s</string>
+    <string name="voice_connecting_to">Connexion en cours · %1$s</string>
+    <string name="voice_disconnected">Connexion vocale terminée</string>
     <string name="settings">Paramètres</string>
     <string name="search_channels">Rechercher des salons</string>
     <string name="no_channels">Aucun salon disponible.</string>

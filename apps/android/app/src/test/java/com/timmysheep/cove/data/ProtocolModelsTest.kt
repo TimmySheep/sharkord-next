@@ -5,8 +5,30 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.serialization.json.jsonObject
+import com.timmysheep.cove.data.directMessagesEnabled
 
 class ProtocolModelsTest {
+    @Test
+    fun readsDirectMessageAvailabilityFromServerSettings() {
+        val enabledSettings = SharkordApi.protocolJson.parseToJsonElement("""{"directMessagesEnabled":true}""").jsonObject
+        val disabledSettings = SharkordApi.protocolJson.parseToJsonElement("""{"directMessagesEnabled":false}""").jsonObject
+
+        assertTrue(SessionState(publicSettings = enabledSettings).directMessagesEnabled)
+        assertFalse(SessionState(publicSettings = disabledSettings).directMessagesEnabled)
+        assertFalse(SessionState().directMessagesEnabled)
+    }
+
+    @Test
+    fun decodesOwnProfileFieldsAndImageFiles() {
+        val user = SharkordApi.protocolJson.parseToJsonElement(
+            """{"id":7,"name":"viewer","profileColor":"#123456","bio":"Hello","avatar":{"id":8,"name":"avatar.png","mimeType":"image/png"},"banner":{"id":9,"name":"banner.jpg","mimeType":"image/jpeg"}}"""
+        ).decode<User>()
+
+        assertEquals("Hello", user.bio)
+        assertEquals("avatar.png", user.avatar?.name)
+        assertEquals("banner.jpg", user.banner?.name)
+    }
+
     @Test
     fun decodesChannelWireFieldsAndDefaults() {
         val channel = SharkordApi.protocolJson.parseToJsonElement(

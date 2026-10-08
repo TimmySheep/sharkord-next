@@ -1,4 +1,25 @@
 <resources>
+    <string name="profile_settings_title">Perfil</string>
+    <string name="profile_name">Nombre visible</string>
+    <string name="profile_bio">Sobre mí</string>
+    <string name="profile_color">Color del perfil</string>
+    <string name="profile_color_hint">Introduce un color hexadecimal, por ejemplo #5865F2.</string>
+    <string name="profile_color_invalid">Usa un color hexadecimal de 3 o 6 dígitos, como #abc o #123456.</string>
+    <string name="profile_save">Guardar perfil</string>
+    <string name="profile_saved">Perfil actualizado.</string>
+    <string name="profile_save_failed">No se pudo actualizar el perfil.</string>
+    <string name="profile_avatar">Avatar</string>
+    <string name="profile_banner">Banner del perfil</string>
+    <string name="profile_choose_image">Elegir imagen</string>
+    <string name="profile_remove_image">Quitar imagen</string>
+    <string name="profile_upload_failed">No se pudo subir o guardar la imagen.</string>
+    <string name="profile_image_removed">Imagen eliminada.</string>
+    <string name="profile_image_updated">Imagen actualizada.</string>
+    <string name="profile_no_image">Sin imagen</string>
+    <plurals name="voice_participant_count">
+        <item quantity="one">%1$d persona en voz</item>
+        <item quantity="other">%1$d personas en voz</item>
+    </plurals>
     <string name="app_name">cove</string>
     <string name="connect_title">Conéctate a tu servidor</string>
     <string name="server_address">Dirección del servidor</string>
@@ -9,7 +30,14 @@
     <string name="connect">Conectar</string>
     <string name="connecting">Conectando…</string>
     <string name="channels">Canales</string>
-    <string name="direct_messages">Mensajes</string>
+    <string name="direct_messages">Mensajes directos</string>
+    <string name="all_direct_messages">Todos los mensajes directos</string>
+    <string name="view_all_direct_messages">Ver todos los mensajes directos</string>
+    <string name="uncategorized_channels">Otros canales</string>
+    <string name="direct_messages_disabled">Los mensajes directos están desactivados en este servidor.</string>
+    <string name="voice_connected_to">Conectado · %1$s</string>
+    <string name="voice_connecting_to">Conectando · %1$s</string>
+    <string name="voice_disconnected">La conexión de voz terminó</string>
     <string name="settings">Ajustes</string>
     <string name="search_channels">Buscar canales</string>
     <string name="no_channels">No hay canales disponibles.</string>

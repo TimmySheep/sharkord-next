@@ -199,6 +199,25 @@ class CoveRepository {
     suspend fun uploadAttachment(data: ByteArray, fileName: String, mimeType: String): TemporaryFile =
         currentApi().upload(data, fileName, mimeType)
 
+    suspend fun updateOwnProfile(name: String, profileColor: String, bio: String): Boolean = runCatching {
+        currentApi().mutate("users.update", buildJsonObject {
+            put("name", name)
+            put("profileColor", profileColor)
+            put("bio", bio)
+        })
+        updateState { current ->
+            current.copy(users = current.users.map { user ->
+                if (user.id == current.ownUserId) user.copy(name = name.trim(), profileColor = profileColor, bio = bio) else user
+            }.sortedBy { it.name.lowercase() })
+        }
+    }.onFailure(::reportError).isSuccess
+
+    suspend fun changeOwnProfileImage(isAvatar: Boolean, fileId: String?): Boolean = runCatching {
+        currentApi().mutate(if (isAvatar) "users.changeAvatar" else "users.changeBanner", buildJsonObject {
+            fileId?.let { put("fileId", it) }
+        })
+    }.onFailure(::reportError).isSuccess
+
     suspend fun deleteTemporaryFile(fileId: String) {
         runCatching {
             currentApi().mutate("files.deleteTemporary", buildJsonObject { put("fileId", fileId) })
@@ -280,14 +299,12 @@ class CoveRepository {
         }
     }
 
-    suspend fun openDirectMessage(userId: Int) {
-        runCatching {
+    suspend fun openDirectMessage(userId: Int): Boolean = runCatching {
             val result = currentApi().mutate("dms.open", buildJsonObject { put("userId", userId) })
                 .decode<OpenDirectMessageResponse>()
             loadDirectMessages()
             selectChannel(result.channelId)
-        }.onFailure { reportError(it) }
-    }
+        }.onFailure { reportError(it) }.isSuccess
 
     suspend fun refreshDirectMessages() {
         runCatching { loadDirectMessages() }.onFailure { reportError(it) }
@@ -306,6 +323,8 @@ class CoveRepository {
         updateState {
             it.copy(
                 voiceChannelId = channelId,
+                voiceAttemptChannelId = channelId,
+                voiceConnectionStatus = VoiceConnectionStatus.CONNECTING,
                 microphoneEnabled = false,
                 speakerEnabled = true,
                 sharingScreen = false,
@@ -324,6 +343,8 @@ class CoveRepository {
             updateState {
                 it.copy(
                     voiceChannelId = null,
+                    voiceAttemptChannelId = null,
+                    voiceConnectionStatus = VoiceConnectionStatus.DISCONNECTED,
                     microphoneEnabled = false,
                     speakerEnabled = true,
                     sharingScreen = false,
@@ -331,6 +352,15 @@ class CoveRepository {
                     consumedRemoteStreams = emptySet()
                 )
             }
+        }
+    }
+
+    fun setVoiceConnectionStatus(status: VoiceConnectionStatus, channelId: Int? = null) {
+        updateState { current ->
+            current.copy(
+                voiceConnectionStatus = status,
+                voiceAttemptChannelId = channelId ?: current.voiceAttemptChannelId
+            )
         }
     }
 
@@ -442,7 +472,7 @@ class CoveRepository {
             val baseUrl = credentials.host.toHttpUrlOrNull() ?: throw IOException("Enter a valid server address")
             val client = SharkordApi()
             candidate = client
-            client.serverInfo(baseUrl)
+            val serverInfo = client.serverInfo(baseUrl).decode<ServerInfo>()
             val login = client.login(baseUrl, credentials.identity, credentials.password)
             client.connect(baseUrl, login.token)
             val handshake = client.query("others.handshake").decode<Handshake>()
@@ -459,6 +489,7 @@ class CoveRepository {
                 connected = true,
                 serverAddress = credentials.host,
                 serverName = joined.serverName,
+                serverLogo = serverInfo.logo,
                 ownUserId = joined.ownUserId,
                 categories = joined.categories.sortedBy(Category::position),
                 channels = joined.channels,
@@ -473,11 +504,13 @@ class CoveRepository {
             )
             startSubscriptions(client)
             listenForDisconnect(client)
-            try {
-                loadDirectMessages()
-            } catch (error: Throwable) {
-                if (error is CancellationException) throw error
-                reportError(error)
+            if (joined.publicSettings["directMessagesEnabled"]?.jsonPrimitive?.booleanOrNull == true) {
+                try {
+                    loadDirectMessages()
+                } catch (error: Throwable) {
+                    if (error is CancellationException) throw error
+                    reportError(error)
+                }
             }
             reconnectAttempt = 0
         } catch (error: Throwable) {
@@ -486,7 +519,7 @@ class CoveRepository {
             if (api === candidate) api = null
             AppDiagnosticsLog.error("connection", "server connection failed", error)
             mutableState.value = mutableState.value.copy(
-                connecting = false,
+                connecting = !showLoading && mutableState.value.connecting,
                 connected = false,
                 error = error.message ?: "Unable to connect"
             )
@@ -560,7 +593,13 @@ class CoveRepository {
         disconnectJob = scope.launch {
             client.disconnections.collect { error ->
                 if (api !== client || credentials == null) return@collect
-                updateState { it.copy(connected = false, error = error.message ?: "Connection lost") }
+                updateState {
+                    it.copy(
+                        connected = false,
+                        connecting = true,
+                        error = error.message ?: "Connection lost"
+                    )
+                }
                 scheduleReconnect()
             }
         }
@@ -577,7 +616,9 @@ class CoveRepository {
                 connectInternal(saved, showLoading = false)
                 if (mutableState.value.connected) return@launch
             }
-            updateState { it.copy(error = "Connection lost. Reconnect manually.") }
+            updateState {
+                it.copy(connecting = false, error = "Connection lost. Reconnect manually.")
+            }
         }
     }
 
@@ -638,8 +679,19 @@ class CoveRepository {
     suspend fun loadOlderThread(parentMessageId: Int) = loadThreadMessages(parentMessageId)
 
     private suspend fun loadDirectMessages() {
-        val values = currentApi().query("dms.get").decode<List<DirectMessageConversation>>()
-        updateState { it.copy(conversations = values.sortedByDescending(DirectMessageConversation::lastMessageAt)) }
+        try {
+            val values = currentApi().query("dms.get").decode<List<DirectMessageConversation>>()
+            updateState {
+                it.copy(
+                    conversations = values.sortedByDescending(DirectMessageConversation::lastMessageAt),
+                    directMessagesLoaded = true
+                )
+            }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            updateState { it.copy(directMessagesLoaded = true) }
+            throw error
+        }
     }
 
     private suspend fun markAsRead(channelId: Int) {
@@ -650,6 +702,7 @@ class CoveRepository {
 
     private fun applyMessage(value: JsonElement) {
         val message = decodeOrNull<Message>(value) ?: return
+        val isDirectMessage = mutableState.value.channels.any { it.id == message.channelId && it.isDm }
         updateState { current ->
             if (message.parentMessageId != null) {
                 val replies = current.threadMessagesByParent[message.parentMessageId].orEmpty()
@@ -663,6 +716,9 @@ class CoveRepository {
             current.copy(messagesByChannel = current.messagesByChannel + (
                 message.channelId to replaced.sortedWith(compareBy<Message> { it.createdAt }.thenBy { it.id })
             ))
+        }
+        if (isDirectMessage) {
+            scope.launch { runCatching { loadDirectMessages() }.onFailure(::reportError) }
         }
     }
 

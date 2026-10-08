@@ -1,6 +1,9 @@
 package com.timmysheep.cove.ui
 
+import android.graphics.BitmapFactory
 import android.text.Html
+import android.util.LruCache
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -14,21 +17,34 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.timmysheep.cove.CoveViewModel
+import com.timmysheep.cove.data.MessageFile
 import kotlin.math.absoluteValue
+import kotlin.math.max
+
+private val avatarBitmapCache = object : LruCache<String, android.graphics.Bitmap>(4 * 1024 * 1024) {
+    override fun sizeOf(key: String, value: android.graphics.Bitmap): Int = max(value.allocationByteCount, 1)
+}
 
 @Composable
 fun UserAvatar(
     name: String,
     modifier: Modifier = Modifier,
     size: androidx.compose.ui.unit.Dp = 42.dp,
-    online: Boolean = false
+    online: Boolean = false,
+    avatar: MessageFile? = null,
+    model: CoveViewModel? = null
 ) {
     val colors = listOf(
         MaterialTheme.colorScheme.primaryContainer,
@@ -36,15 +52,41 @@ fun UserAvatar(
         MaterialTheme.colorScheme.tertiaryContainer
     )
     val background = colors[name.hashCode().absoluteValue % colors.size]
+    val avatarUrl = avatar?.let { file -> model?.publicFileUrl(file) }
+    val image by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, avatarUrl) {
+        value = null
+        value = avatarUrl?.let { url ->
+            runCatching {
+                val cachedBitmap = avatarBitmapCache.get(url)
+                val bitmap = cachedBitmap ?: run {
+                    val bytes = model?.downloadPublicFile(url) ?: return@runCatching null
+                    val options = BitmapFactory.Options().apply { inSampleSize = 4 }
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.also {
+                        avatarBitmapCache.put(url, it)
+                    }
+                }
+                bitmap?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         Surface(color = background, shape = CircleShape, modifier = Modifier.size(size)) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = name.trim().firstOrNull()?.uppercase() ?: "?",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+            if (image != null) {
+                Image(
+                    bitmap = image!!,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(size)
                 )
+            } else {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = name.trim().firstOrNull()?.uppercase() ?: "?",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         }
         if (online) {

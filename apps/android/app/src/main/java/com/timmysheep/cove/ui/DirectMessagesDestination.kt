@@ -2,13 +2,13 @@ package com.timmysheep.cove.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +22,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -41,6 +42,7 @@ import com.timmysheep.cove.data.Channel
 import com.timmysheep.cove.data.DirectMessageConversation
 import com.timmysheep.cove.data.SessionState
 import com.timmysheep.cove.data.User
+import com.timmysheep.cove.data.directMessagesEnabled
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,32 +50,37 @@ fun DirectMessagesDestination(
     state: SessionState,
     model: CoveViewModel,
     selectedChannel: Channel?,
+    splitLayout: Boolean,
     showMemberPicker: Boolean,
     onMemberPickerDismiss: () -> Unit,
-    onOpenConversation: () -> Unit
+    onOpenConversation: () -> Unit,
+    onCreateConversation: () -> Unit = {}
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val conversations = remember(state.conversations, state.channels, state.users) {
         state.conversations.mapNotNull { conversation ->
-            val channel = state.channels.firstOrNull { it.id == conversation.channelId } ?: return@mapNotNull null
+            val channel = state.channels.firstOrNull { it.id == conversation.channelId && it.isDm }
+                ?: return@mapNotNull null
             val user = state.users.firstOrNull { it.id == conversation.userId } ?: return@mapNotNull null
             conversation to (channel to user)
         }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        if (maxWidth >= 840.dp) {
+    Box(Modifier.fillMaxSize()) {
+        if (splitLayout) {
             Row(Modifier.fillMaxSize()) {
                 ConversationList(
+                    model = model,
                     conversations = conversations,
                     unreadByChannel = state.unreadByChannel,
                     query = query,
                     onQueryChange = { query = it },
                     onSelect = { channelId ->
                         model.selectChannel(channelId)
-                        onOpenConversation()
+                        if (!splitLayout) onOpenConversation()
                     },
-                    modifier = Modifier.width(340.dp).fillMaxHeight()
+                    modifier = Modifier.width(340.dp).fillMaxHeight(),
+                    onCreateConversation = onCreateConversation
                 )
                 VerticalDivider()
                 if (selectedChannel != null) {
@@ -86,19 +93,26 @@ fun DirectMessagesDestination(
                     )
                 }
             }
+        } else if (!state.directMessagesEnabled) {
+            EmptyContent(
+                title = stringResource(R.string.direct_messages_disabled),
+                modifier = Modifier.fillMaxSize()
+            )
         } else if (selectedChannel != null) {
             ChannelChatScreen(state = state, model = model, channel = selectedChannel)
         } else {
             ConversationList(
+                model = model,
                 conversations = conversations,
                 unreadByChannel = state.unreadByChannel,
                 query = query,
                 onQueryChange = { query = it },
                 onSelect = { channelId ->
                     model.selectChannel(channelId)
-                    onOpenConversation()
+                    if (!splitLayout) onOpenConversation()
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                onCreateConversation = onCreateConversation
             )
         }
     }
@@ -112,10 +126,12 @@ fun DirectMessagesDestination(
                 state = state,
                 query = query,
                 onQueryChange = { query = it },
+                model = model,
                 onSelect = { userId ->
                     onMemberPickerDismiss()
-                    model.openDirectMessage(userId)
-                    onOpenConversation()
+                    model.openDirectMessage(userId) { opened ->
+                        if (opened && !splitLayout) onOpenConversation()
+                    }
                 }
             )
         }
@@ -124,12 +140,14 @@ fun DirectMessagesDestination(
 
 @Composable
 private fun ConversationList(
+    model: CoveViewModel,
     conversations: List<Pair<DirectMessageConversation, Pair<Channel, User>>>,
     unreadByChannel: Map<Int, Int>,
     query: String,
     onQueryChange: (String) -> Unit,
     onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCreateConversation: () -> Unit
 ) {
     val visibleConversations = remember(conversations, query) {
         conversations.filter { (_, pair) -> pair.second.name.contains(query.trim(), ignoreCase = true) }
@@ -146,7 +164,12 @@ private fun ConversationList(
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp)
         )
         if (visibleConversations.isEmpty()) {
-            EmptyContent(title = stringResource(R.string.no_conversations), modifier = Modifier.weight(1f))
+            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                EmptyContent(title = stringResource(R.string.no_conversations), modifier = Modifier.weight(1f))
+                TextButton(onClick = onCreateConversation) {
+                    Text(stringResource(R.string.new_message))
+                }
+            }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -158,6 +181,7 @@ private fun ConversationList(
                         user = user,
                         unreadCount = unreadByChannel[conversation.channelId] ?: conversation.unreadCount,
                         preview = null,
+                        model = model,
                         onClick = { onSelect(channel.id) }
                     )
                 }
@@ -171,19 +195,20 @@ private fun ConversationRow(
     user: User,
     unreadCount: Int,
     preview: String?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    model: CoveViewModel? = null
 ) {
     Surface(
         onClick = onClick,
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth()
+        shape = MaterialTheme.shapes.small,
+        color = androidx.compose.ui.graphics.Color.Transparent,
+        modifier = Modifier.fillMaxWidth().height(60.dp)
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            UserAvatar(name = user.name, size = 48.dp, online = user.status == "online")
+            UserAvatar(name = user.name, size = 44.dp, online = user.status == "online", avatar = user.avatar, model = model)
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(user.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -213,6 +238,7 @@ private fun MemberPicker(
     state: SessionState,
     query: String,
     onQueryChange: (String) -> Unit,
+    model: CoveViewModel,
     onSelect: (Int) -> Unit
 ) {
     val members = remember(state.users, state.ownUserId, query) {
@@ -245,7 +271,8 @@ private fun MemberPicker(
                         user = user,
                         unreadCount = 0,
                         preview = if (user.status == "online") stringResource(R.string.online) else stringResource(R.string.offline),
-                        onClick = { onSelect(user.id) }
+                        onClick = { onSelect(user.id) },
+                        model = model
                     )
                 }
             }

@@ -73,12 +73,32 @@ internal class AndroidCredentialStore(context: Context) {
         val encrypted = byteArrayOf(cipher.iv.size.toByte()) + cipher.iv + cipher.doFinal(SavedLoginCodec.encode(credentials))
         preferences.edit()
             .putString(CREDENTIALS_KEY, Base64.encodeToString(encrypted, Base64.URL_SAFE or Base64.NO_WRAP))
+            .putBoolean(AUTO_CONNECT_ENABLED_KEY, true)
             .commit()
     } catch (_: Exception) {
         false
     }
 
-    fun clear(): Boolean = preferences.edit().remove(CREDENTIALS_KEY).commit()
+    fun isAutoConnectEnabled(): Boolean = preferences.getBoolean(AUTO_CONNECT_ENABLED_KEY, true)
+
+    fun setAutoConnectEnabled(enabled: Boolean): Boolean =
+        preferences.edit().putBoolean(AUTO_CONNECT_ENABLED_KEY, enabled).commit()
+
+    fun hasEstablishedSession(): Boolean = preferences.getBoolean(HAD_ACTIVE_SESSION_KEY, false)
+
+    fun setHasEstablishedSession(hasSession: Boolean): Boolean =
+        preferences.edit().putBoolean(HAD_ACTIVE_SESSION_KEY, hasSession).commit()
+
+    fun markDisconnected(): Boolean = preferences.edit()
+        .putBoolean(AUTO_CONNECT_ENABLED_KEY, false)
+        .putBoolean(HAD_ACTIVE_SESSION_KEY, false)
+        .commit()
+
+    fun clear(): Boolean = preferences.edit()
+        .remove(CREDENTIALS_KEY)
+        .remove(AUTO_CONNECT_ENABLED_KEY)
+        .remove(HAD_ACTIVE_SESSION_KEY)
+        .commit()
 
     private fun getOrCreateKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEY_STORE).apply { load(null) }
@@ -102,6 +122,8 @@ internal class AndroidCredentialStore(context: Context) {
     private companion object {
         const val PREFERENCES_NAME = "secure_login"
         const val CREDENTIALS_KEY = "credentials"
+        const val AUTO_CONNECT_ENABLED_KEY = "auto_connect_enabled"
+        const val HAD_ACTIVE_SESSION_KEY = "had_active_session"
         const val KEY_ALIAS = "cove.saved-login.aes"
         const val ANDROID_KEY_STORE = "AndroidKeyStore"
         const val TRANSFORMATION = "AES/GCM/NoPadding"

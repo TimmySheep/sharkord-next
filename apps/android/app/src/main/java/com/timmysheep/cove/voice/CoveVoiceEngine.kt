@@ -16,6 +16,7 @@ import android.os.ResultReceiver
 import com.timmysheep.cove.R
 import com.timmysheep.cove.data.AppDiagnosticsLog
 import com.timmysheep.cove.data.CoveRepository
+import com.timmysheep.cove.data.VoiceConnectionStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CompletableDeferred
@@ -124,11 +125,12 @@ class CoveVoiceEngine(
         }
     }
 
-    suspend fun join(channelId: Int) {
+    suspend fun join(channelId: Int, microphoneEnabledOnJoin: Boolean = false) {
         if (repository.state.value.voiceChannelId == channelId && device != null) return
         if (repository.state.value.voiceChannelId != null) leave()
 
         try {
+            repository.setVoiceConnectionStatus(VoiceConnectionStatus.CONNECTING, channelId)
             val routerCapabilities = repository.joinVoice(channelId)
             initializeMediasoup(routerCapabilities)
             val connectionOptions = PeerConnection.Options().apply {
@@ -168,6 +170,8 @@ class CoveVoiceEngine(
             repository.updateVoiceMediaState(microphoneEnabled = false, speakerEnabled = true)
             startProducerObservers(channelId)
             reconcileProducers(channelId)
+            if (microphoneEnabledOnJoin) setMicrophoneEnabled(true)
+            repository.setVoiceConnectionStatus(VoiceConnectionStatus.CONNECTED)
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
             closeMediaObjects()

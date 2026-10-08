@@ -91,6 +91,7 @@ fun SettingsDestination(state: SessionState, model: CoveViewModel) {
             modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
+            ProfileSettingsSection(state, model)
             Text(
                 text = stringResource(R.string.appearance),
                 style = MaterialTheme.typography.titleLarge,

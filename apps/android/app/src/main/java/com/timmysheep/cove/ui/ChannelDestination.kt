@@ -1,6 +1,10 @@
 package com.timmysheep.cove.ui
 
-import androidx.compose.foundation.clickable
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,38 +13,37 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tag
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.BoxWithConstraints
 import com.timmysheep.cove.CoveViewModel
 import com.timmysheep.cove.R
@@ -53,10 +56,18 @@ import com.timmysheep.cove.data.SessionState
 fun ChannelDestination(
     state: SessionState,
     model: CoveViewModel,
-    selectedChannel: Channel?
+    selectedChannel: Channel?,
+    searchMode: Boolean = false,
+    onSearchResultSelected: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }
     var voicePreviewChannelId by rememberSaveable { mutableStateOf<Int?>(null) }
+    val microphoneEnabledOnJoin by model.microphoneEnabledOnJoin.collectAsStateWithLifecycle()
+    val microphonePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) model.setMicrophoneEnabledOnJoin(true)
+        else Toast.makeText(context, R.string.microphone_permission_denied, Toast.LENGTH_LONG).show()
+    }
     val matches = remember(state.channels, query) {
         state.channels.filter { !it.isDm && it.name.contains(query.trim(), ignoreCase = true) }
     }
@@ -65,6 +76,7 @@ fun ChannelDestination(
         if (channel?.type == ChannelType.VOICE) {
             voicePreviewChannelId = channelId
         } else {
+            if (searchMode) onSearchResultSelected()
             model.selectChannel(channelId)
         }
     }
@@ -74,8 +86,10 @@ fun ChannelDestination(
             Row(Modifier.fillMaxSize()) {
                 ChannelListPanel(
                     state = state,
+                    model = model,
                     channels = matches,
                     query = query,
+                    showSearchField = searchMode,
                     onQueryChange = { query = it },
                     onChannelSelected = onChannelSelected,
                     modifier = Modifier.width(340.dp).fillMaxHeight()
@@ -91,13 +105,15 @@ fun ChannelDestination(
                     )
                 }
             }
-        } else if (selectedChannel != null) {
+        } else if (selectedChannel != null && !searchMode) {
             ChannelChatScreen(state = state, model = model, channel = selectedChannel)
         } else {
             ChannelListPanel(
                 state = state,
+                model = model,
                 channels = matches,
                 query = query,
+                showSearchField = searchMode,
                 onQueryChange = { query = it },
                 onChannelSelected = onChannelSelected,
                 modifier = Modifier.fillMaxSize()
@@ -116,7 +132,18 @@ fun ChannelDestination(
             },
             onOpenChat = {
                 voicePreviewChannelId = null
+                if (searchMode) onSearchResultSelected()
                 model.selectChannel(channel.id)
+            },
+            microphoneEnabledOnJoin = microphoneEnabledOnJoin,
+            onToggleMicrophoneOnJoin = {
+                if (microphoneEnabledOnJoin) {
+                    model.setMicrophoneEnabledOnJoin(false)
+                } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                    model.setMicrophoneEnabledOnJoin(true)
+                } else {
+                    microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                }
             }
         )
     }
@@ -125,8 +152,10 @@ fun ChannelDestination(
 @Composable
 private fun ChannelListPanel(
     state: SessionState,
+    model: CoveViewModel,
     channels: List<Channel>,
     query: String,
+    showSearchField: Boolean,
     onQueryChange: (String) -> Unit,
     onChannelSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -135,15 +164,17 @@ private fun ChannelListPanel(
     val uncategorized = remember(channels) { channels.filter { it.categoryId == null } }
 
     Column(modifier = modifier.padding(horizontal = 16.dp)) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            shape = MaterialTheme.shapes.large,
-            label = { Text(stringResource(R.string.search_channels)) },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp)
-        )
+        if (showSearchField) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                shape = MaterialTheme.shapes.large,
+                label = { Text(stringResource(R.string.search_channels)) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp)
+            )
+        }
 
         if (channels.isEmpty()) {
             EmptyContent(
@@ -155,6 +186,11 @@ private fun ChannelListPanel(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                if (!showSearchField) {
+                    item(key = "server-banner") {
+                        ServerBannerCard(state, model)
+                    }
+                }
                 if (uncategorized.isNotEmpty()) {
                     item(key = "uncategorized-heading") {
                         SectionHeading(
@@ -166,7 +202,7 @@ private fun ChannelListPanel(
                         ChannelListRow(
                             channel = channel,
                             unreadCount = state.unreadByChannel[channel.id] ?: 0,
-                            participants = state.voiceUsersByChannel[channel.id]?.size ?: 0,
+                            participantCount = voiceParticipantCount(state.voiceUsersByChannel[channel.id].orEmpty().keys),
                             onClick = { onChannelSelected(channel.id) }
                         )
                     }
@@ -184,7 +220,7 @@ private fun ChannelListPanel(
                             ChannelListRow(
                                 channel = channel,
                                 unreadCount = state.unreadByChannel[channel.id] ?: 0,
-                                participants = state.voiceUsersByChannel[channel.id]?.size ?: 0,
+                                participantCount = voiceParticipantCount(state.voiceUsersByChannel[channel.id].orEmpty().keys),
                                 onClick = { onChannelSelected(channel.id) }
                             )
                         }
@@ -195,11 +231,13 @@ private fun ChannelListPanel(
     }
 }
 
+internal fun voiceParticipantCount(participantIds: Set<Int>): Int = participantIds.size
+
 @Composable
 private fun ChannelListRow(
     channel: Channel,
     unreadCount: Int,
-    participants: Int,
+    participantCount: Int,
     onClick: () -> Unit
 ) {
     Surface(
@@ -230,12 +268,16 @@ private fun ChannelListRow(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                if (isVoice && participants > 0) {
-                    Text(
-                        text = stringResource(R.string.voice_member_count, participants),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                if (isVoice) {
+                    if (participantCount > 0) {
+                        Text(
+                            text = pluralStringResource(R.plurals.voice_participant_count, participantCount, participantCount),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
             if (unreadCount > 0) {

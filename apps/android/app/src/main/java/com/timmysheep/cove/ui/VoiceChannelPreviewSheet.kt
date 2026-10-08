@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -42,7 +44,9 @@ fun VoiceChannelPreviewSheet(
     state: SessionState,
     onDismiss: () -> Unit,
     onJoin: () -> Unit,
-    onOpenChat: () -> Unit
+    onOpenChat: () -> Unit,
+    microphoneEnabledOnJoin: Boolean,
+    onToggleMicrophoneOnJoin: () -> Unit
 ) {
     val participants = remember(channel.id, state.voiceUsersByChannel, state.users) {
         state.voiceUsersByChannel[channel.id].orEmpty().mapNotNull { (userId, voiceState) ->
@@ -91,15 +95,17 @@ fun VoiceChannelPreviewSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    color = MaterialTheme.colorScheme.errorContainer,
-                    shape = MaterialTheme.shapes.large,
+                    onClick = onToggleMicrophoneOnJoin,
+                    color = if (microphoneEnabledOnJoin) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer,
+                    contentColor = if (microphoneEnabledOnJoin) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.error,
+                    shape = CircleShape,
                     modifier = Modifier.size(48.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Default.MicOff,
-                            contentDescription = stringResource(R.string.muted),
-                            tint = MaterialTheme.colorScheme.error
+                            imageVector = if (microphoneEnabledOnJoin) Icons.Default.Mic else Icons.Default.MicOff,
+                            contentDescription = stringResource(if (microphoneEnabledOnJoin) R.string.microphone else R.string.muted),
+                            tint = androidx.compose.material3.LocalContentColor.current
                         )
                     }
                 }
@@ -109,11 +115,18 @@ fun VoiceChannelPreviewSheet(
                 ) {
                     Text(stringResource(R.string.join_voice))
                 }
-                IconButton(onClick = onOpenChat, modifier = Modifier.size(48.dp)) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Chat,
-                        contentDescription = stringResource(R.string.voice_chat)
-                    )
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    shape = CircleShape,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    IconButton(onClick = onOpenChat) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Chat,
+                            contentDescription = stringResource(R.string.voice_chat)
+                        )
+                    }
                 }
             }
         }

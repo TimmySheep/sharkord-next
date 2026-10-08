@@ -25,30 +25,51 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
     private val voiceEngine = CoveVoiceEngine(application, repository)
     private val credentialStore = AndroidCredentialStore(application)
     private val mutableHasSavedLogin = MutableStateFlow(false)
+    private val mutableHasActiveSession = MutableStateFlow(false)
     private val mutableCredentialStorageFailed = MutableStateFlow(false)
+    private val mutableStartupReady = MutableStateFlow(false)
+    private val mutableUserRequestedDisconnect = MutableStateFlow(false)
+    private val voicePreferences = application.getSharedPreferences("voice_preferences", Application.MODE_PRIVATE)
+    private val mutableMicrophoneEnabledOnJoin = MutableStateFlow(
+        voicePreferences.getBoolean(MICROPHONE_ENABLED_ON_JOIN_KEY, false)
+    )
 
     val state: StateFlow<SessionState> = repository.state
     val remoteVideoTracks: StateFlow<List<RemoteVideoTrack>> = voiceEngine.remoteVideoTracks
     val localCameraTrack = voiceEngine.localCameraTrack
     val hasSavedLogin: StateFlow<Boolean> = mutableHasSavedLogin.asStateFlow()
+    val hasActiveSession: StateFlow<Boolean> = mutableHasActiveSession.asStateFlow()
     val credentialStorageFailed: StateFlow<Boolean> = mutableCredentialStorageFailed.asStateFlow()
+    val startupReady: StateFlow<Boolean> = mutableStartupReady.asStateFlow()
+    val userRequestedDisconnect: StateFlow<Boolean> = mutableUserRequestedDisconnect.asStateFlow()
+    val microphoneEnabledOnJoin: StateFlow<Boolean> = mutableMicrophoneEnabledOnJoin.asStateFlow()
 
     init {
         val savedLogin = credentialStore.load()
+        val autoConnectEnabled = credentialStore.isAutoConnectEnabled()
         mutableHasSavedLogin.value = savedLogin != null
-        savedLogin?.let { credentials ->
+        mutableHasActiveSession.value = credentialStore.hasEstablishedSession()
+        mutableUserRequestedDisconnect.value = savedLogin != null && !autoConnectEnabled
+        if (savedLogin == null || !autoConnectEnabled) {
+            mutableStartupReady.value = true
+        } else {
             viewModelScope.launch {
-                repository.connect(
-                    credentials.host,
-                    credentials.identity,
-                    credentials.password,
-                    credentials.serverPassword
-                )
+                try {
+                    repository.connect(
+                        savedLogin.host,
+                        savedLogin.identity,
+                        savedLogin.password,
+                        savedLogin.serverPassword
+                    )
+                } finally {
+                    mutableStartupReady.value = true
+                }
             }
         }
 
         viewModelScope.launch {
             repository.state.collect { currentState ->
+                if (currentState.connected && !mutableUserRequestedDisconnect.value) markActiveSession()
                 if (!currentState.connected && currentState.voiceChannelId != null) {
                     voiceEngine.leave()
                 }
@@ -91,6 +112,7 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             repository.connect(host, identity, password, serverPassword)
+            if (repository.state.value.connected) markActiveSession()
 
             if (rememberLogin && repository.state.value.connected) {
                 val saved = credentialStore.save(
@@ -111,6 +133,7 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
             val credentials = credentialStore.load()
             if (credentials == null) {
                 mutableHasSavedLogin.value = false
+                mutableUserRequestedDisconnect.value = true
                 return@launch
             }
 
@@ -123,6 +146,9 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
                 mutableHasSavedLogin.value = false
             } else {
                 mutableHasSavedLogin.value = true
+                if (!credentialStore.setAutoConnectEnabled(true)) {
+                    mutableCredentialStorageFailed.value = true
+                }
             }
             repository.connect(
                 credentials.host,
@@ -130,22 +156,36 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
                 credentials.password,
                 credentials.serverPassword
             )
+            if (repository.state.value.connected) markActiveSession()
         }
     }
 
     fun forgetSavedLogin() {
         val cleared = credentialStore.clear()
         mutableHasSavedLogin.value = if (cleared) false else credentialStore.load() != null
+        if (cleared) mutableHasActiveSession.value = false
+        mutableUserRequestedDisconnect.value = true
         mutableCredentialStorageFailed.value = !cleared
     }
 
     fun disconnect() {
+        mutableUserRequestedDisconnect.value = true
+        mutableHasActiveSession.value = false
+        mutableCredentialStorageFailed.value = !credentialStore.markDisconnected()
         viewModelScope.launch {
             try {
                 voiceEngine.leave()
             } finally {
                 repository.disconnect()
             }
+        }
+    }
+
+    private fun markActiveSession() {
+        mutableUserRequestedDisconnect.value = false
+        if (!mutableHasActiveSession.value) {
+            mutableHasActiveSession.value = true
+            credentialStore.setHasEstablishedSession(true)
         }
     }
 
@@ -177,6 +217,12 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun uploadAttachment(data: ByteArray, fileName: String, mimeType: String) =
         repository.uploadAttachment(data, fileName, mimeType)
+
+    suspend fun updateOwnProfile(name: String, profileColor: String, bio: String) =
+        repository.updateOwnProfile(name, profileColor, bio)
+
+    suspend fun changeOwnProfileImage(isAvatar: Boolean, fileId: String?) =
+        repository.changeOwnProfileImage(isAvatar, fileId)
 
     fun deleteTemporaryFile(fileId: String) {
         viewModelScope.launch { repository.deleteTemporaryFile(fileId) }
@@ -224,12 +270,17 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
 
     fun signalTyping(channelId: Int) = repository.signalTyping(channelId)
 
-    fun openDirectMessage(userId: Int) {
-        viewModelScope.launch { repository.openDirectMessage(userId) }
+    fun openDirectMessage(userId: Int, onComplete: (Boolean) -> Unit = {}) {
+        viewModelScope.launch { onComplete(repository.openDirectMessage(userId)) }
     }
 
     fun joinVoice(channelId: Int) {
-        viewModelScope.launch { voiceEngine.join(channelId) }
+        viewModelScope.launch { voiceEngine.join(channelId, mutableMicrophoneEnabledOnJoin.value) }
+    }
+
+    fun setMicrophoneEnabledOnJoin(enabled: Boolean) {
+        mutableMicrophoneEnabledOnJoin.value = enabled
+        voicePreferences.edit().putBoolean(MICROPHONE_ENABLED_ON_JOIN_KEY, enabled).apply()
     }
 
     fun leaveVoice() {
@@ -275,5 +326,9 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
         voiceEngine.release()
         repository.dispose()
         super.onCleared()
+    }
+
+    private companion object {
+        const val MICROPHONE_ENABLED_ON_JOIN_KEY = "microphone_enabled_on_join"
     }
 }

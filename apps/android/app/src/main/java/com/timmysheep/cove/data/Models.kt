@@ -17,6 +17,12 @@ enum class ChannelType {
     VOICE
 }
 
+enum class VoiceConnectionStatus {
+    DISCONNECTED,
+    CONNECTING,
+    CONNECTED
+}
+
 @Serializable
 data class Category(
     val id: Int,
@@ -52,6 +58,9 @@ data class User(
     val id: Int,
     val name: String,
     val profileColor: String = "",
+    val bio: String = "",
+    val avatar: MessageFile? = null,
+    val banner: MessageFile? = null,
     val banned: Boolean = false,
     val status: String? = null,
     val roleIds: List<Int> = emptyList()
@@ -93,6 +102,12 @@ data class TemporaryFile(
     val path: String = "",
     val extension: String = "",
     val userId: Int? = null
+)
+
+@Serializable
+data class ServerInfo(
+    val name: String,
+    val logo: MessageFile? = null
 )
 
 @Serializable
@@ -285,12 +300,14 @@ data class SessionState(
     val error: String? = null,
     val serverAddress: String = "",
     val serverName: String = "",
+    val serverLogo: MessageFile? = null,
     val ownUserId: Int = 0,
     val categories: List<Category> = emptyList(),
     val channels: List<Channel> = emptyList(),
     val users: List<User> = emptyList(),
     val roles: List<Role> = emptyList(),
     val conversations: List<DirectMessageConversation> = emptyList(),
+    val directMessagesLoaded: Boolean = false,
     val messagesByChannel: Map<Int, List<Message>> = emptyMap(),
     val messageCursors: Map<Int, MessagesCursor?> = emptyMap(),
     val threadMessagesByParent: Map<Int, List<Message>> = emptyMap(),
@@ -306,12 +323,17 @@ data class SessionState(
     val publicSettings: JsonObject = JsonObject(emptyMap()),
     val activeChannelId: Int? = null,
     val voiceChannelId: Int? = null,
+    val voiceAttemptChannelId: Int? = null,
+    val voiceConnectionStatus: VoiceConnectionStatus = VoiceConnectionStatus.DISCONNECTED,
     val microphoneEnabled: Boolean = false,
     val speakerEnabled: Boolean = true,
     val sharingScreen: Boolean = false,
     val cameraEnabled: Boolean = false,
     val consumedRemoteStreams: Set<String> = emptySet()
 )
+
+val SessionState.directMessagesEnabled: Boolean
+    get() = publicSettings["directMessagesEnabled"]?.jsonPrimitive?.booleanOrNull == true
 
 private const val OWNER_ROLE_ID = 1
 
