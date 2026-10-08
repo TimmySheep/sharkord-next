@@ -33,14 +33,15 @@ import androidx.compose.ui.unit.dp
 import com.timmysheep.cove.CoveViewModel
 import com.timmysheep.cove.R
 import com.timmysheep.cove.data.SessionState
-import com.timmysheep.cove.data.VoiceConnectionStatus
 
 @Composable
 fun VoiceConnectionBar(
     channelName: String,
-    status: VoiceConnectionStatus,
     canControl: Boolean,
+    microphoneEnabled: Boolean,
+    microphoneControlEnabled: Boolean,
     onOpenVoiceRoom: () -> Unit,
+    onToggleMicrophone: () -> Unit,
     onLeave: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -57,16 +58,28 @@ fun VoiceConnectionBar(
         ) {
             Icon(Icons.Default.GraphicEq, contentDescription = null, modifier = Modifier.size(20.dp))
             Text(
-                text = stringResource(
-                    if (status == VoiceConnectionStatus.CONNECTING) R.string.voice_connecting_to else R.string.voice_connected_to,
-                    channelName
-                ),
+                text = channelName,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
+            IconButton(
+                onClick = onToggleMicrophone,
+                enabled = canControl && microphoneControlEnabled,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = if (microphoneEnabled) Icons.Default.Mic else Icons.Default.MicOff,
+                    contentDescription = stringResource(
+                        if (microphoneEnabled) R.string.voice_control_mute_microphone
+                        else R.string.voice_control_unmute_microphone
+                    ),
+                    tint = if (microphoneEnabled) MaterialTheme.colorScheme.onTertiaryContainer
+                    else MaterialTheme.colorScheme.error
+                )
+            }
             IconButton(onClick = onLeave, enabled = canControl, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.Default.CallEnd, contentDescription = stringResource(R.string.leave_voice))
             }

@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import com.timmysheep.cove.data.directMessagesEnabled
 
 class ProtocolModelsTest {
@@ -65,6 +66,20 @@ class ProtocolModelsTest {
         assertEquals(listOf(8), producers.remoteScreenIds)
         assertTrue(producers.remoteVideoIds.isEmpty())
         assertFalse(producers.remoteAudioIds.contains(8))
+    }
+
+    @Test
+    fun decodesProducerIdsFromBareAndWrappedRpcResults() {
+        assertEquals("producer-id", JsonPrimitive("producer-id").decodeProducerId())
+        assertEquals(
+            "producer-id",
+            SharkordApi.protocolJson.parseToJsonElement("""{"value":"producer-id"}""").decodeProducerId()
+        )
+    }
+
+    @Test(expected = RpcException::class)
+    fun rejectsNullProducerIds() {
+        SharkordApi.protocolJson.parseToJsonElement("null").decodeProducerId()
     }
 
     @Test

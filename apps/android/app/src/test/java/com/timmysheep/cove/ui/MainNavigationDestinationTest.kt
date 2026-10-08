@@ -6,6 +6,8 @@ import com.timmysheep.cove.data.SessionState
 import com.timmysheep.cove.data.SharkordApi
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MainNavigationDestinationTest {
@@ -23,5 +25,12 @@ class MainNavigationDestinationTest {
         )
 
         assertEquals(listOf(11, 12), navigationServerChannels(state).map(Channel::id))
+    }
+
+    @Test
+    fun onlyShowsAllDirectMessagesWhenMoreThanThreeAreAvailable() {
+        assertFalse(shouldShowAllDirectMessages(0))
+        assertFalse(shouldShowAllDirectMessages(3))
+        assertTrue(shouldShowAllDirectMessages(4))
     }
 }

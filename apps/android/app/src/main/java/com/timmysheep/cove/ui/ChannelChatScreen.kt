@@ -141,7 +141,8 @@ fun ChannelChatScreen(
     state: SessionState,
     model: CoveViewModel,
     channel: Channel,
-    voiceRoomOnly: Boolean = false
+    voiceRoomOnly: Boolean = false,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -353,7 +354,7 @@ fun ChannelChatScreen(
             )
     }
 
-    Column(modifier = Modifier.fillMaxSize().imePadding()) {
+    Column(modifier = modifier.fillMaxSize().imePadding()) {
         if (channel.type == ChannelType.VOICE) {
             if (voiceRoomOnly) {
                 voicePanel(Modifier.weight(1f).fillMaxWidth())

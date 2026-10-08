@@ -51,9 +51,14 @@ import com.timmysheep.cove.data.SessionState
 import com.timmysheep.cove.data.User
 import com.timmysheep.cove.data.directMessagesEnabled
 
+private const val RECENT_DIRECT_MESSAGES_LIMIT = 3
+
 // the server already filters this list by channel visibility
 internal fun navigationServerChannels(state: SessionState): List<Channel> =
     state.channels.filterNot(Channel::isDm)
+
+internal fun shouldShowAllDirectMessages(directMessageCount: Int): Boolean =
+    directMessageCount > RECENT_DIRECT_MESSAGES_LIMIT
 
 @Composable
 fun MainNavigationDestination(
@@ -73,9 +78,8 @@ fun MainNavigationDestination(
     val uncategorized = remember(visibleChannels) {
         visibleChannels.filter { it.categoryId == null }.sortedBy(Channel::position)
     }
-    val recentDirectMessages = remember(state.conversations, state.channels, state.users) {
+    val directMessages = remember(state.conversations, state.channels, state.users) {
         state.conversations.sortedByDescending(DirectMessageConversation::lastMessageAt)
-            .take(3)
             .mapNotNull { conversation ->
                 val channel = state.channels.firstOrNull { it.id == conversation.channelId && it.isDm }
                     ?: return@mapNotNull null
@@ -83,6 +87,9 @@ fun MainNavigationDestination(
                 Triple(conversation, channel, user)
             }
         }
+    val recentDirectMessages = remember(directMessages) {
+        directMessages.take(RECENT_DIRECT_MESSAGES_LIMIT)
+    }
     val context = LocalContext.current
     val preferences = remember(context) {
         context.getSharedPreferences("navigation_preferences", android.content.Context.MODE_PRIVATE)
@@ -149,14 +156,16 @@ fun MainNavigationDestination(
                         onClick = { onOpenChannel(channel.id) }
                     )
                 }
-                item(key = "view-all-direct-messages") {
-                    TextButton(
-                        onClick = onOpenDirectMessages,
-                        modifier = Modifier.fillMaxWidth().height(44.dp)
-                    ) {
-                        Text(stringResource(R.string.view_all_direct_messages))
-                        Spacer(Modifier.width(8.dp))
-                        Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp))
+                if (shouldShowAllDirectMessages(directMessages.size)) {
+                    item(key = "view-all-direct-messages") {
+                        TextButton(
+                            onClick = onOpenDirectMessages,
+                            modifier = Modifier.fillMaxWidth().height(44.dp)
+                        ) {
+                            Text(stringResource(R.string.view_all_direct_messages))
+                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(14.dp))
+                        }
                     }
                 }
             }

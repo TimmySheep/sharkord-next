@@ -401,7 +401,7 @@ class CoveRepository {
             put("transportId", transportId)
             put("kind", kind)
             put("rtpParameters", rtpParameters)
-        }).jsonPrimitive.contentOrNull ?: throw RpcException("The server did not return a producer id", "BAD_RESPONSE")
+        }).decodeProducerId()
 
     suspend fun consumeVoice(kind: String, remoteId: Int, rtpCapabilities: JsonObject): ConsumeResult =
         currentApi().mutate("voice.consume", buildJsonObject {
@@ -806,4 +806,13 @@ class CoveRepository {
         val password: String,
         val serverPassword: String
     )
+}
+
+internal fun JsonElement.decodeProducerId(): String {
+    val result = (this as? JsonObject)?.get("value") ?: this
+    return (result as? JsonPrimitive)
+        ?.takeIf { it.isString }
+        ?.contentOrNull
+        ?.takeIf { it.isNotBlank() }
+        ?: throw RpcException("The server did not return a producer id", "BAD_RESPONSE")
 }

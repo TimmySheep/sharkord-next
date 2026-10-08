@@ -36,7 +36,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.mediasoup.droid.Consumer
 import org.mediasoup.droid.Device
 import org.mediasoup.droid.MediasoupClient
@@ -51,6 +53,8 @@ import org.webrtc.CameraEnumerator
 import org.webrtc.CameraVideoCapturer
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
+import org.webrtc.DefaultVideoDecoderFactory
+import org.webrtc.DefaultVideoEncoderFactory
 import org.webrtc.EglBase
 import org.webrtc.MediaConstraints
 import org.webrtc.PeerConnectionFactory
@@ -60,7 +64,7 @@ import org.webrtc.VideoSource
 import org.webrtc.VideoTrack
 import org.webrtc.audio.AudioDeviceModule
 import org.webrtc.audio.JavaAudioDeviceModule
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicBoolean
 
 data class RemoteVideoTrack(
     val key: String,
@@ -84,6 +88,8 @@ class CoveVoiceEngine(
     private val mutableLocalCameraTrack = MutableStateFlow<VideoTrack?>(null)
     private val consumers = mutableMapOf<String, Consumer>()
     private val consumerEvents = mutableListOf<Job>()
+    private val producerTransportConnected = AtomicBoolean(false)
+    private val consumerTransportConnected = AtomicBoolean(false)
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var device: Device? = null
     private var peerConnectionFactory: PeerConnectionFactory? = null
@@ -105,7 +111,6 @@ class CoveVoiceEngine(
     private var surfaceTextureHelper: SurfaceTextureHelper? = null
     private var eglBase: EglBase? = null
     private var microphoneWasEnabledBeforeDeafen = false
-    private val pendingProduceKind = AtomicReference<String?>(null)
 
     val remoteVideoTracks: StateFlow<List<RemoteVideoTrack>> = mutableVideoTracks.asStateFlow()
     val localCameraTrack: StateFlow<VideoTrack?> = mutableLocalCameraTrack.asStateFlow()
@@ -149,7 +154,7 @@ class CoveVoiceEngine(
                 sendParams.dtlsParameters.toString(),
                 null,
                 connectionOptions,
-                null
+                "{}"
             )
 
             val receiveParams = repository.createConsumerTransport()
@@ -161,7 +166,7 @@ class CoveVoiceEngine(
                 receiveParams.dtlsParameters.toString(),
                 null,
                 connectionOptions,
-                null
+                "{}"
             )
 
             audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
@@ -225,12 +230,7 @@ class CoveVoiceEngine(
             track.setEnabled(false)
             if (microphoneProducer == null) {
                 microphoneProducer = producerMutex.withLock {
-                    pendingProduceKind.set("audio")
-                    try {
-                        transport.produce(producerListener, track, null, null, null)
-                    } finally {
-                        pendingProduceKind.set(null)
-                    }
+                    transport.produce(producerListener, track, null, null, null, """{"kind":"audio"}""")
                 }
             }
             track.setEnabled(true)
@@ -238,7 +238,6 @@ class CoveVoiceEngine(
             repository.updateVoiceMediaState(microphoneEnabled = true)
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
-            pendingProduceKind.set(null)
             microphoneTrack?.setEnabled(false)
             repository.setError(error.message ?: appContext.getString(R.string.microphone_enable_failed), error)
         }
@@ -337,18 +336,12 @@ class CoveVoiceEngine(
             cameraTrack = track
             track.setEnabled(true)
             cameraProducer = producerMutex.withLock {
-                pendingProduceKind.set("video")
-                try {
-                    transport.produce(producerListener, track, null, null, null)
-                } finally {
-                    pendingProduceKind.set(null)
-                }
+                transport.produce(producerListener, track, null, null, null, """{"kind":"video"}""")
             }
             repository.updateVoiceState(webcamEnabled = true)
             repository.updateVoiceMediaState(cameraEnabled = true)
             mutableLocalCameraTrack.value = track
         } catch (error: Throwable) {
-            pendingProduceKind.set(null)
             cameraProducer?.close()
             cameraProducer = null
             stopCameraCapture()
@@ -397,20 +390,15 @@ class CoveVoiceEngine(
             capturer.initialize(textureHelper, appContext, source.capturerObserver)
             capturer.startCapture(1280, 720, 15)
             val track = factory.createVideoTrack("screen-$channelId", source)
+            track.setEnabled(true)
             screenTrack = track
             screenProducer = producerMutex.withLock {
-                pendingProduceKind.set("screen")
-                try {
-                    transport.produce(producerListener, track, null, null, null)
-                } finally {
-                    pendingProduceKind.set(null)
-                }
+                transport.produce(producerListener, track, null, null, null, """{"kind":"screen"}""")
             }
             repository.updateVoiceState(sharingScreen = true)
             repository.updateVoiceMediaState(sharingScreen = true)
             AppDiagnosticsLog.info("voice", "screen share started channel=$channelId")
         } catch (error: Throwable) {
-            pendingProduceKind.set(null)
             screenProducer?.close()
             screenProducer = null
             stopScreenCapture()
@@ -449,9 +437,14 @@ class CoveVoiceEngine(
             MediasoupClient.initialize(appContext)
             mediasoupInitialized = true
         }
+        initializePeerConnectionFactory(appContext)
+        val base = eglBase ?: EglBase.create().also { eglBase = it }
         audioDeviceModule = JavaAudioDeviceModule.builder(appContext).createAudioDeviceModule()
         peerConnectionFactory = PeerConnectionFactory.builder()
+            .setOptions(PeerConnectionFactory.Options())
             .setAudioDeviceModule(requireNotNull(audioDeviceModule))
+            .setVideoEncoderFactory(DefaultVideoEncoderFactory(base.eglBaseContext, true, true))
+            .setVideoDecoderFactory(DefaultVideoDecoderFactory(base.eglBaseContext))
             .createPeerConnectionFactory()
         if (routerCapabilities.isEmpty()) throw IllegalStateException("The voice router returned no capabilities")
     }
@@ -519,6 +512,7 @@ class CoveVoiceEngine(
             consumers[key] = consumer
             val videoTrack = consumer.track as? VideoTrack
             if (videoTrack != null) {
+                videoTrack.setEnabled(true)
                 mutableVideoTracks.value = mutableVideoTracks.value.filterNot { it.key == key } +
                     RemoteVideoTrack(key, remoteId, kind, videoTrack, result.qualityLayers)
             }
@@ -538,19 +532,16 @@ class CoveVoiceEngine(
 
     private val sendListener = object : SendTransport.Listener {
         override fun onConnect(transport: Transport, dtlsParameters: String) {
-            runBlocking(Dispatchers.IO) {
-                repository.connectProducerTransport(Json.parseToJsonElement(dtlsParameters).jsonObject)
-            }
+            connectTransportOnce(producerTransportConnected, dtlsParameters, repository::connectProducerTransport)
         }
 
         override fun onConnectionStateChange(transport: Transport, connectionState: String) = Unit
 
         override fun onProduce(transport: Transport, kind: String, rtpParameters: String, appData: String): String {
-            val producerKind = pendingProduceKind.getAndSet(null) ?: kind
             return runBlocking(Dispatchers.IO) {
                 repository.produceVoice(
                     transport.id,
-                    producerKind,
+                    producerKindFromAppData(kind, appData),
                     Json.parseToJsonElement(rtpParameters).jsonObject
                 )
             }
@@ -567,12 +558,26 @@ class CoveVoiceEngine(
 
     private val receiveListener = object : RecvTransport.Listener {
         override fun onConnect(transport: Transport, dtlsParameters: String) {
-            runBlocking(Dispatchers.IO) {
-                repository.connectConsumerTransport(Json.parseToJsonElement(dtlsParameters).jsonObject)
-            }
+            connectTransportOnce(consumerTransportConnected, dtlsParameters, repository::connectConsumerTransport)
         }
 
         override fun onConnectionStateChange(transport: Transport, connectionState: String) = Unit
+    }
+
+    private fun connectTransportOnce(
+        connected: AtomicBoolean,
+        dtlsParameters: String,
+        connect: suspend (JsonObject) -> Unit
+    ) {
+        if (!connected.compareAndSet(false, true)) return
+        try {
+            runBlocking(Dispatchers.IO) {
+                connect(Json.parseToJsonElement(dtlsParameters).jsonObject)
+            }
+        } catch (error: Throwable) {
+            connected.set(false)
+            throw error
+        }
     }
 
     private val producerListener = object : Producer.Listener {
@@ -609,6 +614,8 @@ class CoveVoiceEngine(
     }
 
     private fun closeMediaObjects() {
+        producerTransportConnected.set(false)
+        consumerTransportConnected.set(false)
         microphoneTrack?.setEnabled(false)
         microphoneProducer?.close()
         microphoneProducer = null
@@ -746,5 +753,19 @@ class CoveVoiceEngine(
 
     companion object {
         @Volatile private var mediasoupInitialized = false
+        @Volatile private var peerConnectionFactoryInitialized = false
+
+        @Synchronized
+        private fun initializePeerConnectionFactory(context: Context) {
+            if (peerConnectionFactoryInitialized) return
+            val options = PeerConnectionFactory.InitializationOptions.builder(context)
+                .createInitializationOptions()
+            PeerConnectionFactory.initialize(options)
+            peerConnectionFactoryInitialized = true
+        }
     }
 }
+
+internal fun producerKindFromAppData(kind: String, appData: String): String = runCatching {
+    Json.parseToJsonElement(appData).jsonObject["kind"]?.jsonPrimitive?.contentOrNull
+}.getOrNull()?.takeIf { it.isNotBlank() } ?: kind

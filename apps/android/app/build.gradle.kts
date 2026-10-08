@@ -13,8 +13,8 @@ android {
         applicationId = "com.timmysheep.cove"
         minSdk = 26
         targetSdk = 36
-        versionCode = 26
-        versionName = "1.4"
+        versionCode = 30
+        versionName = "1.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
