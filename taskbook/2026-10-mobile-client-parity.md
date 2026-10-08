@@ -49,9 +49,8 @@ builds are in scope; device-level acceptance is for the user.
   the server remains authoritative when the producer is created.
 - Automated Android tests, lint, and Debug build passed. Device-level confirmation remains
   pending because no Android device is attached.
-- At the user's request, copied the Debug APK to
-  `~/Downloads/cove-android-debug-2026-10-07-channel-voice-ui.apk` and verified its checksum
-  against the project build output. No device was installed or operated.
+- At the user's request, copied the Debug APK to a local Downloads folder and verified its
+  checksum against the project build output. No device was installed or operated.
 - Centered the Android connect form within the visible safe area, retaining scrolling for short
   screens and IME. Tests, lint, and Debug build passed. A new APK was saved separately in
   Downloads as `cove-android-debug-2026-10-07-connect-centered.apk`; the earlier APK was kept.
