@@ -16,3 +16,10 @@
   `58b5f155818da1977db66fe5d99ef3b8927d305f0aa8b7ba7b7b21643c8b46d6`. The APK reports package
   `com.timmysheep.cove`, version `1.8`, code `30`, and passes v2 signature verification.
 - Physical-device screen-share acceptance remains pending.
+
+## GitHub publication
+
+- Pushed source commit `98fd4e7` to `release/android-1.6` and published pre-release tag
+  `native-android-v1.8`: https://github.com/TimmySheep/sharkord-next/releases/tag/native-android-v1.8
+- Uploaded `Cove-1.8-build30-screen-share-debug.apk`. GitHub reports the same SHA-256 as the local
+  artifact: `58b5f155818da1977db66fe5d99ef3b8927d305f0aa8b7ba7b7b21643c8b46d6`.
