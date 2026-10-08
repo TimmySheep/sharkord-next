@@ -1,7 +1,7 @@
-# Covy
+# Cove
 
-**Covy 是面向 [Sharkord](https://github.com/Sharkord/sharkord) 的非官方、开源兼容客户端，不是独立通信平台，也不是独立服务端项目。**
-Covy 连接 Sharkord 服务器：后端、账号、频道与媒体基础设施由 Sharkord 提供，Covy 专注原生客户端体验。Covy 不隶属于 Sharkord，也没有获得其维护者的背书。
+**Cove 是面向 [Sharkord](https://github.com/Sharkord/sharkord) 的非官方、开源兼容客户端，不是独立通信平台，也不是独立服务端项目。**
+Cove 连接 Sharkord 服务器：后端、账号、频道与媒体基础设施由 Sharkord 提供，Cove 专注原生客户端体验。Cove 不隶属于 Sharkord，也没有获得其维护者的背书。
 
 **当前重点：Android、iOS 和 Apple Watch。欢迎一起来构建这些客户端。**
 
@@ -12,7 +12,7 @@ Covy 连接 Sharkord 服务器：后端、账号、频道与媒体基础设施�
 
 ## 为什么先做移动端？
 
-单个维护者无法持续同时推进五个平台的原生客户端。Sharkord 已经提供桌面 Web UI：Windows 和 macOS 用户可以直接在浏览器打开自己的 Sharkord 实例，使用上游网页客户端已有的功能。因此，原生移动体验与腕上语音的缺口更迫切，是 Covy 当前投入的重点。
+单个维护者无法持续同时推进五个平台的原生客户端。Sharkord 已经提供桌面 Web UI：Windows 和 macOS 用户可以直接在浏览器打开自己的 Sharkord 实例，使用上游网页客户端已有的功能。因此，原生移动体验与腕上语音的缺口更迫切，是 Cove 当前投入的重点。
 
 | 平台 | 当前方向 |
 | --- | --- |
@@ -20,27 +20,27 @@ Covy 连接 Sharkord 服务器：后端、账号、频道与媒体基础设施�
 | **iOS（iPhone；现有 Apple 工程也包含 iPad）** | 核心重点：[`apps/apple-mobile`](apps/apple-mobile) 下的 Swift / SwiftUI 原生客户端 |
 | **Apple Watch** | 与 iOS 一起推进的 watchOS 方向：腕上按住说话，需通过真机网络与音频可行性验证 |
 | **Windows / macOS 原生客户端** | 暂缓，不是放弃。保留已有源码与研究，不承诺近期交付 |
-| **桌面网页端** | 使用 Sharkord 已有 Web UI；Covy 不另建桌面网页平台 |
+| **桌面网页端** | 使用 Sharkord 已有 Web UI；Cove 不另建桌面网页平台 |
 
 这些是优先级，不代表三个客户端已经完成或功能对齐。Apple Watch 的目标是进入一个语音频道、按住说话、听到频道、退出。持续语音、后台行为与耗电必须在真机验证，界面或模拟器跑通不能证明语音可用。见 [`docs/APPLE_WATCH.zh-CN.md`](docs/APPLE_WATCH.zh-CN.md)。
 
 ## 与 Sharkord 的关系
 
-- **所需后端：** 已有的 [Sharkord 服务器](https://github.com/Sharkord/sharkord)。Covy 不提供独立服务端或托管服务。
-- 仓库保留上游服务端（`apps/server`）、网页客户端（`apps/client`）、共享包与 Git 历史，用于开发、兼容性测试及保留来源。保留这些代码不意味着 Covy 是新的服务端产品。
-- 保持与 Sharkord 现有协议兼容，不把 Covy 专属后端作为默认使用前提。
+- **所需后端：** 已有的 [Sharkord 服务器](https://github.com/Sharkord/sharkord)。Cove 不提供独立服务端或托管服务。
+- 仓库保留上游服务端（`apps/server`）、网页客户端（`apps/client`）、共享包与 Git 历史，用于开发、兼容性测试及保留来源。保留这些代码不意味着 Cove 是新的服务端产品。
+- 保持与 Sharkord 现有协议兼容，不把 Cove 专属后端作为默认使用前提。
 - 通用服务端修复与 Web / PWA 改进应向上游讨论和贡献；客户端特有工作在这里推进。
-- 仓库 URL 目前仍为 `TimmySheep/sharkord-next`；**Covy** 是客户端产品名。上游原始文档保留在 [`upstream-notes/`](upstream-notes/)。
+- 仓库 URL 目前仍为 `TimmySheep/sharkord-next`；**Cove** 是客户端产品名。上游原始文档保留在 [`upstream-notes/`](upstream-notes/)。
 
 ## 开始使用与开发
 
 1. 按照 [Sharkord 官方文档](https://sharkord.com/docs) 与[上游发行版](https://github.com/Sharkord/sharkord/releases)部署或使用已有实例。
-2. 桌面端直接在浏览器打开该实例的 Web UI，无须等待 Covy 原生桌面客户端。
-3. 开发 Covy 请看 [Android 构建说明](apps/android/README.md)或 [Apple 移动端构建说明](apps/apple-mobile/README.md)。各平台的支持与验收状态需分别确认；此首页不是发布公告。
+2. 桌面端直接在浏览器打开该实例的 Web UI，无须等待 Cove 原生桌面客户端。
+3. 开发 Cove 请看 [Android 构建说明](apps/android/README.md)或 [Apple 移动端构建说明](apps/apple-mobile/README.md)。各平台的支持与验收状态需分别确认；此首页不是发布公告。
 
 请勿把 owner token、会话令牌、私密聊天或其他敏感信息放进 Issue、截图或日志。
 
-## 欢迎一起构建 Covy
+## 欢迎一起构建 Cove
 
 欢迎参与 Android、iOS、Apple Watch 可行性验证、Bug 反馈、界面与无障碍改进、测试、兼容性检查及文档工作。
 
@@ -86,4 +86,4 @@ bun run test
 
 ## 致谢与许可
 
-Covy 建立在 Sharkord 及其贡献者的工作之上。Sharkord 名称与品牌属于上游项目。采用 MIT 许可，见 [LICENSE](LICENSE)；保留上游版权声明。Covy 的贡献同样按 MIT 条款接受。
+Cove 建立在 Sharkord 及其贡献者的工作之上。Sharkord 名称与品牌属于上游项目。采用 MIT 许可，见 [LICENSE](LICENSE)；保留上游版权声明。Cove 的贡献同样按 MIT 条款接受。

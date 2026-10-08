@@ -1,7 +1,7 @@
-# Covy
+# Cove
 
-**Covy is an unofficial, open-source compatible client for [Sharkord](https://github.com/Sharkord/sharkord), not a standalone communication platform or an independent server project.**
-It connects to a Sharkord server: Sharkord provides the backend, accounts, channels and media infrastructure; Covy focuses on the native client experience. Covy is not affiliated with or endorsed by Sharkord's maintainers.
+**Cove is an unofficial, open-source compatible client for [Sharkord](https://github.com/Sharkord/sharkord), not a standalone communication platform or an independent server project.**
+It connects to a Sharkord server: Sharkord provides the backend, accounts, channels and media infrastructure; Cove focuses on the native client experience.
 
 **Current focus: Android, iOS and Apple Watch.** We welcome contributors to build these clients together.
 
@@ -12,7 +12,7 @@ It connects to a Sharkord server: Sharkord provides the backend, accounts, chann
 
 ## Why mobile first?
 
-A single maintainer cannot sustainably develop five native platforms at once. Sharkord already provides a web UI for desktop use: on Windows and macOS, open your Sharkord instance in a browser to access the upstream web client's features. Native mobile interaction and wrist-based voice are the more urgent gaps Covy aims to address.
+A single maintainer cannot sustainably develop five native platforms at once. Sharkord already provides a web UI for desktop use: on Windows and macOS, open your Sharkord instance in a browser to access the upstream web client's features. Native mobile interaction and wrist-based voice are the more urgent gaps Cove aims to address.
 
 | Platform | Current direction |
 | --- | --- |
@@ -20,27 +20,27 @@ A single maintainer cannot sustainably develop five native platforms at once. Sh
 | **iOS (iPhone; iPad in the existing Apple project)** | Core focus: native Swift / SwiftUI client in [`apps/apple-mobile`](apps/apple-mobile) |
 | **Apple Watch** | Part of the iOS / watchOS effort: wrist push-to-talk, subject to real-device networking and audio feasibility validation |
 | **Windows / macOS native clients** | Deferred, not abandoned. Existing source and research are retained; no near-term delivery commitment |
-| **Desktop web** | Use Sharkord's existing web UI; Covy is not building a separate desktop web platform |
+| **Desktop web** | Use Sharkord's existing web UI; Cove is not building a separate desktop web platform |
 
 These are priorities, not a claim that all three clients are complete or have feature parity. Apple Watch's intended experience is to join one voice channel, hold to talk, hear the channel and leave. Persistent voice, background behaviour and battery impact must be tested on real hardware; UI or simulator success is not proof that voice works. See [`docs/APPLE_WATCH.md`](docs/APPLE_WATCH.md).
 
 ## Relationship to Sharkord
 
-- **Required backend:** an existing [Sharkord server](https://github.com/Sharkord/sharkord). Covy does not offer its own independent server or hosted service.
-- This repository retains upstream server (`apps/server`), web client (`apps/client`), shared packages and Git history for development, compatibility testing and attribution. Their presence does not make Covy a new server product.
-- Preserve compatibility with Sharkord's existing protocol. Do not require a Covy-only backend as the default client path.
+- **Required backend:** an existing [Sharkord server](https://github.com/Sharkord/sharkord). Cove does not offer its own independent server or hosted service.
+- This repository retains upstream server (`apps/server`), web client (`apps/client`), shared packages and Git history for development, compatibility testing and attribution. Their presence does not make Cove a new server product.
+- Preserve compatibility with Sharkord's existing protocol. Do not require a Cove-only backend as the default client path.
 - General server fixes and web / PWA improvements should be discussed and contributed upstream; client-specific work belongs here.
-- The repository URL is currently `TimmySheep/sharkord-next`; **Covy** is the client product name. Original upstream documents remain in [`upstream-notes/`](upstream-notes/).
+- The repository URL is currently `TimmySheep/sharkord-next`; **Cove** is the client product name. Original upstream documents remain in [`upstream-notes/`](upstream-notes/).
 
 ## Getting started
 
 1. Set up or use an existing Sharkord instance following the [official documentation](https://sharkord.com/docs) and [upstream releases](https://github.com/Sharkord/sharkord/releases).
-2. On desktop, open that instance's web UI in your browser. You do not need to wait for Covy's native desktop clients.
-3. For Covy development, use the [Android build guide](apps/android/README.md) or the [Apple mobile build guide](apps/apple-mobile/README.md). Client support and acceptance status must be checked per platform; this README is not a release announcement.
+2. On desktop, open that instance's web UI in your browser. You do not need to wait for Cove's native desktop clients.
+3. For Cove development, use the [Android build guide](apps/android/README.md) or the [Apple mobile build guide](apps/apple-mobile/README.md). Client support and acceptance status must be checked per platform; this README is not a release announcement.
 
 Do not include owner tokens, session tokens, private messages or other secrets in issues, screenshots or logs.
 
-## Build Covy with us
+## Build Cove with us
 
 Contributions are welcome: Android, iOS, Apple Watch feasibility work, bug reports, UI / accessibility improvements, tests, compatibility checks and documentation.
 
@@ -89,6 +89,16 @@ deterministically. Either unset the proxy or add `NO_PROXY=localhost,127.0.0.1`.
 
 Research documents describe the revisions they inspected, not a guarantee about current releases. Current product priorities are defined by this README and the roadmap.
 
-## Acknowledgments and license
+## Acknowledgments & Disclaimer
 
-Covy builds on Sharkord and its contributors' work. Sharkord's name and branding belong to the upstream project. MIT: see [LICENSE](LICENSE); preserve upstream copyright notices. Contributions to Covy are accepted under the same MIT terms.
+Cove is an independent, open-source client designed to work with "Sharkord" (https://github.com/Sharkord/sharkord).
+
+Cove is not an official Sharkord application and is not affiliated with, endorsed by, or maintained by the Sharkord team.
+
+Special thanks to the Sharkord developers and contributors for creating and maintaining the open-source communication platform that makes this project possible.
+
+Cove is independently developed and maintained. Please report Cove-specific issues to this repository rather than the upstream Sharkord project.
+
+Any reused upstream code remains subject to its original copyright notices and license terms.
+
+Sharkord's name and branding belong to the upstream project. MIT: see [LICENSE](LICENSE); preserve upstream copyright notices. Contributions to Cove are accepted under the same MIT terms.
