@@ -9,7 +9,7 @@ Fixes # / Refs #
 - Problem / user need:
 - Affected platform(s): Android / iOS / Apple Watch / other
 - Modules or files changed:
-- Why this belongs in Covy rather than upstream Sharkord:
+- Why this belongs in Cove rather than upstream Sharkord:
 
 ## Changes
 

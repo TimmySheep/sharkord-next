@@ -13,11 +13,11 @@ claim not independently checked). Nothing is asserted from memory.
 | Field | Value |
 |---|---|
 | Research date | 2026-10-06 (UTC) |
-| Local repo audited | `~/AWS/sharkord-next` on `tims-mbp` (fork `TimmySheep/sharkord-next`) |
+| Local repo audited | a local clone of `TimmySheep/sharkord-next` |
 | Fork HEAD | `c611bb4` — `git describe` → `v0.0.25-6-gc611bb4`, branch `development` |
 | Upstream remote | `https://github.com/Sharkord/sharkord` |
 | Upstream state | ★1527, forks 138, 66 open issues, last push 2026-10-06, MIT |
-| GitHub queries run on | MacBook Pro via `gh` (account `TimmySheep`) through proxy `127.0.0.1:7890` |
+| GitHub queries run on | `gh` (account `TimmySheep`) |
 | Source audit scope | `apps/client/src`, `apps/client/index.html`, `apps/client/public`, `apps/server/src/http` |
 
 ---
@@ -368,10 +368,10 @@ Served as `application/manifest+json`, `Cache-Control: public, max-age=3600`.
 
 ## 6. Method & reproducibility
 
-Commands used (run on `tims-mbp`, proxy exported):
+Commands used (proxy exported):
 
 ```bash
-export HTTPS_PROXY=http://127.0.0.1:7890 HTTP_PROXY=http://127.0.0.1:7890
+export HTTPS_PROXY=http://<proxy-host>:<port> HTTP_PROXY=http://<proxy-host>:<port>
 export PATH=/opt/homebrew/bin:$PATH
 # ecosystem sweep
 gh search repos "sharkord android|ios|swift|kotlin|flutter|react native|mobile|cli|desktop|pwa"
@@ -393,8 +393,7 @@ grep -rniE "viewport|safe-area|apple-mobile-web-app|touch-action|overscroll" app
 cat apps/server/src/http/manifest.ts
 ```
 
-**Constraints honoured:** no upstream source modified, no `git commit`/`push`, the production Docker
-instance at `/home/timmy/sharkord` was not touched. Working tree was read-only throughout.
+**Constraints honoured:** no upstream source modified, no `git commit`/`push`, and no production instance was touched. Working tree was read-only throughout.
 
 ### Open / unconfirmed items
 

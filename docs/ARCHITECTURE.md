@@ -337,7 +337,7 @@ can return before its side effect lands; tests drain the queues (`queues/drain.t
 
 - With no proxy set, the test passes repeatedly and deterministically (43/43 for the whole
   file, filtered runs, and as part of the full server suite).
-- With `HTTP_PROXY=http://127.0.0.1:7890` and `HTTPS_PROXY=http://127.0.0.1:7890` set, it
+- With `HTTP_PROXY` and `HTTPS_PROXY` pointing at a local proxy, it
   fails deterministically with `Expected promise that rejects / Received promise that
   resolved`.
 - Adding `NO_PROXY=localhost,127.0.0.1` makes it pass again.

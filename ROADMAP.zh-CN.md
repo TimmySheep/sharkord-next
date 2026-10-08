@@ -1,4 +1,4 @@
-# Covy — 路线图
+# Cove — 路线图
 > 本文是 [`ROADMAP.md`](ROADMAP.md) 的中文翻译。英文版为权威版本，如有歧义以英文版为准。
 **语言：** [English](ROADMAP.md) | 中文
 
@@ -6,7 +6,7 @@
 
 ## 当前重点（已确定）
 
-Covy 是 Sharkord 的兼容客户端，不提供独立服务端。当前集中 **Android、iOS 和 Apple Watch**；Apple Watch 属于 iOS / watchOS 同一产品方向，但持续语音必须先通过真机验证。
+Cove 是 Sharkord 的兼容客户端，不提供独立服务端。当前集中 **Android、iOS 和 Apple Watch**；Apple Watch 属于 iOS / watchOS 同一产品方向，但持续语音必须先通过真机验证。
 
 Windows 和 macOS 原生客户端 **暂缓**，保留已有成果，不承诺近期交付。桌面用户优先使用 Sharkord Web UI。移动端不再以 macOS 先完成为前提，共享核心按实际需要复用。
 
@@ -64,7 +64,7 @@ iOS 不再等待 macOS，按需要复用已有 Swift 核心。开工前值得一
 
 ## Track 4 — Apple Watch 原生（当前重点，待验证）
 
-下方服务端接入桥仅为架构研究选项，不代表承诺开发 Covy 专属后端。优先兼容已有 Sharkord 实例；涉及服务端的新要求须先与上游及维护者讨论，再实施。
+下方服务端接入桥仅为架构研究选项，不代表承诺开发 Cove 专属后端。优先兼容已有 Sharkord 实例；涉及服务端的新要求须先与上游及维护者讨论，再实施。
 
 一个只做腕上对讲机的客户端：进入一个语音频道、按住说话、听到频道、退出。不做文字，一次只在一个频道。这是**已声明的意图**，**不是**功能承诺 —— 因为下面那个平台问题还没有答案，而答案决定它到底能不能做出来。
 
@@ -110,7 +110,7 @@ iOS 不再等待 macOS，按需要复用已有 Swift 核心。开工前值得一
 | --- | --- |
 | 记录在隧道（tunnel）和 NAT 后导致语音失败的媒体/ICE 约束（announced address、端口对等、TCP 回退限制） | 🔜（部分见 [`docs/RTC_ARCHITECTURE.md` §6](docs/RTC_ARCHITECTURE.md)） |
 | 诊断客户端侧上报的「Failed to initialize voice connection」：目前服务端流程是能跑完的，所以故障在媒体路径——很可能是 announced address 或 UDP 可达性 | 🧪 |
-| 独立服务端镜像发行不属于 Covy 当前范围；服务端使用 Sharkord 上游发行版 | 不推进 |
+| 独立服务端镜像发行不属于 Cove 当前范围；服务端使用 Sharkord 上游发行版 | 不推进 |
 | 存储指引：签名 URL 默认是**关闭**的，因此除非服务器启用签名，附件 URL 是可公开读取的 | 📋 |
 
 ## Android 原生客户端，开发中

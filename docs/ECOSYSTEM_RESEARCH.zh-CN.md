@@ -8,11 +8,11 @@
 | 字段 | 值 |
 |---|---|
 | 调研日期 | 2026-10-06 (UTC) |
-| 审计的本地仓库 | `~/AWS/sharkord-next`，位于 `tims-mbp`（fork `TimmySheep/sharkord-next`） |
+| 审计的本地仓库 | `TimmySheep/sharkord-next` 的本地克隆 |
 | Fork HEAD | `c611bb4` — `git describe` → `v0.0.25-6-gc611bb4`，分支 `development` |
 | 上游 remote | `https://github.com/Sharkord/sharkord` |
 | 上游状态 | ★1527，forks 138，66 个开放 issue，最后 push 2026-10-06，MIT |
-| 运行 GitHub 查询的位置 | MacBook Pro，经 `gh`（账号 `TimmySheep`），代理 `127.0.0.1:7890` |
+| 运行 GitHub 查询的位置 | 经 `gh`（账号 `TimmySheep`） |
 | 源码审计范围 | `apps/client/src`、`apps/client/index.html`、`apps/client/public`、`apps/server/src/http` |
 
 ---
@@ -297,10 +297,10 @@ icons:            /icon-192.png + /icon-512.png  (or the server logo if square; 
 
 ## 6. 方法与可复现性
 
-所用命令（在 `tims-mbp` 上运行，已导出代理）：
+所用命令（已导出代理）：
 
 ```bash
-export HTTPS_PROXY=http://127.0.0.1:7890 HTTP_PROXY=http://127.0.0.1:7890
+export HTTPS_PROXY=http://<proxy-host>:<port> HTTP_PROXY=http://<proxy-host>:<port>
 export PATH=/opt/homebrew/bin:$PATH
 # ecosystem sweep
 gh search repos "sharkord android|ios|swift|kotlin|flutter|react native|mobile|cli|desktop|pwa"
@@ -322,7 +322,7 @@ grep -rniE "viewport|safe-area|apple-mobile-web-app|touch-action|overscroll" app
 cat apps/server/src/http/manifest.ts
 ```
 
-**已遵守的约束：** 未修改任何上游源码，未执行 `git commit`/`push`，位于 `/home/timmy/sharkord` 的生产 Docker 实例未被触碰。整个过程工作树为只读。
+**已遵守的约束：** 未修改任何上游源码，未执行 `git commit`/`push`，未触碰任何生产实例。整个过程工作树为只读。
 
 ### 开放 / 未确认项
 

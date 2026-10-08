@@ -1,10 +1,10 @@
-name: Covy Feature / Contribution Proposal
+name: Cove Feature / Contribution Proposal
 description: Discuss a user need and proposed contribution scope before implementation.
 title: '[Proposal]: '
 body:
 - type: markdown
   attributes:
-    value: 'Covy is an unofficial compatible client for Sharkord. Search existing Issues first. Current
+    value: 'Cove is an unofficial compatible client for Sharkord. Search existing Issues first. Current
       focus: Android, iOS and Apple Watch; native desktop work is deferred. Redact tokens, private messages
       and personal information.'
 - type: dropdown
@@ -32,7 +32,7 @@ body:
   id: solution
   attributes:
     label: Proposed change and modules
-    description: Name the area or files and explain why this belongs in Covy.
+    description: Name the area or files and explain why this belongs in Cove.
   validations:
     required: true
 - type: textarea

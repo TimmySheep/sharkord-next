@@ -332,7 +332,7 @@ OIDC flow rows，以及各插件表。语音成员资格（voice membership）�
 
 - 未设置代理时，测试反复且确定性地通过（整个文件 43/43，过滤运行，以及作为完整
   server 套件的一部分）。
-- 设置 `HTTP_PROXY=http://127.0.0.1:7890` 与 `HTTPS_PROXY=http://127.0.0.1:7890` 后，
+- 设置 `HTTP_PROXY` 与 `HTTPS_PROXY` 指向本地代理后，
   它确定性地失败，报 `Expected promise that rejects / Received promise that
   resolved`。
 - 加上 `NO_PROXY=localhost,127.0.0.1` 后它再次通过。

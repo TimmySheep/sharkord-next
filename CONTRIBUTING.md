@@ -1,4 +1,4 @@
-# Contributing to Covy
+# Contributing to Cove
 
 **Languages:** English | [中文](CONTRIBUTING.zh-CN.md)
 
@@ -20,10 +20,10 @@ through i18n (never hardcoded).
 
 ## Welcome: identify the problem before changing code
 
-Covy is an unofficial compatible client for Sharkord, not an independent server project. We welcome **Android, iOS and Apple Watch** implementation, testing, UI, accessibility, compatibility research and documentation. Native desktop work is deferred; general server and web / PWA improvements belong upstream first.
+Cove is an unofficial compatible client for Sharkord, not an independent server project. We welcome **Android, iOS and Apple Watch** implementation, testing, UI, accessibility, compatibility research and documentation. Native desktop work is deferred; general server and web / PWA improvements belong upstream first.
 
 1. Search existing Issues. Every PR must reference a new or existing Issue in this repository.
-2. Explain the problem / use case, affected platform, Covy version or commit and Sharkord server version. Bugs need reproduction steps, expected and actual behaviour; features need a reason users need them.
+2. Explain the problem / use case, affected platform, Cove version or commit and Sharkord server version. Bugs need reproduction steps, expected and actual behaviour; features need a reason users need them.
 3. Identify the modules, intended scope and verification plan. Comment on an existing Issue if you want to contribute rather than opening a duplicate.
 4. Agree on direction with the maintainer before implementing new features, architecture or protocol changes, dependencies, or deferred desktop work. Small fixes and documentation corrections still link an Issue but do not need a lengthy design discussion.
 5. Keep each PR focused on one problem. Avoid unrelated refactors or formatting changes. The maintainer may request a smaller scope or decline a merge.

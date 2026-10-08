@@ -1,4 +1,4 @@
-# Covy — Roadmap
+# Cove — Roadmap
 
 This roadmap is deliberately conservative: it lists what we intend to do, **what we have decided not to
 do**, and the evidence behind each decision. Every claim below links to a document in [`docs/`](docs/) that
@@ -8,7 +8,7 @@ was written against the actual source at `c611bb4`.
 
 ## Current focus (decided)
 
-Covy is a compatible client for Sharkord, not an independent server project. Focus on **Android, iOS and Apple Watch**. Apple Watch is part of the iOS / watchOS product effort, but persistent voice is gated on real-device validation.
+Cove is a compatible client for Sharkord, not an independent server project. Focus on **Android, iOS and Apple Watch**. Apple Watch is part of the iOS / watchOS product effort, but persistent voice is gated on real-device validation.
 
 Windows and macOS native clients are **deferred**, with existing work retained and no near-term delivery commitment. Desktop users should use Sharkord's web UI. Mobile work does not depend on shipping macOS first; reuse shared core code where useful.
 
@@ -70,7 +70,7 @@ from the background on iOS, and `playAndRecord` is pre-empted by incoming calls.
 
 ## Track 4 — Apple Watch, native (current focus, feasibility-gated)
 
-Any server-side bridge below is an architectural research option, not a commitment to a Covy-only backend. Prefer compatibility with an existing Sharkord instance; server requirements must be discussed with upstream and the maintainer before implementation.
+Any server-side bridge below is an architectural research option, not a commitment to a Cove-only backend. Prefer compatibility with an existing Sharkord instance; server requirements must be discussed with upstream and the maintainer before implementation.
 
 A wrist-first push-to-talk client: join one voice channel, tap to talk, hear the channel, leave. No text,
 one channel at a time. Declared as intent — **not** as a feature promise, because the platform question
@@ -130,7 +130,7 @@ things that are specific to this project's own direction are carried here.
 | --- | --- |
 | Document the media/ICE constraints that break voice behind tunnels and NAT (announced address, port equality, TCP fallback limits) | 🔜 (partly in [`docs/RTC_ARCHITECTURE.md` §6](docs/RTC_ARCHITECTURE.md)) |
 | Diagnose client-side "Failed to initialize voice connection" reports: the server-side flow completes today, so the failure is in the media path — likely announced address or UDP reachability | 🧪 |
-| Independent server image releases are outside Covy's current scope; use upstream Sharkord releases | Not pursued |
+| Independent server image releases are outside Cove's current scope; use upstream Sharkord releases | Not pursued |
 | Storage guidance: signed URLs are **off** by default, so attachment URLs are publicly readable unless the server enables signing | 📋 |
 
 ## Android client, in progress
