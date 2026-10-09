@@ -33,4 +33,10 @@ class MainNavigationDestinationTest {
         assertFalse(shouldShowAllDirectMessages(3))
         assertTrue(shouldShowAllDirectMessages(4))
     }
+
+    @Test
+    fun hidesDirectMessagesSectionWhenThereAreNoValidConversations() {
+        assertFalse(shouldShowDirectMessagesSection(0))
+        assertTrue(shouldShowDirectMessagesSection(1))
+    }
 }

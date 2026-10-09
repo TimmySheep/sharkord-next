@@ -60,6 +60,9 @@ internal fun navigationServerChannels(state: SessionState): List<Channel> =
 internal fun shouldShowAllDirectMessages(directMessageCount: Int): Boolean =
     directMessageCount > RECENT_DIRECT_MESSAGES_LIMIT
 
+internal fun shouldShowDirectMessagesSection(directMessageCount: Int): Boolean =
+    directMessageCount > 0
+
 @Composable
 fun MainNavigationDestination(
     state: SessionState,
@@ -125,7 +128,7 @@ fun MainNavigationDestination(
             }
         }
 
-        if (state.directMessagesEnabled) {
+        if (state.directMessagesEnabled && shouldShowDirectMessagesSection(directMessages.size)) {
             item(key = "heading-direct-messages") {
                 NavigationSectionHeading(
                     title = stringResource(R.string.direct_messages),
