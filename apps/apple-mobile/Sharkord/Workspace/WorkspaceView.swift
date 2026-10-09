@@ -99,7 +99,7 @@ struct WorkspaceView: View {
                     path = [.voiceChat(channel.id)]
                 }
             )
-            .presentationDetents([.fraction(0.42), .large])
+            .presentationDetents([.fraction(0.32), .large])
             .presentationDragIndicator(.visible)
         }
         .onAppear(perform: navigateToVoiceCallIfRequested)

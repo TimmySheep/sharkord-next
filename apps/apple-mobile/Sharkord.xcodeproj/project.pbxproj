@@ -736,7 +736,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Sharkord/Sharkord.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-                CURRENT_PROJECT_VERSION = 41;
+                CURRENT_PROJECT_VERSION = 42;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Sharkord/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = cove;
@@ -753,7 +753,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-                MARKETING_VERSION = 1.22;
+                MARKETING_VERSION = 1.23;
 				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -772,7 +772,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Sharkord/Sharkord.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-                CURRENT_PROJECT_VERSION = 41;
+                CURRENT_PROJECT_VERSION = 42;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Sharkord/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = cove;
@@ -789,7 +789,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-                MARKETING_VERSION = 1.22;
+                MARKETING_VERSION = 1.23;
 				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -805,7 +805,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-                CURRENT_PROJECT_VERSION = 41;
+                CURRENT_PROJECT_VERSION = 42;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SharkordLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -814,7 +814,7 @@
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-                MARKETING_VERSION = 1.22;
+                MARKETING_VERSION = 1.23;
 				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios.LiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -831,7 +831,7 @@
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
-                CURRENT_PROJECT_VERSION = 41;
+                CURRENT_PROJECT_VERSION = 42;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SharkordLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -840,7 +840,7 @@
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-                MARKETING_VERSION = 1.22;
+                MARKETING_VERSION = 1.23;
 				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios.LiveActivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -908,7 +908,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = SharkordBroadcastUpload/SharkordBroadcastUpload.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-                CURRENT_PROJECT_VERSION = 41;
+                CURRENT_PROJECT_VERSION = 42;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SharkordBroadcastUpload/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -917,7 +917,7 @@
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-                MARKETING_VERSION = 1.22;
+                MARKETING_VERSION = 1.23;
 				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios.BroadcastUpload;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -934,7 +934,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = SharkordBroadcastUpload/SharkordBroadcastUpload.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-                CURRENT_PROJECT_VERSION = 41;
+                CURRENT_PROJECT_VERSION = 42;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = SharkordBroadcastUpload/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -943,7 +943,7 @@
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-                MARKETING_VERSION = 1.22;
+                MARKETING_VERSION = 1.23;
 				PRODUCT_BUNDLE_IDENTIFIER = com.timmysheep.sharkord.ios.BroadcastUpload;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
