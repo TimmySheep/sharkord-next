@@ -17,3 +17,8 @@
 ## Acceptance boundary
 
 - No signed install or live call was performed on the paired iPhone. Microphone capture, camera capture, ReplayKit broadcast and viewing between devices still need physical-device acceptance. The iOS project has no unit-test target, and simulator builds cannot validate these hardware and system flows.
+
+## GitHub and device sync
+
+- Pushed commit `d1025ade880b5ca915c328b128a9339f47e66c03` to `origin/release/android-1.6` and confirmed the remote branch SHA.
+- The paired iPhone remains on cove `1.24` / build `43`. Installation was blocked because the only valid local Apple Development identity does not match the available test provisioning profiles. No provisioning profiles were changed and no app was replaced.
