@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.timmysheep.cove.data.AndroidCredentialStore
+import com.timmysheep.cove.data.AdminUser
 import com.timmysheep.cove.data.CoveRepository
 import com.timmysheep.cove.data.MessageFile
 import com.timmysheep.cove.data.SavedLoginCredentials
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import org.webrtc.EglBase
 
 class CoveViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = CoveRepository()
@@ -37,6 +39,8 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
     val state: StateFlow<SessionState> = repository.state
     val remoteVideoTracks: StateFlow<List<RemoteVideoTrack>> = voiceEngine.remoteVideoTracks
     val localCameraTrack = voiceEngine.localCameraTrack
+    val eglBaseContext: StateFlow<EglBase.Context?> = voiceEngine.eglBaseContext
+    val activeSpeakerIds = voiceEngine.activeSpeakerIds
     val hasSavedLogin: StateFlow<Boolean> = mutableHasSavedLogin.asStateFlow()
     val hasActiveSession: StateFlow<Boolean> = mutableHasActiveSession.asStateFlow()
     val credentialStorageFailed: StateFlow<Boolean> = mutableCredentialStorageFailed.asStateFlow()
@@ -221,8 +225,41 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun updateOwnProfile(name: String, profileColor: String, bio: String) =
         repository.updateOwnProfile(name, profileColor, bio)
 
+    suspend fun updateOwnPassword(currentPassword: String, newPassword: String, confirmNewPassword: String): Boolean {
+        mutableCredentialStorageFailed.value = false
+        val savedCredentials = credentialStore.load()
+        val updated = repository.updateOwnPassword(currentPassword, newPassword, confirmNewPassword)
+        if (!updated) return false
+
+        if (savedCredentials != null) {
+            val saved = credentialStore.save(savedCredentials.copy(password = newPassword))
+            mutableHasSavedLogin.value = saved
+            if (!saved) {
+                credentialStore.setAutoConnectEnabled(false)
+                credentialStore.clear()
+                mutableHasSavedLogin.value = credentialStore.load() != null
+                mutableCredentialStorageFailed.value = true
+            }
+        }
+        return true
+    }
+
     suspend fun changeOwnProfileImage(isAvatar: Boolean, fileId: String?) =
         repository.changeOwnProfileImage(isAvatar, fileId)
+
+    suspend fun getAdminUsers(): List<AdminUser> = repository.getAdminUsers()
+
+    suspend fun addUserRole(userId: Int, roleId: Int) = repository.addUserRole(userId, roleId)
+
+    suspend fun removeUserRole(userId: Int, roleId: Int) = repository.removeUserRole(userId, roleId)
+
+    suspend fun kickUser(userId: Int, reason: String) = repository.kickUser(userId, reason)
+
+    suspend fun banUser(userId: Int, reason: String) = repository.banUser(userId, reason)
+
+    suspend fun unbanUser(userId: Int) = repository.unbanUser(userId)
+
+    suspend fun deleteUser(userId: Int, wipe: Boolean) = repository.deleteUser(userId, wipe)
 
     fun deleteTemporaryFile(fileId: String) {
         viewModelScope.launch { repository.deleteTemporaryFile(fileId) }
@@ -268,7 +305,7 @@ class CoveViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.toggleReaction(messageId, emoji) }
     }
 
-    fun signalTyping(channelId: Int) = repository.signalTyping(channelId)
+    fun signalTyping(channelId: Int, parentMessageId: Int? = null) = repository.signalTyping(channelId, parentMessageId)
 
     fun openDirectMessage(userId: Int, onComplete: (Boolean) -> Unit = {}) {
         viewModelScope.launch { onComplete(repository.openDirectMessage(userId)) }

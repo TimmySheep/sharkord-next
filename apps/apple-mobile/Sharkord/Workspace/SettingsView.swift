@@ -13,6 +13,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 profileCard
+                PasswordSettingsCard()
                 languageCard
                 notificationsCard
                 if canManageAnyServerFeatures {
@@ -240,6 +241,113 @@ struct SettingsView: View {
             .sharkordCard(cornerRadius: 24)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct PasswordSettingsCard: View {
+    @EnvironmentObject private var session: SharkordSession
+    @State private var currentPassword = ""
+    @State private var newPassword = ""
+    @State private var confirmPassword = ""
+    @State private var isUpdating = false
+    @State private var status: String?
+    @State private var statusIsError = false
+
+    private var canSubmit: Bool {
+        currentPassword.count >= 4 && currentPassword.count <= 128 &&
+            newPassword.count >= 4 && newPassword.count <= 128 &&
+            confirmPassword.count >= 4 && confirmPassword.count <= 128 &&
+            newPassword == confirmPassword && newPassword != currentPassword && !isUpdating
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            CardHeading(icon: "lock", text: L10n.t("settings.passwordTitle"), tint: SharkordTheme.accentSoft)
+
+            if !session.ownUserPasswordSet {
+                Text(L10n.t("settings.passwordManagedByProvider"))
+                    .font(.footnote)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                SecureField(L10n.t("settings.currentPassword"), text: $currentPassword)
+                    .textContentType(.password)
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: currentPassword) { _, value in
+                        if value.count > 128 {
+                            currentPassword = String(value.prefix(128))
+                        }
+                    }
+
+                SecureField(L10n.t("settings.newPassword"), text: $newPassword)
+                    .textContentType(.newPassword)
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: newPassword) { _, value in
+                        if value.count > 128 {
+                            newPassword = String(value.prefix(128))
+                        }
+                    }
+
+                Text(L10n.t("settings.passwordLengthHint"))
+                    .font(.caption)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+
+                SecureField(L10n.t("settings.confirmNewPassword"), text: $confirmPassword)
+                    .textContentType(.newPassword)
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: confirmPassword) { _, value in
+                        if value.count > 128 {
+                            confirmPassword = String(value.prefix(128))
+                        }
+                    }
+
+                if !confirmPassword.isEmpty && confirmPassword != newPassword {
+                    Text(L10n.t("settings.passwordsDoNotMatch"))
+                        .font(.caption)
+                        .foregroundStyle(SharkordTheme.danger)
+                }
+
+                Button(action: updatePassword) {
+                    if isUpdating {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Text(L10n.t("settings.updatePassword"))
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(SharkordTheme.accent)
+                .disabled(!canSubmit)
+            }
+
+            if let status {
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(statusIsError ? SharkordTheme.danger : SharkordTheme.success)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .sharkordCard(cornerRadius: 24)
+    }
+
+    private func updatePassword() {
+        Task {
+            isUpdating = true
+            status = nil
+            do {
+                try await session.updatePassword(current: currentPassword, new: newPassword, confirm: confirmPassword)
+                currentPassword = ""
+                newPassword = ""
+                confirmPassword = ""
+                status = L10n.t("settings.passwordUpdated")
+                statusIsError = false
+            } catch {
+                status = error.localizedDescription
+                statusIsError = true
+            }
+            isUpdating = false
+        }
     }
 }
 

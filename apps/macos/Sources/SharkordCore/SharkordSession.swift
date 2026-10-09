@@ -51,9 +51,12 @@ public final class SharkordSession: ObservableObject {
     @Published public internal(set) var messagesByChannel: [Int: [SharkordMessage]] = [:]
     @Published public internal(set) var hasMoreOlderByChannel: [Int: Bool] = [:]
     @Published public internal(set) var hasNewerByChannel: [Int: Bool] = [:]
+    @Published public internal(set) var isLoadingInitialMessagesByChannel: Set<Int> = []
+    @Published public internal(set) var messageHistoryErrorsByChannel: [Int: String] = [:]
     @Published public internal(set) var isLoadingMore: Set<Int> = []
     @Published public internal(set) var unreadByChannel: [Int: Int] = [:]
     @Published public internal(set) var typingByChannel: [Int: [Int: Date]] = [:]
+    @Published public internal(set) var typingByThread: [Int: [Int: Date]] = [:]
     @Published public internal(set) var replyCounts: [Int: Int] = [:]
     @Published public internal(set) var pinnedByChannel: [Int: [SharkordMessage]] = [:]
     @Published public internal(set) var threadMessages: [Int: [SharkordMessage]] = [:]
@@ -237,13 +240,26 @@ public final class SharkordSession: ObservableObject {
     }
 
     /// Users currently typing in a channel, excluding the viewer.
-    public func typingUsers(in channelId: Int) -> [SharkordUser] {
-        let now = Date()
-        let entries = typingByChannel[channelId] ?? [:]
+    public func typingUsers(in channelId: Int, parentMessageId: Int? = nil, now: Date = Date()) -> [SharkordUser] {
+        let entries: [Int: Date]
+        if let parentMessageId {
+            entries = typingByThread[parentMessageId] ?? [:]
+        } else {
+            entries = typingByChannel[channelId] ?? [:]
+        }
 
         return entries
-            .filter { $0.key != ownUserId && now.timeIntervalSince($0.value) < ProtocolDefaults.typingWindow }
+            .filter { $0.key != ownUserId && now.timeIntervalSince($0.value) >= 0 && now.timeIntervalSince($0.value) < ProtocolDefaults.typingWindow }
             .compactMap { user(for: $0.key) }
+            .sorted { $0.name < $1.name }
+    }
+
+    func recordTyping(_ event: TypingEvent, at date: Date = Date()) {
+        if let parentId = event.parentMessageId {
+            typingByThread[parentId, default: [:]][event.userId] = date
+        } else {
+            typingByChannel[event.channelId, default: [:]][event.userId] = date
+        }
     }
 
     public func replyCount(for message: SharkordMessage) -> Int {
@@ -512,8 +528,11 @@ public final class SharkordSession: ObservableObject {
         messagesByChannel = [:]
         hasMoreOlderByChannel = [:]
         hasNewerByChannel = [:]
+        isLoadingInitialMessagesByChannel = []
+        messageHistoryErrorsByChannel = [:]
         unreadByChannel = [:]
         typingByChannel = [:]
+        typingByThread = [:]
         replyCounts = [:]
         pinnedByChannel = [:]
         threadMessages = [:]
@@ -572,6 +591,10 @@ public final class SharkordSession: ObservableObject {
         reconnectAttempt = 0
 
         await loadDirectMessagesQuietly()
+
+        if let channelId = selectedChannelId {
+            Task { await select(channelId: channelId) }
+        }
     }
 
     private func apply(_ join: JoinResult) {
@@ -633,7 +656,7 @@ public final class SharkordSession: ObservableObject {
 
         subscribe(client, "messages.onTyping") { [weak self] value in
             guard let event = try? value.decode(TypingEvent.self) else { return }
-            self?.typingByChannel[event.channelId, default: [:]][event.userId] = Date()
+            self?.recordTyping(event)
         }
 
         subscribe(client, "messages.onThreadReplyCountUpdate") { [weak self] value in
@@ -995,6 +1018,12 @@ public final class SharkordSession: ObservableObject {
     private func removeChannel(_ channelId: Int) {
         channels.removeAll { $0.id == channelId }
         messagesByChannel[channelId] = nil
+        hasMoreOlderByChannel[channelId] = nil
+        hasNewerByChannel[channelId] = nil
+        cursors[channelId] = nil
+        loadedChannels.remove(channelId)
+        isLoadingInitialMessagesByChannel.remove(channelId)
+        messageHistoryErrorsByChannel[channelId] = nil
         unreadByChannel[channelId] = nil
         pinnedByChannel[channelId] = nil
 
@@ -1119,12 +1148,17 @@ public final class SharkordSession: ObservableObject {
         }
 
         loadedChannels.insert(channelId)
+        isLoadingInitialMessagesByChannel.insert(channelId)
+        messageHistoryErrorsByChannel[channelId] = nil
+        defer { isLoadingInitialMessagesByChannel.remove(channelId) }
 
         do {
             try await load(channelId: channelId, cursor: nil, targetMessageId: nil)
             markAsRead(channelId)
         } catch {
-            lastError = Self.describe(error)
+            let message = Self.describe(error)
+            lastError = message
+            messageHistoryErrorsByChannel[channelId] = message
             loadedChannels.remove(channelId)
         }
     }
@@ -1189,7 +1223,15 @@ public final class SharkordSession: ObservableObject {
         if targetMessageId != nil {
             messagesByChannel[channelId] = ascending
         } else if cursor == nil {
-            messagesByChannel[channelId] = ascending
+            let existing = messagesByChannel[channelId] ?? []
+            let pageIds = Set(ascending.map(\.id))
+            let merged = ascending + existing.filter { !pageIds.contains($0.id) }
+            messagesByChannel[channelId] = merged.sorted {
+                if $0.createdAt == $1.createdAt {
+                    return $0.id < $1.id
+                }
+                return $0.createdAt < $1.createdAt
+            }
         } else if !ascending.isEmpty {
             let existing = messagesByChannel[channelId] ?? []
             let existingIds = Set(existing.map(\.id))
@@ -1210,6 +1252,9 @@ public final class SharkordSession: ObservableObject {
 
     private func handleUnexpectedDisconnect(_ error: Error?) {
         guard !isStopping, phase == .connected || phase == .connecting else { return }
+
+        loadedChannels.removeAll()
+        isLoadingInitialMessagesByChannel.removeAll()
 
         if let error {
             ClientLogStore.shared.recordError("session.disconnected", error: error)

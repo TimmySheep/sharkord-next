@@ -8,7 +8,7 @@ import WebRTC
 
 enum VoiceError: LocalizedError {
     case notInCall
-    case microphoneBlockedByDeafen
+    case microphoneAccessRequired
     case screenShareNotAllowed
     case screenShareUnavailable
     case screenBroadcastAppGroupMissing
@@ -20,8 +20,8 @@ enum VoiceError: LocalizedError {
         switch self {
         case .notInCall:
             return L10n.t("voice.error.notInCall")
-        case .microphoneBlockedByDeafen:
-            return L10n.t("voice.error.micBlockedByDeafen")
+        case .microphoneAccessRequired:
+            return L10n.t("voice.error.microphoneAccessRequired")
         case .screenShareNotAllowed:
             return L10n.t("voice.error.screenShareNotAllowed")
         case .screenShareUnavailable:
@@ -42,11 +42,8 @@ enum VoiceError: LocalizedError {
 /// (join, transports, produce, consume, state updates); this class owns the device, the
 /// transports and the tracks, and mirrors the web client's call rules:
 ///
-/// - a muted microphone keeps its producer alive and only disables the track;
-/// - while the output is off ("deafened", `soundMuted` on the wire) the microphone
-///   **cannot** be turned on at all, which is the protection `canEnableMicrophone`
-///   encodes and the UI is expected to surface before the user taps;
-/// - deafening also silences every remote audio track locally.
+/// the microphone and speaker controls operate independently.
+/// disabling speaker output also silences remote audio locally.
 @MainActor
 final class VoiceEngine: ObservableObject {
     enum CallState: Equatable {
@@ -69,6 +66,7 @@ final class VoiceEngine: ObservableObject {
     @Published private(set) var lastCallChannelId: Int?
     @Published private(set) var consumedRemoteIds: Set<String> = []
     @Published private(set) var remoteVideoStreams: [RemoteVideoStream] = []
+    @Published private(set) var activeSpeakerIds: Set<Int> = []
     @Published var lastErrorMessage: String?
 
     private let session: SharkordSession
@@ -88,26 +86,15 @@ final class VoiceEngine: ObservableObject {
     private var screenBroadcastServer: ScreenBroadcastSocketServer?
     private var screenBroadcastID: UUID?
     private var consumers: [String: Consumer] = [:]
+    private var audioLevelPollingTask: Task<Void, Never>?
 
     /// `SendTransportDelegate.onProduce` reports the media kind, not the stream kind the
     /// server expects ("screen" vs "video"), so the intended kind is queued here right
     /// before the producer is created and popped when the delegate fires.
     private var pendingProduceKinds: [ProducibleKind] = []
-    private var micWasOnBeforeDeafen = false
 
     init(session: SharkordSession) {
         self.session = session
-    }
-
-    // MARK: - call rules
-
-    /// The protection: an output-muted client must not be able to open its microphone.
-    static func canEnableMicrophone(deafened: Bool) -> Bool {
-        !deafened
-    }
-
-    var canEnableMicrophone: Bool {
-        Self.canEnableMicrophone(deafened: deafened)
     }
 
     // MARK: - call lifecycle
@@ -167,10 +154,12 @@ final class VoiceEngine: ObservableObject {
             screenSharing = false
             cameraOn = false
             callState = .connected
+            startAudioLevelPolling()
 
             await reconcileProducers()
         } catch {
             let message = error.localizedDescription
+            stopAudioLevelPolling()
             microphoneProducer?.close()
             microphoneProducer = nil
             cameraProducer?.close()
@@ -199,6 +188,7 @@ final class VoiceEngine: ObservableObject {
 
     func leave() async {
         guard currentChannelId != nil else {
+            stopAudioLevelPolling()
             if screenBroadcastServer != nil || screenShareStarting || screenSharing || screenProducer != nil {
                 await stopScreenShare()
             }
@@ -210,6 +200,7 @@ final class VoiceEngine: ObservableObject {
 
         currentChannelId = nil
         lastCallChannelId = nil
+        stopAudioLevelPolling()
 
         if screenSharing || screenShareStarting || screenBroadcastServer != nil || screenCapturer != nil || screenProducer != nil {
             await stopScreenShare()
@@ -239,7 +230,6 @@ final class VoiceEngine: ObservableObject {
         microphoneOn = false
         cameraOn = false
         localCameraTrack = nil
-        micWasOnBeforeDeafen = false
 
         try? await session.leaveVoice()
         callState = .idle
@@ -247,18 +237,33 @@ final class VoiceEngine: ObservableObject {
 
     // MARK: - microphone and output
 
+    func requestMicrophoneAccess() async throws {
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:
+            return
+        case .denied:
+            throw VoiceError.microphoneAccessRequired
+        case .undetermined:
+            let granted = await withCheckedContinuation { continuation in
+                AVAudioApplication.requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
+            guard granted else {
+                throw VoiceError.microphoneAccessRequired
+            }
+        @unknown default:
+            throw VoiceError.microphoneAccessRequired
+        }
+    }
+
     func setMicrophoneEnabled(_ enabled: Bool) async throws {
         guard currentChannelId != nil else {
             throw VoiceError.notInCall
         }
 
         if enabled {
-            // the protection: a deafened client never opens its microphone, even if the
-            // request comes from somewhere other than the button
-            guard canEnableMicrophone else {
-                throw VoiceError.microphoneBlockedByDeafen
-            }
-
+            try await requestMicrophoneAccess()
             let producer = try ensureMicrophoneProducer()
             producer.track.isEnabled = true
             microphoneOn = true
@@ -276,21 +281,13 @@ final class VoiceEngine: ObservableObject {
         }
 
         if on {
-            micWasOnBeforeDeafen = microphoneOn
-            if microphoneOn {
-                try await setMicrophoneEnabled(false)
-            }
             deafened = true
             setRemoteAudioEnabled(false)
-            try await session.updateVoiceState(micMuted: true, soundMuted: true)
+            try await session.updateVoiceState(soundMuted: true)
         } else {
             deafened = false
             setRemoteAudioEnabled(true)
             try await session.updateVoiceState(soundMuted: false)
-            if micWasOnBeforeDeafen {
-                micWasOnBeforeDeafen = false
-                try await setMicrophoneEnabled(true)
-            }
         }
     }
 
@@ -711,6 +708,82 @@ final class VoiceEngine: ObservableObject {
         for consumer in consumers.values where consumer.kind == .audio {
             consumer.track.isEnabled = enabled
         }
+    }
+
+    private func startAudioLevelPolling() {
+        stopAudioLevelPolling()
+        audioLevelPollingTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                self.refreshActiveSpeakerIds()
+                do {
+                    try await Task.sleep(for: .milliseconds(250))
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func stopAudioLevelPolling() {
+        audioLevelPollingTask?.cancel()
+        audioLevelPollingTask = nil
+        if !activeSpeakerIds.isEmpty {
+            activeSpeakerIds = []
+        }
+    }
+
+    private func refreshActiveSpeakerIds() {
+        guard currentChannelId != nil, callState == .connected else {
+            if !activeSpeakerIds.isEmpty {
+                activeSpeakerIds = []
+            }
+            return
+        }
+
+        var speakers = Set<Int>()
+        if microphoneOn,
+           let microphoneProducer,
+           Self.isSpeaking(microphoneProducer.stats, acceptedTypes: ["media-source", "outbound-rtp"]) {
+            speakers.insert(session.ownUserId)
+        }
+
+        for (key, consumer) in consumers where consumer.kind == .audio {
+            let remoteIdValue = String(key.dropLast("-audio".count))
+            guard let remoteId = Int(remoteIdValue),
+                  key == RTPCodec.consumerKey(remoteId: remoteId, kind: .audio),
+                  Self.isSpeaking(consumer.stats, acceptedTypes: ["inbound-rtp", "track"])
+            else {
+                continue
+            }
+            speakers.insert(remoteId)
+        }
+
+        if activeSpeakerIds != speakers {
+            activeSpeakerIds = speakers
+        }
+    }
+
+    private static func isSpeaking(_ stats: String, acceptedTypes: Set<String>) -> Bool {
+        guard let data = stats.data(using: .utf8),
+              let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else {
+            return false
+        }
+
+        for entry in entries {
+            guard let type = entry["type"] as? String,
+                  acceptedTypes.contains(type),
+                  let level = (entry["audioLevel"] as? NSNumber)?.doubleValue,
+                  level.isFinite
+            else {
+                continue
+            }
+
+            return level <= 1 ? level > 0.02 : level > 5
+        }
+
+        return false
     }
 
     func setQuality(for stream: RemoteVideoStream, spatialLayer: Int?) async {

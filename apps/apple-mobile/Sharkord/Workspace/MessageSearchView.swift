@@ -8,10 +8,16 @@ struct MessageSearchView: View {
 
     let onOpenMessage: (Int, Int) -> Void
 
-    @State private var query = ""
+    @State private var query: String
     @State private var result: SearchResult?
     @State private var isSearching = false
     @State private var errorMessage: String?
+    @FocusState private var isQueryFocused: Bool
+
+    init(initialQuery: String = "", onOpenMessage: @escaping (Int, Int) -> Void) {
+        self.onOpenMessage = onOpenMessage
+        _query = State(initialValue: initialQuery)
+    }
 
     var body: some View {
         ScrollView {
@@ -20,6 +26,8 @@ struct MessageSearchView: View {
                     .textFieldStyle(.roundedBorder)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                    .submitLabel(.search)
+                    .focused($isQueryFocused)
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -86,6 +94,9 @@ struct MessageSearchView: View {
         .background(BrandBackground())
         .navigationTitle(L10n.t("search.title"))
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            isQueryFocused = true
+        }
         .task(id: query) {
             let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
             guard normalized.count >= 2 else {
@@ -98,8 +109,11 @@ struct MessageSearchView: View {
             isSearching = true
             errorMessage = nil
             do {
-                try await Task.sleep(for: .milliseconds(350))
-                result = try await session.search(query: normalized)
+                try await Task.sleep(for: .milliseconds(300))
+                try Task.checkCancellation()
+                let nextResult = try await session.search(query: normalized)
+                try Task.checkCancellation()
+                result = nextResult
             } catch is CancellationError {
                 return
             } catch {

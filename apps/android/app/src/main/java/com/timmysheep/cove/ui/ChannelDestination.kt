@@ -58,7 +58,7 @@ fun ChannelDestination(
     model: CoveViewModel,
     selectedChannel: Channel?,
     searchMode: Boolean = false,
-    onSearchResultSelected: () -> Unit = {}
+    onSearchResultSelected: (Int) -> Unit = {}
 ) {
     val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }
@@ -76,8 +76,7 @@ fun ChannelDestination(
         if (channel?.type == ChannelType.VOICE) {
             voicePreviewChannelId = channelId
         } else {
-            if (searchMode) onSearchResultSelected()
-            model.selectChannel(channelId)
+            if (searchMode) onSearchResultSelected(channelId) else model.selectChannel(channelId)
         }
     }
 
@@ -132,8 +131,7 @@ fun ChannelDestination(
             },
             onOpenChat = {
                 voicePreviewChannelId = null
-                if (searchMode) onSearchResultSelected()
-                model.selectChannel(channel.id)
+                if (searchMode) onSearchResultSelected(channel.id) else model.selectChannel(channel.id)
             },
             microphoneEnabledOnJoin = microphoneEnabledOnJoin,
             onToggleMicrophoneOnJoin = {

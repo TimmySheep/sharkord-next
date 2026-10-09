@@ -6,12 +6,20 @@ struct ChannelListView: View {
     @EnvironmentObject private var session: SharkordSession
     @EnvironmentObject private var voice: VoiceEngine
 
+    let onOpenVoiceChannel: (SharkordChannel) -> Void
+    let onSubmitSearch: (String) -> Void
+
     @State private var query = ""
     @State private var collapsedGroups: Set<String>
 
     private let collapsedGroupsKey = "workspace.collapsedGroups"
 
-    init() {
+    init(
+        onOpenVoiceChannel: @escaping (SharkordChannel) -> Void,
+        onSubmitSearch: @escaping (String) -> Void
+    ) {
+        self.onOpenVoiceChannel = onOpenVoiceChannel
+        self.onSubmitSearch = onSubmitSearch
         _collapsedGroups = State(
             initialValue: Set(UserDefaults.standard.stringArray(forKey: "workspace.collapsedGroups") ?? [])
         )
@@ -55,14 +63,23 @@ struct ChannelListView: View {
 
     private var channelSearchField: some View {
         HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(SharkordTheme.textSecondary)
-                .accessibilityHidden(true)
-            TextField(L10n.t("channel.searchPlaceholder"), text: $query)
+            Button {
+                onSubmitSearch(query.trimmingCharacters(in: .whitespacesAndNewlines))
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(SharkordTheme.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.t("search.openPlaceholder"))
+            TextField(L10n.t("search.openPlaceholder"), text: $query)
                 .font(.subheadline)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .accessibilityLabel(L10n.t("channel.searchPlaceholder"))
+                .submitLabel(.search)
+                .onSubmit {
+                    onSubmitSearch(query.trimmingCharacters(in: .whitespacesAndNewlines))
+                }
+                .accessibilityLabel(L10n.t("search.openPlaceholder"))
         }
         .padding(.horizontal, 12)
         .frame(minHeight: 44)
@@ -175,55 +192,68 @@ struct ChannelListView: View {
         }
     }
 
+    @ViewBuilder
     private func channelRow(_ channel: SharkordChannel) -> some View {
         let joined = session.isInVoice(channel.id) || voice.currentChannelId == channel.id
         let unreadCount = session.unreadByChannel[channel.id] ?? 0
 
-        return NavigationLink(value: WorkspaceDestination.channel(channel.id)) {
-            HStack(spacing: 10) {
-                Image(systemName: channel.type == .voice ? "waveform" : "number")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(joined ? SharkordTheme.accentSoft : SharkordTheme.textSecondary)
-                    .frame(width: 24)
-                    .accessibilityHidden(true)
+        let row = HStack(spacing: 10) {
+            Image(systemName: channel.type == .voice ? "waveform" : "number")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(joined ? SharkordTheme.accentSoft : SharkordTheme.textSecondary)
+                .frame(width: 24)
+                .accessibilityHidden(true)
 
-                Text(channel.name)
-                    .font(.subheadline.weight(session.selectedChannelId == channel.id ? .semibold : .regular))
-                    .foregroundStyle(SharkordTheme.textPrimary)
-                    .lineLimit(1)
+            Text(channel.name)
+                .font(.subheadline.weight(session.selectedChannelId == channel.id ? .semibold : .regular))
+                .foregroundStyle(SharkordTheme.textPrimary)
+                .lineLimit(1)
 
-                if channel.type == .voice {
-                    Text("\(session.voiceUsers(in: channel.id).count)")
-                        .font(.caption)
-                        .foregroundStyle(SharkordTheme.textSecondary)
-                }
-
-                Spacer(minLength: 4)
-
-                if unreadCount > 0 {
-                    Circle()
-                        .fill(SharkordTheme.accentSoft)
-                        .frame(width: 8, height: 8)
-                        .accessibilityLabel(L10n.format("channel.unreadCount", unreadCount))
-                }
-
-                if joined {
-                    Image(systemName: "checkmark")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(SharkordTheme.success)
-                        .accessibilityLabel(L10n.t("voice.state.joined"))
-                }
+            if channel.type == .voice {
+                Text("\(session.voiceUsers(in: channel.id).count)")
+                    .font(.caption)
+                    .foregroundStyle(SharkordTheme.textSecondary)
             }
-            .padding(.horizontal, 10)
-            .frame(minHeight: 44)
-            .background(
-                session.selectedChannelId == channel.id ? SharkordTheme.field : Color.clear,
-                in: RoundedRectangle(cornerRadius: 9, style: .continuous)
-            )
-            .contentShape(Rectangle())
+
+            Spacer(minLength: 4)
+
+            if unreadCount > 0 {
+                Circle()
+                    .fill(SharkordTheme.accentSoft)
+                    .frame(width: 8, height: 8)
+                    .accessibilityLabel(L10n.format("channel.unreadCount", unreadCount))
+            }
+
+            if joined {
+                Image(systemName: "checkmark")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(SharkordTheme.success)
+                    .accessibilityLabel(L10n.t("voice.state.joined"))
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(channel.name)
+        .padding(.horizontal, 10)
+        .frame(minHeight: 44)
+        .background(
+            session.selectedChannelId == channel.id ? SharkordTheme.field : Color.clear,
+            in: RoundedRectangle(cornerRadius: 9, style: .continuous)
+        )
+        .contentShape(Rectangle())
+
+        if channel.type == .voice {
+            Button {
+                onOpenVoiceChannel(channel)
+            } label: {
+                row
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(channel.name)
+        } else {
+            NavigationLink(value: WorkspaceDestination.channel(channel.id)) {
+                row
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(channel.name)
+        }
     }
 
     private func conversationRow(_ conversation: DirectMessageConversation) -> some View {

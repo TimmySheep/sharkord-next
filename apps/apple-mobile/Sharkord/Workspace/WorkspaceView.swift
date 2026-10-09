@@ -3,6 +3,7 @@ import SwiftUI
 
 enum WorkspaceDestination: Hashable {
     case channel(Int)
+    case voiceChat(Int)
     case directMessages
     case settings
 }
@@ -15,56 +16,98 @@ struct WorkspaceView: View {
 
     @State private var path: [WorkspaceDestination] = []
     @State private var isSearchPresented = false
+    @State private var globalSearchQuery = ""
+    @State private var searchPresentationId = UUID()
+    @State private var voicePreviewChannel: SharkordChannel?
+    @State private var keyboardVisible = false
 
     var body: some View {
-        NavigationStack(path: $path) {
-            ChannelListView()
-                .navigationTitle(model.serverDisplayName)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    if session.settings?.directMessagesEnabled != false,
-                       session.directMessages.isEmpty {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button {
-                                path.append(.directMessages)
-                            } label: {
-                                Image(systemName: "square.and.pencil")
+        VStack(spacing: 0) {
+            NavigationStack(path: $path) {
+                ChannelListView(
+                    onOpenVoiceChannel: { channel in
+                        if voice.currentChannelId == channel.id {
+                            path = [.channel(channel.id)]
+                        } else {
+                            voicePreviewChannel = channel
+                        }
+                    },
+                    onSubmitSearch: { query in
+                        globalSearchQuery = query
+                        searchPresentationId = UUID()
+                        isSearchPresented = true
+                    }
+                )
+                    .navigationTitle(model.serverDisplayName)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        if session.settings?.directMessagesEnabled != false,
+                           session.directMessages.isEmpty {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                Button {
+                                    path.append(.directMessages)
+                                } label: {
+                                    Image(systemName: "square.and.pencil")
+                                }
+                                .accessibilityLabel(L10n.t("dm.newMessage"))
                             }
-                            .accessibilityLabel(L10n.t("dm.newMessage"))
                         }
                     }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            isSearchPresented = true
-                        } label: {
-                            Image(systemName: "magnifyingglass")
+                    .navigationDestination(for: WorkspaceDestination.self) { destination in
+                        switch destination {
+                        case .channel(let channelId):
+                            ChannelDetailView(channelId: channelId)
+                        case .voiceChat(let channelId):
+                            ChannelDetailView(channelId: channelId, showsVoiceChatInitially: true)
+                        case .directMessages:
+                            DirectMessagesView(path: $path)
+                        case .settings:
+                            SettingsView()
                         }
-                        .accessibilityLabel(L10n.t("search.title"))
-                        .frame(minWidth: 44, minHeight: 44)
                     }
-                }
-                .navigationDestination(for: WorkspaceDestination.self) { destination in
-                    switch destination {
-                    case .channel(let channelId):
-                        ChannelDetailView(channelId: channelId)
-                    case .directMessages:
-                        DirectMessagesView(path: $path)
-                    case .settings:
-                        SettingsView()
+                    .sheet(isPresented: $isSearchPresented) {
+                        NavigationStack {
+                            MessageSearchView(
+                                initialQuery: globalSearchQuery,
+                                onOpenMessage: openSearchMessage
+                            )
+                            .id(searchPresentationId)
+                        }
                     }
-                }
-        }
-        .tint(SharkordTheme.accentSoft)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            bottomDock
-        }
-        .background(BrandBackground())
-        .sheet(isPresented: $isSearchPresented) {
-            NavigationStack {
-                MessageSearchView(onOpenMessage: openSearchMessage)
+            }
+            if !isShowingVoiceRoom && !keyboardVisible {
+                bottomDock
             }
         }
+        .tint(SharkordTheme.accentSoft)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            keyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboardVisible = false
+        }
+        .background(BrandBackground())
+        .sheet(item: $voicePreviewChannel) { channel in
+            VoiceChannelPreviewSheet(
+                channelId: channel.id,
+                onJoin: {
+                    voicePreviewChannel = nil
+                    model.joinVoice(channel.id)
+                },
+                onOpenChat: {
+                    voicePreviewChannel = nil
+                    path = [.voiceChat(channel.id)]
+                }
+            )
+            .presentationDetents([.fraction(0.42), .large])
+            .presentationDragIndicator(.visible)
+        }
         .onAppear(perform: navigateToVoiceCallIfRequested)
+        .onChange(of: voice.currentChannelId) { _, channelId in
+            if channelId == nil && isShowingVoiceRoom {
+                path = []
+            }
+        }
         .onChange(of: model.pendingLiveActivityCallNavigationId) { _, _ in
             navigateToVoiceCallIfRequested()
         }
@@ -93,6 +136,13 @@ struct WorkspaceView: View {
         return nil
     }
 
+    private var isShowingVoiceRoom: Bool {
+        guard case let .channel(channelId) = path.last else {
+            return false
+        }
+        return session.channel(for: channelId)?.type == .voice
+    }
+
     private var userStatusBar: some View {
         HStack(spacing: 8) {
             SessionAvatarView(user: session.ownUser, diameter: 40, showsStatus: true)
@@ -105,42 +155,8 @@ struct WorkspaceView: View {
                 .layoutPriority(1)
 
             Button {
-                model.toggleMicrophone()
+                path.append(.settings)
             } label: {
-                Image(systemName: voice.microphoneOn ? "mic.fill" : "mic.slash.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(voice.microphoneOn ? SharkordTheme.textPrimary : SharkordTheme.danger)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(voice.currentChannelId == nil)
-            .opacity(voice.currentChannelId == nil ? 0.45 : 1)
-            .accessibilityLabel(L10n.t(voice.microphoneOn ? "voice.action.micOff" : "voice.action.micOn"))
-
-            Button {
-                model.toggleDeafen()
-            } label: {
-                Image(systemName: voice.deafened ? "headphones" : "headphones")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(voice.deafened ? SharkordTheme.danger : SharkordTheme.textPrimary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-                    .overlay(alignment: .center) {
-                        if voice.deafened {
-                            Image(systemName: "line.diagonal")
-                                .font(.system(size: 21, weight: .bold))
-                                .foregroundStyle(SharkordTheme.danger)
-                                .accessibilityHidden(true)
-                        }
-                    }
-            }
-            .buttonStyle(.plain)
-            .disabled(voice.currentChannelId == nil)
-            .opacity(voice.currentChannelId == nil ? 0.45 : 1)
-            .accessibilityLabel(L10n.t(voice.deafened ? "voice.action.speakerOn" : "voice.action.speakerOff"))
-
-            NavigationLink(value: WorkspaceDestination.settings) {
                 Image(systemName: "gearshape")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(SharkordTheme.textPrimary)
@@ -173,6 +189,20 @@ struct WorkspaceView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+
+            Button {
+                model.toggleMicrophone()
+            } label: {
+                Image(systemName: voice.microphoneOn ? "mic.fill" : "mic.slash.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(voice.microphoneOn ? SharkordTheme.textPrimary : SharkordTheme.danger)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(voice.callState != .connected)
+            .opacity(voice.callState == .connected ? 1 : 0.45)
+            .accessibilityLabel(L10n.t(voice.microphoneOn ? "voice.action.micOff" : "voice.action.micOn"))
 
             Button {
                 model.leaveVoice()

@@ -10,6 +10,33 @@ import com.timmysheep.cove.data.directMessagesEnabled
 
 class ProtocolModelsTest {
     @Test
+    fun decodesCustomEmojiJoinStateAndReactionImages() {
+        val joined = SharkordApi.protocolJson.parseToJsonElement(
+            """{"ownUserId":7,"serverName":"test","emojis":[{"id":3,"name":"wave","file":{"id":8,"name":"wave.png","mimeType":"image/png"}}]}"""
+        ).decode<JoinResponse>()
+        val reaction = SharkordApi.protocolJson.parseToJsonElement(
+            """{"messageId":91,"userId":7,"emoji":"wave","fileId":8,"file":{"id":8,"name":"wave.png","mimeType":"image/png"}}"""
+        ).decode<MessageReaction>()
+
+        assertEquals("wave", joined.emojis.single().name)
+        assertEquals("wave.png", reaction.file?.name)
+        assertEquals(joined.emojis.single().file?.id, reaction.fileId)
+    }
+
+    @Test
+    fun acceptsAbsentCustomEmojiCollectionsAndUnicodeReactionFiles() {
+        val joined = SharkordApi.protocolJson.parseToJsonElement(
+            """{"ownUserId":7,"serverName":"test"}"""
+        ).decode<JoinResponse>()
+        val reaction = SharkordApi.protocolJson.parseToJsonElement(
+            """{"messageId":91,"emoji":"👍"}"""
+        ).decode<MessageReaction>()
+
+        assertTrue(joined.emojis.isEmpty())
+        assertEquals(null, reaction.file)
+    }
+
+    @Test
     fun readsDirectMessageAvailabilityFromServerSettings() {
         val enabledSettings = SharkordApi.protocolJson.parseToJsonElement("""{"directMessagesEnabled":true}""").jsonObject
         val disabledSettings = SharkordApi.protocolJson.parseToJsonElement("""{"directMessagesEnabled":false}""").jsonObject
@@ -28,6 +55,39 @@ class ProtocolModelsTest {
         assertEquals("Hello", user.bio)
         assertEquals("avatar.png", user.avatar?.name)
         assertEquals("banner.jpg", user.banner?.name)
+    }
+
+    @Test
+    fun decodesWhetherTheOwnAccountCanChangeItsPassword() {
+        val response = SharkordApi.protocolJson.parseToJsonElement(
+            """{"ownUserId":7,"serverName":"test","ownUserPasswordSet":false}"""
+        ).decode<JoinResponse>()
+
+        assertFalse(response.ownUserPasswordSet)
+    }
+
+    @Test
+    fun decodesAdminUserManagementFields() {
+        val user = SharkordApi.protocolJson.parseToJsonElement(
+            """{"id":9,"name":"member","createdAt":100,"lastLoginAt":200,"banned":true,"banReason":"spam","bannedAt":150,"roleIds":[2],"avatar":{"id":8,"name":"avatar.png"},"identity":"private","password":"ignored"}"""
+        ).decode<AdminUser>()
+
+        assertEquals(9, user.id)
+        assertEquals(100L, user.createdAt)
+        assertEquals(200L, user.lastLoginAt)
+        assertEquals("spam", user.banReason)
+        assertEquals(listOf(2), user.roleIds)
+        assertEquals("avatar.png", user.avatar?.name)
+    }
+
+    @Test
+    fun onlyOtherRealUsersCanBeBannedOrDeleted() {
+        val target = AdminUser(id = 9, name = "member")
+        val deletedPlaceholder = AdminUser(id = 10, name = DELETED_USER_PLACEHOLDER)
+
+        assertTrue(canBanOrDeleteUser(target, ownUserId = 7))
+        assertFalse(canBanOrDeleteUser(target, ownUserId = 9))
+        assertFalse(canBanOrDeleteUser(deletedPlaceholder, ownUserId = 7))
     }
 
     @Test

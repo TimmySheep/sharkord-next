@@ -1,21 +1,25 @@
 import SharkordCore
 import SwiftUI
+import UIKit
 
-/// One message: author, timestamp, body (the server's HTML shown as plain text), reply
-/// image attachments, reaction chips and the message actions on long press.
+/// message actions live in a content-sized sheet so they do not clutter the timeline.
 struct MessageRow: View {
-    @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SharkordSession
 
     let message: SharkordMessage
     let onReply: (SharkordMessage) -> Void
     let onOpenThread: (SharkordMessage) -> Void
+    var allowsReply = true
+    var allowsThread = true
 
     @State private var isEditing = false
     @State private var editedText = ""
     @State private var selectedImageFile: SharkordFile?
-
-    private static let quickReactions = ["👍", "❤️", "😂", "🎉", "😮"]
+    @State private var isShowingActions = false
+    @State private var actionSheetHeight: CGFloat = 320
+    @State private var pendingAction: (() -> Void)?
+    @State private var isConfirmingDelete = false
+    @State private var actionError: String?
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -45,65 +49,50 @@ struct MessageRow: View {
                 if !reactionGroups.isEmpty {
                     reactions
                 }
-
-                threadButton
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 5)
-        .contextMenu {
-            ForEach(Self.quickReactions, id: \.self) { emoji in
-                Button {
-                    react(emoji)
-                } label: {
-                    Label(emoji, systemImage: "face.smiling")
-                }
+        .contentShape(Rectangle())
+        .onLongPressGesture { isShowingActions = true }
+        .accessibilityAction(named: L10n.t("message.actions")) { isShowingActions = true }
+        .sheet(isPresented: $isShowingActions, onDismiss: performPendingAction) {
+            ScrollView {
+                messageActions
+                    .padding(20)
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.preference(key: MessageActionHeightKey.self, value: geometry.size.height)
+                        }
+                    }
             }
-
-            Button {
-                onReply(message)
-            } label: {
-                Label(L10n.t("message.reply"), systemImage: "arrowshape.turn.up.left")
-            }
-
-            Button {
-                onOpenThread(message)
-            } label: {
-                Label(L10n.t("message.thread"), systemImage: "bubble.left.and.bubble.right")
-            }
-
-            if message.userId == session.ownUserId && message.editable != false {
-                Button {
-                    editedText = MessageText.plainText(fromHTML: message.content)
-                    isEditing = true
-                } label: {
-                    Label(L10n.t("message.edit"), systemImage: "pencil")
-                }
-            }
-
-            if canDelete {
-                Button(role: .destructive) {
-                    Task { try? await session.deleteMessage(message.id) }
-                } label: {
-                    Label(L10n.t("message.delete"), systemImage: "trash")
-                }
-            }
-
-            if session.canManageMessages {
-                Button {
-                    Task { try? await session.togglePin(messageId: message.id) }
-                } label: {
-                    Label(L10n.t("message.pin"), systemImage: "pin")
-                }
-            }
+            .onPreferenceChange(MessageActionHeightKey.self) { actionSheetHeight = $0 + 24 }
+            .presentationDetents([.height(actionSheetHeight)])
+            .presentationDragIndicator(.visible)
         }
         .alert(L10n.t("message.editTitle"), isPresented: $isEditing) {
             TextField(L10n.t("message.editPlaceholder"), text: $editedText)
             Button(L10n.t("common.save")) {
                 let text = editedText
-                Task { try? await session.editMessage(message.id, text: text) }
+                runAction { try await session.editMessage(message.id, text: text) }
             }
             Button(L10n.t("common.cancel"), role: .cancel) {}
+        }
+        .alert(L10n.t("message.delete"), isPresented: $isConfirmingDelete) {
+            Button(L10n.t("message.delete"), role: .destructive) {
+                runAction { try await session.deleteMessage(message.id) }
+            }
+            Button(L10n.t("common.cancel"), role: .cancel) {}
+        } message: {
+            Text(L10n.t("message.confirmDelete"))
+        }
+        .alert(L10n.t("message.actionFailed"), isPresented: Binding(
+            get: { actionError != nil },
+            set: { if !$0 { actionError = nil } }
+        )) {
+            Button(L10n.t("common.done"), role: .cancel) { actionError = nil }
+        } message: {
+            Text(actionError ?? "")
         }
         .fullScreenCover(item: $selectedImageFile) { file in
             NavigationStack {
@@ -216,20 +205,99 @@ struct MessageRow: View {
         }
     }
 
-    private var threadButton: some View {
-        let count = session.replyCount(for: message)
-        return Button {
-            onOpenThread(message)
-        } label: {
-            Label(
-                count > 0 ? L10n.format("message.replyCount", count) : L10n.t("message.thread"),
-                systemImage: "bubble.left.and.bubble.right"
-            )
-            .font(.caption.weight(.medium))
-            .foregroundStyle(SharkordTheme.accentSoft)
+    private var messageActions: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(authorName).font(.headline)
+            let preview = MessageText.plainText(fromHTML: message.content)
+            if !preview.isEmpty {
+                Text(preview).font(.subheadline).lineLimit(2).foregroundStyle(.secondary)
+            }
+            if session.hasPermission(.reactToMessages) {
+                Text(L10n.t("message.addReaction")).font(.subheadline.weight(.semibold))
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 44))], spacing: 6) {
+                    ForEach(["👍", "❤️", "😂", "🎉", "👀", "😮", "😀", "😍", "😢", "🔥", "✅", "🙏"], id: \.self) { emoji in
+                        Button {
+                            dismissActions { react(emoji) }
+                        } label: {
+                            Text(emoji).font(.title2).frame(minWidth: 44, minHeight: 44)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    ForEach(session.emojis) { emoji in
+                        Button {
+                            dismissActions { react(emoji.name) }
+                        } label: {
+                            if let file = emoji.file, let url = session.publicFileURL(for: file) {
+                                AsyncImage(url: url) { image in
+                                    image.resizable().scaledToFit()
+                                } placeholder: {
+                                    Text(emoji.name).font(.caption)
+                                }
+                                .frame(width: 32, height: 32)
+                                .frame(minWidth: 44, minHeight: 44)
+                            } else {
+                                Text(emoji.name).font(.caption).frame(minWidth: 44, minHeight: 44)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(emoji.name)
+                    }
+                }
+            }
+            if allowsReply {
+                actionButton("message.reply", symbol: "arrowshape.turn.up.left") {
+                    dismissActions { onReply(message) }
+                }
+            }
+            if !preview.isEmpty {
+                actionButton("message.copy", symbol: "doc.on.doc") {
+                    dismissActions { UIPasteboard.general.string = preview }
+                }
+            }
+            if allowsThread {
+                actionButton("message.thread", symbol: "bubble.left.and.bubble.right") {
+                    dismissActions { onOpenThread(message) }
+                }
+            }
+            if message.userId == session.ownUserId && message.editable != false {
+                actionButton("message.edit", symbol: "pencil") {
+                    dismissActions {
+                        editedText = MessageText.plainText(fromHTML: message.content)
+                        isEditing = true
+                    }
+                }
+            }
+            if session.canManageMessages {
+                actionButton(message.pinned == true ? "message.unpin" : "message.pin", symbol: "pin") {
+                    dismissActions { runAction { try await session.togglePin(messageId: message.id) } }
+                }
+            }
+            if canDelete {
+                actionButton("message.delete", symbol: "trash", destructive: true) {
+                    dismissActions { isConfirmingDelete = true }
+                }
+            }
+        }
+    }
+
+    private func actionButton(_ key: String, symbol: String, destructive: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(L10n.t(key), systemImage: symbol)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .foregroundStyle(destructive ? SharkordTheme.danger : SharkordTheme.textPrimary)
         }
         .buttonStyle(.plain)
-        .padding(.top, 3)
+    }
+
+    private func dismissActions(_ action: @escaping () -> Void) {
+        pendingAction = action
+        isShowingActions = false
+    }
+
+    private func performPendingAction() {
+        let action = pendingAction
+        pendingAction = nil
+        action?()
     }
 
     private var reactionGroups: [ReactionGroup] {
@@ -237,14 +305,21 @@ struct MessageRow: View {
     }
 
     private var reactions: some View {
-        HStack(spacing: 6) {
+        ScrollView(.horizontal) {
+          HStack(spacing: 6) {
             ForEach(reactionGroups) { group in
                 Button {
                     react(group.emoji)
                 } label: {
                     HStack(spacing: 4) {
-                        Text(group.emoji)
-                            .font(.caption)
+                        if let file = group.file, let url = session.publicFileURL(for: file) {
+                            AsyncImage(url: url) { image in
+                                image.resizable().scaledToFit()
+                            } placeholder: { Text(group.emoji).font(.caption) }
+                            .frame(width: 22, height: 22)
+                        } else {
+                            Text(group.emoji).font(.caption)
+                        }
 
                         Text("\(group.count)")
                             .font(.caption2.weight(.semibold))
@@ -252,14 +327,20 @@ struct MessageRow: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
+                    .frame(minHeight: 44)
                     .background(
                         group.mine ? SharkordTheme.accent.opacity(0.28) : SharkordTheme.field,
                         in: Capsule()
                     )
                 }
                 .buttonStyle(.plain)
+                .disabled(!session.hasPermission(.reactToMessages))
+                .accessibilityLabel("\(group.emoji) \(group.count)")
+                .accessibilityAddTraits(group.mine ? .isSelected : [])
             }
+          }
         }
+        .scrollIndicators(.hidden)
     }
 
     private var canDelete: Bool {
@@ -274,6 +355,20 @@ struct MessageRow: View {
     }
 
     private func react(_ emoji: String) {
-        Task { try? await session.toggleReaction(messageId: message.id, emoji: emoji) }
+        runAction { try await session.toggleReaction(messageId: message.id, emoji: emoji) }
+    }
+
+    private func runAction(_ action: @escaping () async throws -> Void) {
+        Task {
+            do { try await action() }
+            catch { actionError = error.localizedDescription }
+        }
+    }
+}
+
+private struct MessageActionHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }

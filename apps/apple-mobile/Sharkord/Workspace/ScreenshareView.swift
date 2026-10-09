@@ -8,53 +8,11 @@ struct ScreenShareControls: View {
     @EnvironmentObject private var voice: VoiceEngine
 
     let channelId: Int
+    var compact = false
     @State private var isBroadcastPickerPresented = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            CardHeading(
-                icon: "dot.radiowaves.left.and.right",
-                text: L10n.t("screenshare.infoTitle"),
-                tint: SharkordTheme.success
-            )
-
-            Text(L10n.t("screenshare.infoBody"))
-                .font(.footnote)
-                .foregroundStyle(SharkordTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if isSharingHere {
-                SharkordPrimaryButton(
-                    title: L10n.t("voice.screen.stop"),
-                    symbol: "rectangle.slash.fill",
-                    tint: SharkordTheme.danger
-                ) {
-                    model.toggleScreenShare()
-                }
-            } else if voice.screenShareStarting {
-                Label(L10n.t("screenshare.waitingForBroadcast"), systemImage: "dot.radiowaves.left.and.right")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(SharkordTheme.textSecondary)
-                    .frame(maxWidth: .infinity, minHeight: 48)
-            } else {
-                SharkordPrimaryButton(
-                    title: L10n.t("voice.screen.start"),
-                    symbol: "rectangle.on.rectangle.fill",
-                    enabled: voice.currentChannelId == channelId && canShare
-                ) {
-                    model.prepareScreenShare()
-                    if voice.screenShareStarting {
-                        isBroadcastPickerPresented = true
-                    }
-                }
-            }
-
-            Text(hint)
-                .font(.footnote)
-                .foregroundStyle(SharkordTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .sharkordCard(cornerRadius: 24)
+        controlContent
         .sheet(isPresented: $isBroadcastPickerPresented) {
             broadcastPickerSheet
                 .presentationDetents([.height(220)])
@@ -65,6 +23,89 @@ struct ScreenShareControls: View {
             if isSharing {
                 isBroadcastPickerPresented = false
             }
+        }
+    }
+
+    @ViewBuilder
+    private var controlContent: some View {
+        if compact {
+            Button(action: activate) {
+                Group {
+                    if voice.screenShareStarting {
+                        ProgressView()
+                    } else {
+                        Image(systemName: isSharingHere ? "rectangle.slash.fill" : "rectangle.on.rectangle.fill")
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                }
+                .foregroundStyle(isSharingHere ? SharkordTheme.success : SharkordTheme.textPrimary)
+                .frame(width: 48, height: 48)
+                .background(SharkordTheme.card, in: Circle())
+                .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!isSharingHere && (voice.currentChannelId != channelId || voice.callState != .connected || !canShare || voice.screenShareStarting))
+            .opacity(!isSharingHere && (voice.currentChannelId != channelId || voice.callState != .connected || !canShare) ? 0.45 : 1)
+            .accessibilityLabel(L10n.t(isSharingHere ? "voice.screen.stop" : "voice.screen.start"))
+            .frame(maxWidth: .infinity)
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                CardHeading(
+                    icon: "dot.radiowaves.left.and.right",
+                    text: L10n.t("screenshare.infoTitle"),
+                    tint: SharkordTheme.success
+                )
+
+                Text(L10n.t("screenshare.infoBody"))
+                    .font(.footnote)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if isSharingHere {
+                    SharkordPrimaryButton(
+                        title: L10n.t("voice.screen.stop"),
+                        symbol: "rectangle.slash.fill",
+                        tint: SharkordTheme.danger
+                    ) {
+                        model.toggleScreenShare()
+                    }
+                } else if voice.screenShareStarting {
+                    Label(L10n.t("screenshare.waitingForBroadcast"), systemImage: "dot.radiowaves.left.and.right")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(SharkordTheme.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                } else {
+                    SharkordPrimaryButton(
+                        title: L10n.t("voice.screen.start"),
+                        symbol: "rectangle.on.rectangle.fill",
+                        enabled: voice.currentChannelId == channelId && canShare
+                    ) {
+                        activate()
+                    }
+                }
+
+                Text(hint)
+                    .font(.footnote)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .sharkordCard(cornerRadius: 24)
+        }
+    }
+
+    private func activate() {
+        if isSharingHere {
+            model.toggleScreenShare()
+            return
+        }
+
+        guard voice.currentChannelId == channelId, voice.callState == .connected, canShare else {
+            return
+        }
+
+        model.prepareScreenShare()
+        if voice.screenShareStarting {
+            isBroadcastPickerPresented = true
         }
     }
 

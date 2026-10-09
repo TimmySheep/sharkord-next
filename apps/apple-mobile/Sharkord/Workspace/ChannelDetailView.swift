@@ -2,9 +2,37 @@ import SharkordCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-private struct PendingMessageAttachment: Identifiable {
+struct PendingMessageAttachment: Identifiable {
     let id: String
     let name: String
+}
+
+@MainActor
+enum MessageAttachmentUpload {
+    static func isAllowed(session: SharkordSession, channelId: Int) -> Bool {
+        guard session.hasPermission(.uploadFiles), session.settings?.storageUploadEnabled != false else {
+            return false
+        }
+        return session.channel(for: channelId)?.isDm != true || session.settings?.storageFileSharingInDirectMessages != false
+    }
+
+    static func upload(_ url: URL, session: SharkordSession) async throws -> PendingMessageAttachment {
+        let hasAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if hasAccess { url.stopAccessingSecurityScopedResource() }
+        }
+        let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize
+        if let maximumSize = session.settings?.storageUploadMaxFileSize, let size, size > maximumSize {
+            throw SharkordHTTPError(status: 413, message: L10n.t("message.fileTooLarge"))
+        }
+        let data = try await Task.detached(priority: .userInitiated) { try Data(contentsOf: url) }.value
+        if let maximumSize = session.settings?.storageUploadMaxFileSize, data.count > maximumSize {
+            throw SharkordHTTPError(status: 413, message: L10n.t("message.fileTooLarge"))
+        }
+        let mimeType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+        let id = try await session.uploadAttachment(data: data, fileName: url.lastPathComponent, mimeType: mimeType)
+        return PendingMessageAttachment(id: id, name: url.lastPathComponent)
+    }
 }
 
 /// The open conversation: the message list with its composer for text channels, the voice
@@ -22,9 +50,17 @@ struct ChannelDetailView: View {
     @State private var threadParent: SharkordMessage?
     @State private var pendingAttachments: [PendingMessageAttachment] = []
     @State private var isUploadingFiles = false
+    @State private var isSending = false
     @State private var isFileImporterPresented = false
-    @State private var isShowingVoiceChat = false
+    @State private var isShowingVoiceChat: Bool
     @FocusState private var composerFocused: Bool
+    private let showsVoiceChatInitially: Bool
+
+    init(channelId: Int, showsVoiceChatInitially: Bool = false) {
+        self.channelId = channelId
+        self.showsVoiceChatInitially = showsVoiceChatInitially
+        _isShowingVoiceChat = State(initialValue: showsVoiceChatInitially)
+    }
 
     var body: some View {
         Group {
@@ -47,10 +83,10 @@ struct ChannelDetailView: View {
         .navigationTitle(channelTitle)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(
-            isVoiceChannel && horizontalSizeClass != .regular && isShowingVoiceChat
+            isVoiceChannel && horizontalSizeClass != .regular && isShowingVoiceChat && !showsVoiceChatInitially
         )
         .toolbar {
-            if isVoiceChannel && horizontalSizeClass != .regular && isShowingVoiceChat {
+            if isVoiceChannel && horizontalSizeClass != .regular && isShowingVoiceChat && !showsVoiceChatInitially {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         isShowingVoiceChat = false
@@ -58,7 +94,7 @@ struct ChannelDetailView: View {
                         Label(L10n.t("voice.call"), systemImage: "chevron.left")
                     }
                 }
-            } else if isVoiceChannel && horizontalSizeClass != .regular {
+            } else if isVoiceChannel && horizontalSizeClass != .regular && !isShowingVoiceChat {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isShowingVoiceChat = true
@@ -116,8 +152,16 @@ struct ChannelDetailView: View {
 
                     let messages = session.messagesByChannel[channelId] ?? []
 
-                    if messages.isEmpty && session.hasMoreOlderByChannel[channelId] != true {
-                        emptyState
+                    if messages.isEmpty {
+                        if session.isLoadingInitialMessagesByChannel.contains(channelId) {
+                            ProgressView(L10n.t("chat.loadingHistory"))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 40)
+                        } else if let error = session.messageHistoryErrorsByChannel[channelId] {
+                            historyErrorState(error)
+                        } else if session.hasMoreOlderByChannel[channelId] != true {
+                            emptyState
+                        }
                     }
 
                     ForEach(messages) { message in
@@ -172,6 +216,26 @@ struct ChannelDetailView: View {
         .padding(.vertical, 40)
     }
 
+    private func historyErrorState(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Text(message)
+                .font(.footnote)
+                .foregroundStyle(SharkordTheme.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                Task { await session.select(channelId: channelId) }
+            } label: {
+                Label(L10n.t("chat.retryHistory"), systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
+            .tint(SharkordTheme.accentSoft)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 40)
+    }
+
     private var composer: some View {
         VStack(alignment: .leading, spacing: 8) {
             if !pendingAttachments.isEmpty {
@@ -223,12 +287,7 @@ struct ChannelDetailView: View {
                 .padding(.horizontal, 18)
             }
 
-            if !typingNames.isEmpty {
-                Text(L10n.format("channel.typing", typingNames))
-                    .font(.caption)
-                    .foregroundStyle(SharkordTheme.textSecondary)
-                    .padding(.horizontal, 18)
-            }
+            MessageTypingIndicator(channelId: channelId)
 
             HStack(spacing: 10) {
                 Button {
@@ -240,7 +299,7 @@ struct ChannelDetailView: View {
                         .frame(width: 36, height: 44)
                 }
                 .buttonStyle(.plain)
-                .disabled(!canUploadFiles || isUploadingFiles)
+                .disabled(!canUploadFiles || isUploadingFiles || isSending)
                 .accessibilityLabel(L10n.t("message.attachFile"))
 
                 TextField(L10n.t("channel.messagePlaceholder"), text: $draft, axis: .vertical)
@@ -250,6 +309,7 @@ struct ChannelDetailView: View {
                     .textFieldStyle(.plain)
                     .tint(SharkordTheme.accentSoft)
                     .focused($composerFocused)
+                    .disabled(isSending)
                     .onChange(of: draft) { _, _ in
                         session.signalTyping(channelId: channelId)
                     }
@@ -265,7 +325,7 @@ struct ChannelDetailView: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .disabled(!canSend || isUploadingFiles)
+                .disabled(!canSend || isUploadingFiles || isSending)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -281,17 +341,7 @@ struct ChannelDetailView: View {
     }
 
     private var canUploadFiles: Bool {
-        guard session.hasPermission(.uploadFiles), session.settings?.storageUploadEnabled != false else {
-            return false
-        }
-        if session.channel(for: channelId)?.isDm == true {
-            return session.settings?.storageFileSharingInDirectMessages != false
-        }
-        return true
-    }
-
-    private var typingNames: String {
-        session.typingUsers(in: channelId).map(\.name).joined(separator: ", ")
+        MessageAttachmentUpload.isAllowed(session: session, channelId: channelId)
     }
 
     private var channelTitle: String {
@@ -308,11 +358,12 @@ struct ChannelDetailView: View {
         let text = draft
         let reply = replyTo
         let files = pendingAttachments.map(\.id)
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !files.isEmpty else {
+        guard canSend, !isSending, !isUploadingFiles else {
             return
         }
-
+        isSending = true
         Task {
+            defer { isSending = false }
             do {
                 try await session.sendMessage(
                     text,
@@ -330,6 +381,7 @@ struct ChannelDetailView: View {
     }
 
     private func uploadSelectedFiles(_ result: Result<[URL], Error>) {
+        guard canUploadFiles, !isUploadingFiles else { return }
         guard case .success(let urls) = result else {
             if case .failure(let error) = result {
                 model.banner = error.localizedDescription
@@ -347,25 +399,9 @@ struct ChannelDetailView: View {
         Task {
             defer { isUploadingFiles = false }
             for url in urls.prefix(limit) {
-                let hasAccess = url.startAccessingSecurityScopedResource()
-                defer {
-                    if hasAccess {
-                        url.stopAccessingSecurityScopedResource()
-                    }
-                }
-
                 do {
-                    let data = try Data(contentsOf: url)
-                    if let maximumSize = session.settings?.storageUploadMaxFileSize, data.count > maximumSize {
-                        throw SharkordHTTPError(status: 413, message: L10n.t("message.fileTooLarge"))
-                    }
-                    let mimeType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
-                    let tempId = try await session.uploadAttachment(
-                        data: data,
-                        fileName: url.lastPathComponent,
-                        mimeType: mimeType
-                    )
-                    pendingAttachments.append(PendingMessageAttachment(id: tempId, name: url.lastPathComponent))
+                    let attachment = try await MessageAttachmentUpload.upload(url, session: session)
+                    pendingAttachments.append(attachment)
                 } catch {
                     model.banner = error.localizedDescription
                     break

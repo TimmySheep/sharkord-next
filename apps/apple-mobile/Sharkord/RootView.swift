@@ -9,19 +9,22 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if model.hasConnected && (session.phase == .connected || session.phase == .connecting) {
-                WorkspaceView()
-                    .safeAreaInset(edge: .top, spacing: 0) {
-                        if session.phase == .connecting {
-                            reconnectingBanner
-                        }
-                    }
+            if !model.hasCompletedInitialLoginRestore {
+                connecting
             } else {
                 switch session.phase {
                 case .disconnected, .awaitingServerPassword, .failed:
-                    ConnectView()
+                    if model.hasSavedLoginCredentials {
+                        savedLoginRecovery
+                    } else {
+                        ConnectView()
+                    }
                 case .connecting:
-                    connecting
+                    if model.hasConnected {
+                        connectedWorkspace
+                    } else {
+                        connecting
+                    }
                 case .connected:
                     WorkspaceView()
                 }
@@ -30,6 +33,24 @@ struct RootView: View {
         .background(BrandBackground())
         .preferredColorScheme(nil)
         .animation(.easeInOut(duration: 0.18), value: model.isConnected)
+        .task {
+            await model.restoreSavedLoginIfNeeded()
+        }
+        .alert(
+            L10n.t("loginRecovery.warningTitle"),
+            isPresented: Binding(
+                get: { model.loginCredentialsWarning != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        model.loginCredentialsWarning = nil
+                    }
+                }
+            )
+        ) {
+            Button(L10n.t("common.done"), role: .cancel) {}
+        } message: {
+            Text(model.loginCredentialsWarning ?? "")
+        }
         .onOpenURL { url in
             model.handleLiveActivityURL(url)
         }
@@ -39,6 +60,46 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             model.setAppActive(phase == .active)
         }
+    }
+
+    private var connectedWorkspace: some View {
+        WorkspaceView()
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if session.phase == .connecting {
+                    reconnectingBanner
+                }
+            }
+    }
+
+    private var savedLoginRecovery: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            ScreenTitle(text: L10n.t("loginRecovery.title"))
+
+            Text(model.banner ?? L10n.t("loginRecovery.body"))
+                .font(.subheadline)
+                .foregroundStyle(SharkordTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 4)
+
+            SharkordPrimaryButton(
+                title: L10n.t("loginRecovery.retry"),
+                symbol: "arrow.clockwise"
+            ) {
+                Task { await model.retrySavedLogin() }
+            }
+
+            SharkordSecondaryButton(
+                title: L10n.t("settings.disconnect"),
+                symbol: "rectangle.portrait.and.arrow.right",
+                tint: SharkordTheme.danger,
+                background: SharkordTheme.dangerDeep
+            ) {
+                model.disconnect()
+            }
+        }
+        .padding(.horizontal, 20)
+        .frame(maxWidth: 560)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
     private var connecting: some View {

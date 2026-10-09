@@ -55,6 +55,11 @@ struct ConnectView: View {
             }
 
             ScreenTitle(text: L10n.t("connect.title"))
+
+            Text(L10n.t("connect.rememberLogin"))
+                .font(.subheadline)
+                .foregroundStyle(SharkordTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

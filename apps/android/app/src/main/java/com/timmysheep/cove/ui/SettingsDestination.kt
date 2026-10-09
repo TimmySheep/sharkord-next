@@ -92,6 +92,8 @@ fun SettingsDestination(state: SessionState, model: CoveViewModel) {
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             ProfileSettingsSection(state, model)
+            PasswordSettingsSection(state, model)
+            UserManagementSection(state, model)
             Text(
                 text = stringResource(R.string.appearance),
                 style = MaterialTheme.typography.titleLarge,

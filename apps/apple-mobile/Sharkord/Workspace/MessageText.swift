@@ -46,6 +46,25 @@ enum MessageText {
     }
 }
 
+struct MessageTypingIndicator: View {
+    @EnvironmentObject private var session: SharkordSession
+    let channelId: Int
+    var parentMessageId: Int?
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let names = session.typingUsers(in: channelId, parentMessageId: parentMessageId, now: context.date)
+                .map(\.name).joined(separator: ", ")
+            if !names.isEmpty {
+                Text(L10n.format("channel.typing", names))
+                    .font(.caption)
+                    .foregroundStyle(SharkordTheme.textSecondary)
+                    .padding(.horizontal, 18)
+            }
+        }
+    }
+}
+
 struct MessageRichText: View {
     @EnvironmentObject private var session: SharkordSession
 
@@ -74,7 +93,6 @@ struct MessageRichText: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
-        .textSelection(.enabled)
     }
 
     @ViewBuilder

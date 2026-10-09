@@ -793,58 +793,68 @@ private struct UsersServerAdminView: View {
     @EnvironmentObject private var session: SharkordSession
     @State private var users: [SharkordAdminUser] = []
     @State private var query = ""
-    @State private var selectedUser: SharkordAdminUser?
-    @State private var showsActions = false
     @State private var status: String?
+    @State private var isLoading = false
 
     private var filteredUsers: [SharkordAdminUser] {
-        guard !query.isEmpty else { return users }
-        return users.filter {
+        let visibleUsers = users.filter { $0.name != "__deleted_user__" }
+        guard !query.isEmpty else { return visibleUsers }
+        return visibleUsers.filter {
             $0.name.localizedCaseInsensitiveContains(query)
                 || ($0.identity ?? "").localizedCaseInsensitiveContains(query)
-        }
+        }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     var body: some View {
         List {
             ForEach(filteredUsers) { user in
+                NavigationLink {
+                    MemberAdminDetailView(user: user) {
+                    await load()
+                }
+            } label: {
                 HStack(spacing: 12) {
+                    AvatarView(
+                        name: user.name,
+                        diameter: 44,
+                        imageURL: user.avatar.flatMap(session.publicFileURL(for:))
+                    )
+                    .overlay(alignment: .bottomTrailing) {
+                        Circle()
+                            .fill(statusColor(for: user))
+                            .frame(width: 12, height: 12)
+                            .overlay(Circle().stroke(SharkordTheme.card, lineWidth: 2))
+                    }
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(user.name).font(.body.weight(.semibold))
-                        if let identity = user.identity {
-                            Text(identity).font(.caption).foregroundStyle(.secondary)
+                            Text(user.name).font(.body.weight(.semibold))
+                            Text(roleNames(for: user))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
-                    }
-                    Spacer()
-                    if user.banned {
-                        Text(L10n.t("admin.banned"))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.red)
-                    }
-                    if user.id != session.ownUserId {
-                        Menu {
-                            if user.banned {
-                                Button(L10n.t("admin.unban")) { moderate(user, action: .unban) }
-                            } else {
-                                Button(L10n.t("admin.kick"), role: .destructive) { moderate(user, action: .kick) }
-                                Button(L10n.t("admin.ban"), role: .destructive) { moderate(user, action: .ban) }
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .frame(width: 40, height: 40)
-                                .contentShape(Rectangle())
-                        }
-                        .accessibilityLabel(L10n.t("admin.memberActions"))
+                        Spacer()
+                        Text(statusName(for: user))
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(statusColor(for: user))
                     }
                 }
+                .buttonStyle(.plain)
             }
 
-            if filteredUsers.isEmpty {
+            if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+            } else if filteredUsers.isEmpty && status == nil {
                 Text(L10n.t("admin.noMembers"))
                     .foregroundStyle(.secondary)
             }
             if let status {
-                AdminStatusText(text: status)
+                VStack(alignment: .leading, spacing: 8) {
+                    AdminStatusText(text: status)
+                    Button(L10n.t("admin.retry")) {
+                        Task { await load() }
+                    }
+                }
             }
         }
         .searchable(text: $query)
@@ -853,25 +863,406 @@ private struct UsersServerAdminView: View {
         .task { await load() }
     }
 
-    private func load() async {
-        do { users = try await session.getAllUsers() }
-        catch { status = SharkordSession.describe(error) }
+    private func roleNames(for user: SharkordAdminUser) -> String {
+        let roleIds = Set(user.roleIds ?? [])
+        let names = session.roles.filter { roleIds.contains($0.id) }.map(\.name)
+        return names.isEmpty ? L10n.t("admin.noRoles") : names.joined(separator: ", ")
     }
 
-    private enum ModerationAction { case kick, ban, unban }
+    private func statusName(for user: SharkordAdminUser) -> String {
+        if user.banned {
+            return L10n.t("admin.banned")
+        }
+        switch session.user(for: user.id)?.status {
+        case .some(.online):
+            return L10n.t("admin.memberOnline")
+        case .some(.idle):
+            return L10n.t("admin.memberIdle")
+        case .some(.offline), .none:
+            return L10n.t("admin.memberOffline")
+        }
+    }
 
-    private func moderate(_ user: SharkordAdminUser, action: ModerationAction) {
-        Task {
-            do {
-                switch action {
-                case .kick: try await session.kickUser(userId: user.id, reason: nil)
-                case .ban: try await session.banUser(userId: user.id, reason: nil)
-                case .unban: try await session.unbanUser(userId: user.id)
+    private func statusColor(for user: SharkordAdminUser) -> Color {
+        if user.banned {
+            return SharkordTheme.danger
+        }
+        switch session.user(for: user.id)?.status {
+        case .some(.online):
+            return SharkordTheme.success
+        case .some(.idle):
+            return .orange
+        case .some(.offline), .none:
+            return SharkordTheme.textSecondary
+        }
+    }
+
+    private func load() async {
+        isLoading = true
+        status = nil
+        do {
+            users = try await session.getAllUsers()
+        } catch {
+            status = SharkordSession.describe(error)
+        }
+        isLoading = false
+    }
+}
+
+private struct MemberAdminDetailView: View {
+    @EnvironmentObject private var session: SharkordSession
+    @Environment(\.dismiss) private var dismiss
+    let user: SharkordAdminUser
+    let onUpdated: () async -> Void
+    @State private var roleIds: Set<Int>
+    @State private var roles: [SharkordRole] = []
+    @State private var reason = ""
+    @State private var status: String?
+    @State private var actionToConfirm: MemberAction?
+    @State private var roleToRemove: SharkordRole?
+    @State private var showsRolePicker = false
+    @State private var showsDeleteConfirmation = false
+    @State private var wipeData = false
+    @State private var isWorking = false
+
+    private enum MemberAction: Equatable {
+        case kick
+        case ban
+        case unban
+    }
+
+    init(user: SharkordAdminUser, onUpdated: @escaping () async -> Void) {
+        self.user = user
+        self.onUpdated = onUpdated
+        _roleIds = State(initialValue: Set(user.roleIds ?? []))
+    }
+
+    private var assignedRoles: [SharkordRole] {
+        roles.filter { roleIds.contains($0.id) }
+    }
+
+    private var availableRoles: [SharkordRole] {
+        roles.filter { !roleIds.contains($0.id) }
+    }
+
+    private var memberStatus: UserStatus? {
+        session.user(for: user.id)?.status
+    }
+
+    private var canModerateAccount: Bool {
+        user.id != session.ownUserId && user.name != "__deleted_user__"
+    }
+
+    private var moderationTitle: String {
+        guard let actionToConfirm else { return "" }
+        switch actionToConfirm {
+        case .kick:
+            return L10n.format("admin.kickTitle", user.name)
+        case .ban:
+            return L10n.format("admin.banTitle", user.name)
+        case .unban:
+            return L10n.format("admin.unbanTitle", user.name)
+        }
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                HStack(spacing: 12) {
+                    AvatarView(
+                        name: user.name,
+                        diameter: 56,
+                        imageURL: user.avatar.flatMap(session.publicFileURL(for:))
+                    )
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(user.name).font(.headline)
+                        Text(L10n.format("admin.memberId", user.id))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                users = try await session.getAllUsers()
+                if let identity = user.identity, !identity.isEmpty {
+                    LabeledContent(L10n.t("admin.identity"), value: identity)
+                }
+                if let bio = user.bio, !bio.isEmpty {
+                    Text(bio)
+                }
+            }
+
+            Section(L10n.t("admin.memberActivity")) {
+                LabeledContent(L10n.t("admin.memberJoined"), value: formattedDate(user.createdAt))
+                LabeledContent(L10n.t("admin.memberLastLogin"), value: formattedDate(user.lastLoginAt))
+                if user.banned {
+                    Text(L10n.t("admin.banned"))
+                        .foregroundStyle(SharkordTheme.danger)
+                    if let banReason = user.banReason, !banReason.isEmpty {
+                        LabeledContent(L10n.t("admin.banReasonValue"), value: banReason)
+                    }
+                }
+            }
+
+            Section(L10n.t("admin.memberRoles")) {
+                if assignedRoles.isEmpty {
+                    Text(L10n.t("admin.noRoles"))
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(assignedRoles) { role in
+                        HStack {
+                            Text(role.name)
+                            Spacer()
+                            if session.hasPermission(.manageRoles) {
+                                Button(L10n.t("admin.removeRole")) {
+                                    roleToRemove = role
+                                }
+                                .disabled(isWorking)
+                            }
+                        }
+                    }
+                }
+                if session.hasPermission(.manageRoles) {
+                    Button(L10n.t("admin.assignRole")) {
+                        showsRolePicker = true
+                    }
+                    .disabled(isWorking)
+                }
+            }
+
+            if canModerateAccount {
+                Section(L10n.t("admin.moderation")) {
+                    TextField(L10n.t("admin.moderationReason"), text: $reason, axis: .vertical)
+                        .lineLimit(2...4)
+                        .onChange(of: reason) { _, value in
+                            if value.count > 500 {
+                                reason = String(value.prefix(500))
+                            }
+                        }
+                    Button(L10n.t("admin.kick"), role: .destructive) {
+                        actionToConfirm = .kick
+                    }
+                    .disabled(isWorking || memberStatus == .offline)
+                    Button(L10n.t(user.banned ? "admin.unban" : "admin.ban")) {
+                        actionToConfirm = user.banned ? .unban : .ban
+                    }
+                    .disabled(isWorking)
+                    .tint(user.banned ? SharkordTheme.accent : SharkordTheme.danger)
+                    Button(L10n.t("admin.deleteAccount"), role: .destructive) {
+                        wipeData = false
+                        showsDeleteConfirmation = true
+                    }
+                    .disabled(isWorking)
+                }
+            }
+
+            if let status {
+                Section {
+                    AdminStatusText(text: status)
+                }
+            }
+        }
+        .navigationTitle(user.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            moderationTitle,
+            isPresented: Binding(
+                get: { actionToConfirm != nil },
+                set: { if !$0 { actionToConfirm = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let actionToConfirm {
+                Button(actionLabel(for: actionToConfirm), role: actionRole(for: actionToConfirm)) {
+                    moderate(actionToConfirm)
+                }
+            }
+            Button(L10n.t("common.cancel"), role: .cancel) {
+                actionToConfirm = nil
+            }
+        } message: {
+            Text(L10n.format("admin.memberActionPrompt", user.name))
+        }
+        .confirmationDialog(
+            roleToRemove.map { L10n.format("admin.removeRoleTitle", $0.name, user.name) } ?? "",
+            isPresented: Binding(
+                get: { roleToRemove != nil },
+                set: { if !$0 { roleToRemove = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(L10n.t("admin.removeRole"), role: .destructive) {
+                if let roleToRemove {
+                    removeRole(roleToRemove)
+                }
+            }
+            Button(L10n.t("common.cancel"), role: .cancel) {
+                roleToRemove = nil
+            }
+        }
+        .sheet(isPresented: $showsRolePicker) {
+            NavigationStack {
+                List {
+                    if availableRoles.isEmpty {
+                        Text(L10n.t("admin.noAvailableRoles"))
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(availableRoles) { role in
+                        Button(role.name) {
+                            assignRole(role)
+                        }
+                        .disabled(isWorking)
+                    }
+                }
+                .navigationTitle(L10n.t("admin.assignRole"))
+                .navigationBarTitleDisplayMode(.inline)
+                .safeAreaInset(edge: .top) {
+                    if user.id == session.ownUserId {
+                        Text(L10n.t("admin.selfRoleWarning"))
+                            .font(.footnote)
+                            .foregroundStyle(SharkordTheme.danger)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
+                    }
+                }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(L10n.t("common.cancel")) { showsRolePicker = false }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showsDeleteConfirmation) {
+            NavigationStack {
+                Form {
+                    Text(L10n.format("admin.deleteMemberPrompt", user.name))
+                    Toggle(L10n.t("admin.wipeMemberData"), isOn: $wipeData)
+                    Text(L10n.t(wipeData ? "admin.wipeMemberDataWarning" : "admin.keepMemberDataWarning"))
+                        .foregroundStyle(wipeData ? SharkordTheme.danger : SharkordTheme.textSecondary)
+                }
+                .navigationTitle(L10n.t("admin.deleteAccount"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(L10n.t("common.cancel")) { showsDeleteConfirmation = false }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(L10n.t("admin.deleteAccount"), action: deleteUser)
+                            .tint(SharkordTheme.danger)
+                            .disabled(isWorking)
+                    }
+                }
+            }
+            .presentationDetents([.medium, .large])
+        }
+        .task {
+            roles = session.roles
+            guard session.hasPermission(.manageRoles) else { return }
+            do {
+                roles = try await session.getAllRoles()
             } catch {
                 status = SharkordSession.describe(error)
             }
+        }
+    }
+
+    private func actionLabel(for action: MemberAction) -> String {
+        switch action {
+        case .kick:
+            return L10n.t("admin.kick")
+        case .ban:
+            return L10n.t("admin.ban")
+        case .unban:
+            return L10n.t("admin.unban")
+        }
+    }
+
+    private func actionRole(for action: MemberAction) -> ButtonRole? {
+        if action == .unban {
+            return nil
+        }
+        return .destructive
+    }
+
+    private func formattedDate(_ timestamp: Int?) -> String {
+        guard let timestamp, timestamp > 0 else { return L10n.t("admin.unknown") }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: Date(timeIntervalSince1970: Double(timestamp) / 1_000))
+    }
+
+    private func assignRole(_ role: SharkordRole) {
+        Task {
+            isWorking = true
+            do {
+                try await session.addRole(userId: user.id, roleId: role.id)
+                roleIds.insert(role.id)
+                showsRolePicker = false
+                status = L10n.t("admin.memberActionSucceeded")
+                await onUpdated()
+            } catch {
+                status = SharkordSession.describe(error)
+            }
+            isWorking = false
+        }
+    }
+
+    private func removeRole(_ role: SharkordRole) {
+        Task {
+            isWorking = true
+            do {
+                try await session.removeRole(userId: user.id, roleId: role.id)
+                roleIds.remove(role.id)
+                roleToRemove = nil
+                status = L10n.t("admin.memberActionSucceeded")
+                await onUpdated()
+            } catch {
+                status = SharkordSession.describe(error)
+            }
+            isWorking = false
+        }
+    }
+
+    private func moderate(_ action: MemberAction) {
+        Task {
+            isWorking = true
+            do {
+                switch action {
+                case .kick:
+                    try await session.kickUser(
+                        userId: user.id,
+                        reason: reason.trimmingCharacters(in: .whitespacesAndNewlines)
+                    )
+                case .ban:
+                    try await session.banUser(
+                        userId: user.id,
+                        reason: reason.trimmingCharacters(in: .whitespacesAndNewlines)
+                    )
+                case .unban:
+                    try await session.unbanUser(userId: user.id)
+                }
+                actionToConfirm = nil
+                reason = ""
+                status = L10n.t("admin.memberActionSucceeded")
+                await onUpdated()
+            } catch {
+                status = SharkordSession.describe(error)
+            }
+            isWorking = false
+        }
+    }
+
+    private func deleteUser() {
+        Task {
+            isWorking = true
+            do {
+                try await session.deleteUser(userId: user.id, wipe: wipeData)
+                showsDeleteConfirmation = false
+                await onUpdated()
+                dismiss()
+            } catch {
+                status = SharkordSession.describe(error)
+            }
+            isWorking = false
         }
     }
 }

@@ -24,6 +24,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +37,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -86,8 +90,11 @@ class CoveVoiceEngine(
     private val screenShareMutex = Mutex()
     private val mutableVideoTracks = MutableStateFlow<List<RemoteVideoTrack>>(emptyList())
     private val mutableLocalCameraTrack = MutableStateFlow<VideoTrack?>(null)
+    private val mutableEglBaseContext = MutableStateFlow<EglBase.Context?>(null)
+    private val mutableActiveSpeakerIds = MutableStateFlow<Set<Int>>(emptySet())
     private val consumers = mutableMapOf<String, Consumer>()
     private val consumerEvents = mutableListOf<Job>()
+    private var audioLevelPollingJob: Job? = null
     private val producerTransportConnected = AtomicBoolean(false)
     private val consumerTransportConnected = AtomicBoolean(false)
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -114,6 +121,14 @@ class CoveVoiceEngine(
 
     val remoteVideoTracks: StateFlow<List<RemoteVideoTrack>> = mutableVideoTracks.asStateFlow()
     val localCameraTrack: StateFlow<VideoTrack?> = mutableLocalCameraTrack.asStateFlow()
+    val eglBaseContext: StateFlow<EglBase.Context?> = mutableEglBaseContext.asStateFlow()
+    val activeSpeakerIds: StateFlow<Set<Int>> = mutableActiveSpeakerIds.asStateFlow()
+
+    private data class AudioLevelSources(
+        val localUserId: Int?,
+        val microphoneProducer: Producer?,
+        val remoteAudioConsumers: List<Pair<Int, Consumer>>
+    )
 
     init {
         scope.launch {
@@ -177,6 +192,7 @@ class CoveVoiceEngine(
             reconcileProducers(channelId)
             if (microphoneEnabledOnJoin) setMicrophoneEnabled(true)
             repository.setVoiceConnectionStatus(VoiceConnectionStatus.CONNECTED)
+            startAudioLevelPolling()
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
             closeMediaObjects()
@@ -310,7 +326,7 @@ class CoveVoiceEngine(
             startCameraService()
             val factory = requireNotNull(peerConnectionFactory)
             val transport = requireNotNull(sendTransport)
-            val base = eglBase ?: EglBase.create().also { eglBase = it }
+            val base = getOrCreateEglBase()
             val textureHelper = SurfaceTextureHelper.create("CoveCameraCapture", base.eglBaseContext)
             cameraTextureHelper = textureHelper
 
@@ -376,7 +392,7 @@ class CoveVoiceEngine(
             startScreenService()
             val factory = requireNotNull(peerConnectionFactory)
             val transport = requireNotNull(sendTransport)
-            val base = eglBase ?: EglBase.create().also { eglBase = it }
+            val base = getOrCreateEglBase()
             val textureHelper = SurfaceTextureHelper.create("CoveScreenCapture", base.eglBaseContext)
             surfaceTextureHelper = textureHelper
             val source = factory.createVideoSource(false)
@@ -428,6 +444,9 @@ class CoveVoiceEngine(
     fun release() {
         stopProducerObservers()
         closeMediaObjects()
+        eglBase?.release()
+        eglBase = null
+        mutableEglBaseContext.value = null
         stopVoiceService()
         scope.cancel()
     }
@@ -438,7 +457,7 @@ class CoveVoiceEngine(
             mediasoupInitialized = true
         }
         initializePeerConnectionFactory(appContext)
-        val base = eglBase ?: EglBase.create().also { eglBase = it }
+        val base = getOrCreateEglBase()
         audioDeviceModule = JavaAudioDeviceModule.builder(appContext).createAudioDeviceModule()
         peerConnectionFactory = PeerConnectionFactory.builder()
             .setOptions(PeerConnectionFactory.Options())
@@ -475,6 +494,50 @@ class CoveVoiceEngine(
     private fun stopProducerObservers() {
         consumerEvents.forEach(Job::cancel)
         consumerEvents.clear()
+    }
+
+    private fun startAudioLevelPolling() {
+        audioLevelPollingJob?.cancel()
+        audioLevelPollingJob = scope.launch(Dispatchers.IO) {
+            while (true) {
+                val sources = withContext(Dispatchers.Main.immediate) {
+                    val currentState = repository.state.value
+                    AudioLevelSources(
+                        localUserId = currentState.ownUserId.takeIf {
+                            currentState.voiceChannelId != null && currentState.microphoneEnabled
+                        },
+                        microphoneProducer = microphoneProducer.takeIf { currentState.microphoneEnabled },
+                        remoteAudioConsumers = consumers.mapNotNull { (key, consumer) ->
+                            if (consumer.kind != "audio" || key.substringAfter(':') != "audio") {
+                                return@mapNotNull null
+                            }
+                            key.substringBefore(':').toIntOrNull()?.let { it to consumer }
+                        }
+                    )
+                }
+                val activeSpeakerIds = buildSet {
+                    sources.localUserId?.let { userId ->
+                        val stats = runCatching { sources.microphoneProducer?.stats }.getOrNull()
+                        if (isVoiceSpeaking(producerAudioLevel(stats))) add(userId)
+                    }
+                    sources.remoteAudioConsumers.forEach { (userId, consumer) ->
+                        val stats = runCatching { consumer.stats }.getOrNull()
+                        if (isVoiceSpeaking(consumerAudioLevel(stats))) add(userId)
+                    }
+                }
+                currentCoroutineContext().ensureActive()
+                if (activeSpeakerIds != mutableActiveSpeakerIds.value) {
+                    mutableActiveSpeakerIds.value = activeSpeakerIds
+                }
+                delay(AUDIO_LEVEL_POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopAudioLevelPolling() {
+        audioLevelPollingJob?.cancel()
+        audioLevelPollingJob = null
+        mutableActiveSpeakerIds.value = emptySet()
     }
 
     private suspend fun reconcileProducers(channelId: Int) {
@@ -614,6 +677,7 @@ class CoveVoiceEngine(
     }
 
     private fun closeMediaObjects() {
+        stopAudioLevelPolling()
         producerTransportConnected.set(false)
         consumerTransportConnected.set(false)
         microphoneTrack?.setEnabled(false)
@@ -646,9 +710,12 @@ class CoveVoiceEngine(
         peerConnectionFactory = null
         audioDeviceModule?.release()
         audioDeviceModule = null
-        eglBase?.release()
-        eglBase = null
         microphoneWasEnabledBeforeDeafen = false
+    }
+
+    private fun getOrCreateEglBase(): EglBase = eglBase ?: EglBase.create().also { base ->
+        eglBase = base
+        mutableEglBaseContext.value = base.eglBaseContext
     }
 
     private fun startVoiceService() {
@@ -752,6 +819,7 @@ class CoveVoiceEngine(
     private fun consumerKey(remoteId: Int, kind: String) = "$remoteId:$kind"
 
     companion object {
+        private const val AUDIO_LEVEL_POLL_INTERVAL_MS = 200L
         @Volatile private var mediasoupInitialized = false
         @Volatile private var peerConnectionFactoryInitialized = false
 

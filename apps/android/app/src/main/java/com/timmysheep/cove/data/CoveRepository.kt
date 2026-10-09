@@ -1,6 +1,8 @@
 package com.timmysheep.cove.data
 
 import androidx.core.text.htmlEncode
+import android.os.SystemClock
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +43,7 @@ class CoveRepository {
     private var reconnectJob: Job? = null
     private var credentials: Credentials? = null
     private var reconnectAttempt = 0
+    private val lastTypingSignal = mutableMapOf<TypingScope, Long>()
 
     val state: StateFlow<SessionState> = mutableState.asStateFlow()
 
@@ -62,6 +65,7 @@ class CoveRepository {
     }
 
     fun disconnect() {
+        lastTypingSignal.clear()
         reconnectJob?.cancel()
         reconnectJob = null
         disconnectJob?.cancel()
@@ -212,11 +216,62 @@ class CoveRepository {
         }
     }.onFailure(::reportError).isSuccess
 
+    suspend fun updateOwnPassword(currentPassword: String, newPassword: String, confirmNewPassword: String): Boolean = runCatching {
+        currentApi().mutate("users.updatePassword", buildJsonObject {
+            put("currentPassword", currentPassword)
+            put("newPassword", newPassword)
+            put("confirmNewPassword", confirmNewPassword)
+        })
+        credentials = credentials?.copy(password = newPassword)
+    }.onFailure(::reportError).isSuccess
+
     suspend fun changeOwnProfileImage(isAvatar: Boolean, fileId: String?): Boolean = runCatching {
         currentApi().mutate(if (isAvatar) "users.changeAvatar" else "users.changeBanner", buildJsonObject {
             fileId?.let { put("fileId", it) }
         })
     }.onFailure(::reportError).isSuccess
+
+    suspend fun getAdminUsers(): List<AdminUser> =
+        currentApi().query("users.getAll").decode()
+
+    suspend fun addUserRole(userId: Int, roleId: Int) {
+        currentApi().mutate("users.addRole", buildJsonObject {
+            put("userId", userId)
+            put("roleId", roleId)
+        })
+    }
+
+    suspend fun removeUserRole(userId: Int, roleId: Int) {
+        currentApi().mutate("users.removeRole", buildJsonObject {
+            put("userId", userId)
+            put("roleId", roleId)
+        })
+    }
+
+    suspend fun kickUser(userId: Int, reason: String) {
+        currentApi().mutate("users.kick", buildJsonObject {
+            put("userId", userId)
+            if (reason.isNotBlank()) put("reason", reason)
+        })
+    }
+
+    suspend fun banUser(userId: Int, reason: String) {
+        currentApi().mutate("users.ban", buildJsonObject {
+            put("userId", userId)
+            if (reason.isNotBlank()) put("reason", reason)
+        })
+    }
+
+    suspend fun unbanUser(userId: Int) {
+        currentApi().mutate("users.unban", buildJsonObject { put("userId", userId) })
+    }
+
+    suspend fun deleteUser(userId: Int, wipe: Boolean) {
+        currentApi().mutate("users.delete", buildJsonObject {
+            put("userId", userId)
+            put("wipe", wipe)
+        })
+    }
 
     suspend fun deleteTemporaryFile(fileId: String) {
         runCatching {
@@ -291,10 +346,18 @@ class CoveRepository {
         }.onFailure { reportError(it) }
     }
 
-    fun signalTyping(channelId: Int) {
+    fun signalTyping(channelId: Int, parentMessageId: Int? = null) {
+        val typingScope = TypingScope(channelId, parentMessageId)
+        val now = SystemClock.elapsedRealtime()
+        val last = lastTypingSignal[typingScope]
+        if (last != null && now - last < 2_000) return
+        lastTypingSignal[typingScope] = now
         scope.launch {
             runCatching {
-                currentApi().mutate("messages.signalTyping", buildJsonObject { put("channelId", channelId) })
+                currentApi().mutate("messages.signalTyping", buildJsonObject {
+                    put("channelId", channelId)
+                    parentMessageId?.let { put("parentMessageId", it) }
+                })
             }
         }
     }
@@ -491,10 +554,12 @@ class CoveRepository {
                 serverName = joined.serverName,
                 serverLogo = serverInfo.logo,
                 ownUserId = joined.ownUserId,
+                ownUserPasswordSet = joined.ownUserPasswordSet,
                 categories = joined.categories.sortedBy(Category::position),
                 channels = joined.channels,
                 users = joined.users.sortedBy { it.name.lowercase() },
                 roles = joined.roles,
+                emojis = joined.emojis,
                 voiceUsersByChannel = parseVoiceMap(joined.voiceMap),
                 unreadByChannel = joined.readStates.mapNotNull { (key, value) ->
                     key.toIntOrNull()?.let { channelId -> channelId to (value.jsonPrimitive.intOrNull ?: 0) }
@@ -526,11 +591,35 @@ class CoveRepository {
         }
     }
 
+    private fun applyEmoji(value: JsonElement) {
+        val emoji = decodeOrNull<ServerEmoji>(value) ?: return
+        val emojis = mutableState.value.emojis.filterNot { it.id == emoji.id } + emoji
+        mutableState.value = mutableState.value.copy(emojis = emojis)
+    }
+
     private fun startSubscriptions(client: SharkordApi) {
         subscriptions.forEach(Job::cancel)
         subscriptions.clear()
+        lastTypingSignal.clear()
+        observe(client, "messages.onTyping") { value ->
+            val event = decodeOrNull<TypingEvent>(value) ?: return@observe
+            updateState { it.copy(typingPresence = it.typingPresence.recordTyping(event, SystemClock.elapsedRealtime())) }
+        }
+        subscriptions += scope.launch {
+            while (isActive) {
+                delay(1_000)
+                if (api !== client) break
+                updateState { it.copy(typingPresence = it.typingPresence.activeTyping(SystemClock.elapsedRealtime())) }
+            }
+        }
         observe(client, "messages.onNew", ::applyMessage)
         observe(client, "messages.onUpdate", ::applyMessage)
+        observe(client, "emojis.onCreate", ::applyEmoji)
+        observe(client, "emojis.onUpdate", ::applyEmoji)
+        observe(client, "emojis.onDelete") { value ->
+            val id = value.jsonPrimitive.intOrNull ?: return@observe
+            mutableState.value = mutableState.value.copy(emojis = mutableState.value.emojis.filterNot { it.id == id })
+        }
         observe(client, "messages.onDelete") { value ->
             val event = decodeOrNull<MessageDeleteEvent>(value) ?: return@observe
             updateState { current ->
@@ -565,9 +654,10 @@ class CoveRepository {
             val id = value.jsonPrimitive.intOrNull ?: return@observe
             updateState { it.copy(categories = it.categories.filterNot { category -> category.id == id }) }
         }
-        observe(client, "users.onJoin", ::applyUser)
+        observe(client, "users.onJoin") { applyUser(it, "online") }
         observe(client, "users.onCreate", ::applyUser)
         observe(client, "users.onUpdate", ::applyUser)
+        observe(client, "users.onDelete", ::applyUserDelete)
         observe(client, "users.onLeave") { value ->
             val id = value.jsonPrimitive.intOrNull
                 ?: (value as? JsonObject)?.get("id")?.jsonPrimitive?.intOrNull
@@ -736,10 +826,47 @@ class CoveRepository {
         }
     }
 
-    private fun applyUser(value: JsonElement) {
+    private fun applyUser(value: JsonElement, status: String? = null) {
         val user = decodeOrNull<User>(value) ?: return
         updateState { current ->
-            current.copy(users = (current.users.filterNot { it.id == user.id } + user).sortedBy { it.name.lowercase() })
+            val currentUser = current.users.firstOrNull { it.id == user.id }
+            val updatedUser = user.copy(status = status ?: user.status ?: currentUser?.status)
+            current.copy(users = (current.users.filterNot { it.id == user.id } + updatedUser).sortedBy { it.name.lowercase() })
+        }
+    }
+
+    private fun applyUserDelete(value: JsonElement) {
+        val event = decodeOrNull<UserDeleteEvent>(value) ?: return
+        updateState { current ->
+            fun updateMessage(message: Message): Message {
+                val reactions = if (event.isWipe) {
+                    message.reactions.filterNot { it.userId == event.userId }
+                } else {
+                    message.reactions.map { reaction ->
+                        if (reaction.userId == event.userId) reaction.copy(userId = event.deletedUserId) else reaction
+                    }
+                }
+                if (event.isWipe) {
+                    return message.copy(reactions = reactions)
+                }
+                return message.copy(
+                    userId = if (message.userId == event.userId) event.deletedUserId else message.userId,
+                    reactions = reactions
+                )
+            }
+
+            current.copy(
+                users = current.users.filterNot { it.id == event.userId },
+                voiceUsersByChannel = current.voiceUsersByChannel.mapValues { (_, users) -> users - event.userId },
+                messagesByChannel = current.messagesByChannel.mapValues { (_, messages) ->
+                    if (event.isWipe) messages.filterNot { it.userId == event.userId }.map(::updateMessage)
+                    else messages.map(::updateMessage)
+                },
+                threadMessagesByParent = current.threadMessagesByParent.mapValues { (_, messages) ->
+                    if (event.isWipe) messages.filterNot { it.userId == event.userId }.map(::updateMessage)
+                    else messages.map(::updateMessage)
+                }
+            )
         }
     }
 

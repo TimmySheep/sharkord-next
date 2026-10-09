@@ -35,6 +35,9 @@ final class AppModel: ObservableObject {
     @Published var pendingLiveActivityCallNavigationId: UUID?
     @Published var isReconnecting = false
     @Published private(set) var hasConnected = false
+    @Published private(set) var hasCompletedInitialLoginRestore = false
+    @Published private(set) var hasSavedLoginCredentials = false
+    @Published var loginCredentialsWarning: String?
     @Published var notificationStatus: String?
     @Published var notificationsEnabled = UserDefaults.standard.bool(forKey: "notifications.enabled") {
         didSet { UserDefaults.standard.set(notificationsEnabled, forKey: "notifications.enabled") }
@@ -51,12 +54,16 @@ final class AppModel: ObservableObject {
     @Published var soundEffectsEnabled = UserDefaults.standard.object(forKey: "sounds.enabled") as? Bool ?? true {
         didSet { UserDefaults.standard.set(soundEffectsEnabled, forKey: "sounds.enabled") }
     }
+    @Published var microphoneEnabledOnJoin = UserDefaults.standard.bool(forKey: "voice.microphoneEnabledOnJoin") {
+        didSet { UserDefaults.standard.set(microphoneEnabledOnJoin, forKey: "voice.microphoneEnabledOnJoin") }
+    }
 
     private let liveActivityController = LiveActivityController()
     private let notificationController = LocalNotificationController.shared
     private var cancellables: Set<AnyCancellable> = []
     private var appIsActive = true
     private var isManualConnectionInProgress = false
+    private var didAttemptLoginRestore = false
     private var lastConnection: (host: String, identity: String, password: String, serverPassword: String)?
 
     init() {
@@ -154,22 +161,89 @@ final class AppModel: ObservableObject {
     // MARK: - connection
 
     func connect(host: String, identity: String, password: String, serverPassword: String) async {
+        await connect(using: StoredLoginCredentials(
+            host: host.trimmingCharacters(in: .whitespacesAndNewlines),
+            identity: identity,
+            password: password,
+            serverPassword: serverPassword.isEmpty ? nil : serverPassword
+        ))
+    }
+
+    func restoreSavedLoginIfNeeded() async {
+        guard !didAttemptLoginRestore else {
+            return
+        }
+
+        didAttemptLoginRestore = true
+
+        guard let credentials = KeychainLoginCredentialsStore().credentials() else {
+            hasCompletedInitialLoginRestore = true
+            return
+        }
+
+        hasSavedLoginCredentials = true
+        lastConnection = (
+            credentials.host,
+            credentials.identity,
+            credentials.password,
+            credentials.serverPassword ?? ""
+        )
+        isManualConnectionInProgress = true
+        await session.attemptAutomaticLogin(enabled: true)
+        isManualConnectionInProgress = false
+        updateLoginStateAfterConnection()
+        hasCompletedInitialLoginRestore = true
+    }
+
+    func retrySavedLogin() async {
+        guard let credentials = KeychainLoginCredentialsStore().credentials() else {
+            hasSavedLoginCredentials = false
+            banner = L10n.t("loginRecovery.savedLoginMissing")
+            return
+        }
+
+        await connect(using: credentials)
+    }
+
+    private func connect(using credentials: StoredLoginCredentials) async {
         banner = nil
         isReconnecting = false
         hasConnected = false
         isManualConnectionInProgress = true
-        lastConnection = (host, identity, password, serverPassword)
+        lastConnection = (
+            credentials.host,
+            credentials.identity,
+            credentials.password,
+            credentials.serverPassword ?? ""
+        )
         await session.connect(
-            host: host,
-            identity: identity,
-            password: password,
-            serverPassword: serverPassword.isEmpty ? nil : serverPassword
+            host: credentials.host,
+            identity: credentials.identity,
+            password: credentials.password,
+            serverPassword: credentials.serverPassword,
+            rememberLoginCredentials: true
         )
         isManualConnectionInProgress = false
+        updateLoginStateAfterConnection()
+    }
 
+    private func updateLoginStateAfterConnection() {
         if case .failed(let message) = session.phase {
             banner = message
+            return
         }
+
+        guard session.phase == .connected else {
+            return
+        }
+
+        hasSavedLoginCredentials = !session.loginCredentialsSaveFailed
+        if session.loginCredentialsSaveFailed {
+            loginCredentialsWarning = L10n.t("loginRecovery.saveFailedBody")
+        } else {
+            loginCredentialsWarning = nil
+        }
+
     }
 
     func retryConnection() {
@@ -217,7 +291,16 @@ final class AppModel: ObservableObject {
     }
 
     func disconnect() {
+        guard KeychainLoginCredentialsStore().deleteCredentials() else {
+            loginCredentialsWarning = L10n.t("loginRecovery.clearFailed")
+            return
+        }
+
         Task { await voice.leave() }
+        banner = nil
+        hasSavedLoginCredentials = false
+        loginCredentialsWarning = nil
+        session.dismissLoginCredentialsSaveFailure()
         session.disconnect()
     }
 
@@ -239,13 +322,38 @@ final class AppModel: ObservableObject {
 
     // MARK: - voice
 
-    func joinVoice(_ channelId: Int) {
+    func joinVoice(_ channelId: Int, enableMicrophoneOnJoin: Bool? = nil) {
         banner = nil
+        let shouldEnableMicrophone = enableMicrophoneOnJoin ?? microphoneEnabledOnJoin
 
         Task {
             await voice.join(channelId: channelId)
+            if shouldEnableMicrophone, voice.currentChannelId == channelId, voice.callState == .connected {
+                do {
+                    try await voice.setMicrophoneEnabled(true)
+                } catch {
+                    DiagnosticsLogger.shared.error("voice", "microphone-on-join failed", error: error)
+                    banner = error.localizedDescription
+                }
+            }
             await syncVoiceWithServer()
             updateLiveActivity()
+        }
+    }
+
+    func toggleMicrophoneEnabledOnJoin() {
+        if microphoneEnabledOnJoin {
+            microphoneEnabledOnJoin = false
+            return
+        }
+
+        Task {
+            do {
+                try await voice.requestMicrophoneAccess()
+                microphoneEnabledOnJoin = true
+            } catch {
+                banner = error.localizedDescription
+            }
         }
     }
 

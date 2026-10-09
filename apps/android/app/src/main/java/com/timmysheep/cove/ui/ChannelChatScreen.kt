@@ -11,6 +11,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,6 +53,8 @@ import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.FlipCameraAndroid
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.MoreVert
@@ -83,7 +87,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
+import androidx.compose.runtime.key as composeKey
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -92,6 +96,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
@@ -123,6 +129,11 @@ import com.timmysheep.cove.data.User
 import com.timmysheep.cove.data.VoiceUserState
 import com.timmysheep.cove.data.hasChannelPermission
 import com.timmysheep.cove.data.hasServerPermission
+import com.timmysheep.cove.data.TypingScope
+import com.timmysheep.cove.data.typingNames
+import com.timmysheep.cove.data.canUploadAttachments
+import com.timmysheep.cove.data.attachmentSlots
+import com.timmysheep.cove.data.readAttachment
 import com.timmysheep.cove.voice.RemoteVideoTrack
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -142,18 +153,22 @@ fun ChannelChatScreen(
     model: CoveViewModel,
     channel: Channel,
     voiceRoomOnly: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onLeaveVoice: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val uploadFailedText = stringResource(R.string.upload_failed)
     val fileTooLargeText = stringResource(R.string.file_too_large)
+    val attachmentLimitText = stringResource(R.string.attachment_limit)
     val messages = state.messagesByChannel[channel.id].orEmpty()
     val threadParent = state.activeThreadParentId?.let { parentId ->
         state.messagesByChannel.values.asSequence().flatten().firstOrNull { it.id == parentId }
     }
     val remoteVideoTracks by model.remoteVideoTracks.collectAsState()
     val localCameraTrack by model.localCameraTrack.collectAsState()
+    val eglBaseContext by model.eglBaseContext.collectAsState()
+    val activeSpeakerIds by model.activeSpeakerIds.collectAsState()
     val listState = rememberLazyListState()
     var draft by rememberSaveable(channel.id) { mutableStateOf("") }
     var replyingTo by remember { mutableStateOf<Message?>(null) }
@@ -178,20 +193,21 @@ fun ChannelChatScreen(
         if (result.resultCode == Activity.RESULT_OK) model.startScreenShare(result.resultCode, result.data)
     }
     val attachmentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        uris.forEach { uri ->
+        val currentState = model.state.value
+        if (currentState.canUploadAttachments(channel) && uploadingCount == 0) {
+            val selected = uris.take(currentState.attachmentSlots(pendingAttachments.size))
+            if (selected.size < uris.size) Toast.makeText(context, attachmentLimitText, Toast.LENGTH_LONG).show()
+            uploadingCount = selected.size
             coroutineScope.launch {
-                uploadingCount += 1
+              selected.forEach { uri ->
                 try {
                     val fileName = queryDisplayName(context, uri)
                     val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
-                    val bytes = withContext(Dispatchers.IO) {
-                        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                            ?: throw IllegalStateException(uploadFailedText)
-                    }
-                    val maximumSize = state.publicSettings["storageUploadMaxFileSize"]
+                    val maximumSize = currentState.publicSettings["storageUploadMaxFileSize"]
                         ?.jsonPrimitive?.contentOrNull?.toLongOrNull()
-                    if (maximumSize != null && bytes.size > maximumSize) {
-                        throw IllegalArgumentException(fileTooLargeText)
+                    val bytes = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.use { readAttachment(it, maximumSize, fileTooLargeText) }
+                            ?: throw IllegalStateException(uploadFailedText)
                     }
                     val uploaded = model.uploadAttachment(bytes, fileName, mimeType)
                     pendingAttachments = pendingAttachments + PendingAttachment(uploaded.id, uploaded.originalName)
@@ -201,6 +217,7 @@ fun ChannelChatScreen(
                 } finally {
                     uploadingCount -= 1
                 }
+              }
             }
         }
     }
@@ -223,8 +240,11 @@ fun ChannelChatScreen(
         VoiceCallPanel(
             channel = channel,
             state = state,
+            model = model,
+            activeSpeakerIds = activeSpeakerIds,
             remoteVideoTracks = remoteVideoTracks,
             localCameraTrack = localCameraTrack,
+            eglBaseContext = eglBaseContext,
             onJoin = { model.joinVoice(channel.id) },
             onSetConsumerQuality = model::setConsumerQuality,
             modifier = panelModifier
@@ -235,7 +255,7 @@ fun ChannelChatScreen(
         VoiceControlsBar(
             state = state,
             channel = channel,
-            onLeave = model::leaveVoice,
+            onLeave = onLeaveVoice ?: model::leaveVoice,
             onToggleMicrophone = {
                 if (state.microphoneEnabled) {
                     model.setMicrophoneEnabled(false)
@@ -323,12 +343,17 @@ fun ChannelChatScreen(
                 )
             }
 
+            TypingIndicator(state, TypingScope(channel.id))
             MessageComposer(
                 value = if (editingMessage != null) editText else draft,
-                onValueChange = { value -> if (editingMessage != null) editText = value else draft = value },
+                onValueChange = { value ->
+                    if (editingMessage != null) editText = value else draft = value
+                    if (value.isNotBlank()) model.signalTyping(channel.id)
+                },
                 isEditing = editingMessage != null,
                 attachments = pendingAttachments,
                 uploading = uploadingCount > 0,
+                canAttach = state.canUploadAttachments(channel) && state.attachmentSlots(pendingAttachments.size) > 0,
                 onAttach = { attachmentPicker.launch(arrayOf("*/*")) },
                 onRemoveAttachment = { attachment ->
                     model.deleteTemporaryFile(attachment.id)
@@ -379,6 +404,10 @@ fun ChannelChatScreen(
             MessageActionSheet(
                 message = message,
                 isOwnMessage = message.userId == state.ownUserId,
+                canManageMessages = state.hasServerPermission("MANAGE_MESSAGES"),
+                canReact = state.hasServerPermission("REACT_TO_MESSAGES"),
+                emojis = state.emojis,
+                model = model,
                 onReply = {
                     replyingTo = message
                     editingMessage = null
@@ -435,14 +464,15 @@ fun ChannelChatScreen(
             model = model,
             attachments = pendingAttachments,
             uploading = uploadingCount > 0,
+            canAttach = state.canUploadAttachments(channel) && state.attachmentSlots(pendingAttachments.size) > 0,
             onAttach = { attachmentPicker.launch(arrayOf("*/*")) },
             onRemoveAttachment = { attachment ->
                 model.deleteTemporaryFile(attachment.id)
                 pendingAttachments = pendingAttachments.filterNot { it.id == attachment.id }
             },
-            onSend = { text, onComplete ->
+            onSend = { text, replyId, onComplete ->
                 val files = pendingAttachments.toList()
-                model.sendMessage(channel.id, text, null, files.map(PendingAttachment::id), threadParent.id) { sent ->
+                model.sendMessage(channel.id, text, replyId, files.map(PendingAttachment::id), threadParent.id) { sent ->
                     if (sent) {
                         pendingAttachments = emptyList()
                         onComplete(true)
@@ -535,13 +565,22 @@ private fun MessageRow(
             }
             if (reactionGroups.isNotEmpty()) {
                 Row(
-                    modifier = Modifier.padding(top = 6.dp),
+                    modifier = Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     reactionGroups.forEach { (emoji, countAndMine) ->
                         AssistChip(
                             onClick = { onToggleReaction(emoji) },
-                            label = { Text("$emoji ${countAndMine.first}") }
+                            enabled = model.hasServerPermission("REACT_TO_MESSAGES"),
+                            label = {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    ReactionEmoji(emoji, message.reactions.firstOrNull { it.emoji == emoji }?.file, model)
+                                    Text("${countAndMine.first}")
+                                }
+                            },
+                            colors = androidx.compose.material3.AssistChipDefaults.assistChipColors(
+                                containerColor = if (countAndMine.second) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                            )
                         )
                     }
                 }
@@ -632,13 +671,19 @@ private fun ThreadMessagesSheet(
     model: CoveViewModel,
     attachments: List<PendingAttachment>,
     uploading: Boolean,
+    canAttach: Boolean,
     onAttach: () -> Unit,
     onRemoveAttachment: (PendingAttachment) -> Unit,
-    onSend: (String, (Boolean) -> Unit) -> Unit,
+    onSend: (String, Int?, (Boolean) -> Unit) -> Unit,
     onDismiss: () -> Unit
 ) {
     var draft by rememberSaveable(parent.id) { mutableStateOf("") }
     val context = LocalContext.current
+    var actionMessage by remember(parent.id) { mutableStateOf<Message?>(null) }
+    var replyTo by remember(parent.id) { mutableStateOf<Message?>(null) }
+    var editMessage by remember(parent.id) { mutableStateOf<Message?>(null) }
+    var editText by remember { mutableStateOf("") }
+    var deleteMessage by remember(parent.id) { mutableStateOf<Message?>(null) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -671,30 +716,93 @@ private fun ThreadMessagesSheet(
                         authorAvatar = author?.avatar,
                         isOwnMessage = reply.userId == state.ownUserId,
                         ownUserId = state.ownUserId,
-                        onOpenActions = {},
+                        onOpenActions = { actionMessage = reply },
                         onToggleReaction = { model.toggleReaction(reply.id, it) },
                         onOpenAttachment = { file -> openAttachment(context, model.publicFileUrl(file), file) }
                     )
                 }
             }
+            replyTo?.let { reply ->
+                ReplyingBanner(
+                    message = reply,
+                    onDismiss = { replyTo = null }
+                )
+            }
+            TypingIndicator(state, TypingScope(parent.channelId, parent.id))
             MessageComposer(
                 value = draft,
-                onValueChange = { draft = it },
+                onValueChange = {
+                    draft = it
+                    if (it.isNotBlank()) model.signalTyping(parent.channelId, parent.id)
+                },
                 isEditing = false,
                 attachments = attachments,
                 uploading = uploading,
+                canAttach = canAttach,
                 onAttach = onAttach,
                 onRemoveAttachment = onRemoveAttachment,
                 onSend = {
                     val text = draft
                     if (text.isNotBlank() || attachments.isNotEmpty()) {
-                        onSend(text) { sent ->
-                            if (sent) draft = ""
+                        onSend(text, replyTo?.id) { sent ->
+                            if (sent) {
+                                draft = ""
+                                replyTo = null
+                            }
                         }
                     }
                 }
             )
         }
+    }
+
+    actionMessage?.let { message ->
+        ModalBottomSheet(
+            onDismissRequest = { actionMessage = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            MessageActionSheet(
+                message = message,
+                isOwnMessage = message.userId == state.ownUserId,
+                canManageMessages = state.hasServerPermission("MANAGE_MESSAGES"),
+                canReact = state.hasServerPermission("REACT_TO_MESSAGES"),
+                emojis = state.emojis,
+                model = model,
+                allowsThread = false,
+                onReply = { replyTo = message; actionMessage = null },
+                onOpenThread = {},
+                onEdit = {
+                    editText = htmlToPlainText(message.content)
+                    editMessage = message
+                    actionMessage = null
+                },
+                onDelete = { deleteMessage = message; actionMessage = null },
+                onTogglePin = { model.togglePin(message.id); actionMessage = null },
+                onToggleReaction = { model.toggleReaction(message.id, it); actionMessage = null }
+            )
+        }
+    }
+    editMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { editMessage = null },
+            title = { Text(stringResource(R.string.edit)) },
+            text = { OutlinedTextField(value = editText, onValueChange = { editText = it }) },
+            confirmButton = {
+                TextButton(onClick = { model.editMessage(message.id, editText); editMessage = null }, enabled = editText.isNotBlank()) {
+                    Text(stringResource(R.string.edit))
+                }
+            },
+            dismissButton = { TextButton(onClick = { editMessage = null }) { Text(stringResource(R.string.cancel)) } }
+        )
+    }
+    deleteMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { deleteMessage = null },
+            title = { Text(stringResource(R.string.delete)) },
+            text = { Text(stringResource(R.string.confirm_delete)) },
+            confirmButton = { TextButton(onClick = { model.deleteMessage(message.id); deleteMessage = null }) { Text(stringResource(R.string.delete)) } },
+            dismissButton = { TextButton(onClick = { deleteMessage = null }) { Text(stringResource(R.string.cancel)) } }
+        )
     }
 }
 
@@ -723,6 +831,7 @@ private fun MessageComposer(
     isEditing: Boolean,
     attachments: List<PendingAttachment>,
     uploading: Boolean,
+    canAttach: Boolean,
     onAttach: () -> Unit,
     onRemoveAttachment: (PendingAttachment) -> Unit,
     onSend: () -> Unit
@@ -743,7 +852,7 @@ private fun MessageComposer(
             }
         }
         Row(verticalAlignment = Alignment.Bottom) {
-            IconButton(onClick = onAttach, enabled = !isEditing && !uploading) {
+            IconButton(onClick = onAttach, enabled = canAttach && !isEditing && !uploading) {
                 Icon(Icons.Default.AttachFile, contentDescription = stringResource(R.string.attach_file))
             }
             OutlinedTextField(
@@ -767,6 +876,19 @@ private fun MessageComposer(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TypingIndicator(state: SessionState, scope: TypingScope) {
+    val names = state.typingNames(scope)
+    if (names.isNotEmpty()) {
+        Text(
+            text = stringResource(R.string.channel_typing, names),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)
+        )
     }
 }
 
@@ -808,6 +930,11 @@ private fun EditBanner(message: Message, onDismiss: () -> Unit) {
 private fun MessageActionSheet(
     message: Message,
     isOwnMessage: Boolean,
+    canManageMessages: Boolean,
+    canReact: Boolean,
+    emojis: List<com.timmysheep.cove.data.ServerEmoji>,
+    model: CoveViewModel,
+    allowsThread: Boolean = true,
     onReply: () -> Unit,
     onOpenThread: () -> Unit,
     onEdit: () -> Unit,
@@ -816,6 +943,7 @@ private fun MessageActionSheet(
     onToggleReaction: (String) -> Unit
 ) {
     val messageContent = htmlToPlainText(message.content)
+    val availability = messageActionAvailability(message, isOwnMessage, canManageMessages, canReact)
     val threadActionText = if (message.replyCount > 0) {
         pluralStringResource(R.plurals.reply_count, message.replyCount, message.replyCount)
     } else {
@@ -831,24 +959,31 @@ private fun MessageActionSheet(
                 modifier = Modifier.padding(bottom = 10.dp)
             )
         }
-        Row(
+        if (availability.react) Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf("👍", "❤️", "😂", "🎉", "👀").forEach { emoji ->
+            listOf("👍", "❤️", "😂", "🎉", "👀", "😮", "😀", "😍", "😢", "🔥", "✅", "🙏").forEach { emoji ->
                 TextButton(onClick = { onToggleReaction(emoji) }) {
                     Text(emoji, style = MaterialTheme.typography.titleMedium)
                 }
             }
+            emojis.forEach { emoji ->
+                TextButton(onClick = { onToggleReaction(emoji.name) }) {
+                    ReactionEmoji(emoji.name, emoji.file, model)
+                }
+            }
         }
 
-        if (isOwnMessage) {
+        if (availability.edit) {
             TextButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Edit, contentDescription = null)
                 Spacer(Modifier.width(12.dp))
                 Text(stringResource(R.string.edit))
             }
+        }
+        if (availability.delete) {
             TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.width(12.dp))
@@ -867,19 +1002,42 @@ private fun MessageActionSheet(
                 onClick = onReply,
                 modifier = Modifier.weight(1f)
             )
-            MessageActionButton(
+            if (allowsThread) MessageActionButton(
                 icon = Icons.Default.Forum,
                 label = threadActionText,
                 onClick = onOpenThread,
                 modifier = Modifier.weight(1f)
             )
-            MessageActionButton(
+            if (availability.pin) MessageActionButton(
                 icon = Icons.Default.PushPin,
                 label = stringResource(if (message.pinned) R.string.unpin else R.string.pin),
                 onClick = onTogglePin,
                 modifier = Modifier.weight(1f)
             )
         }
+    }
+}
+
+@Composable
+private fun ReactionEmoji(name: String, file: MessageFile?, model: CoveViewModel) {
+    val url = file?.let(model::publicFileUrl)
+    var bitmap by remember(url) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    LaunchedEffect(url) {
+        if (url != null) {
+            try {
+                val bytes = model.downloadPublicFile(url)
+                bitmap = withContext(Dispatchers.Default) { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }
+            } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                bitmap = null
+            }
+        }
+    }
+    val image = bitmap
+    if (image != null) {
+        Image(bitmap = image.asImageBitmap(), contentDescription = name, modifier = Modifier.size(24.dp), contentScale = ContentScale.Fit)
+    } else {
+        Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -914,8 +1072,11 @@ private fun MessageActionButton(
 private fun VoiceCallPanel(
     channel: Channel,
     state: SessionState,
+    model: CoveViewModel,
+    activeSpeakerIds: Set<Int>,
     remoteVideoTracks: List<RemoteVideoTrack>,
     localCameraTrack: VideoTrack?,
+    eglBaseContext: EglBase.Context?,
     onJoin: () -> Unit,
     onSetConsumerQuality: (Int, String, Int?) -> Unit,
     modifier: Modifier = Modifier
@@ -924,6 +1085,9 @@ private fun VoiceCallPanel(
     val participants = state.voiceUsersByChannel[channel.id].orEmpty()
     val participantIds = participants.keys
     val webcamTracks = remoteVideoTracks.filter { it.kind == "video" }.associateBy { it.remoteId }
+    val screenStreams = if (isInThisRoom) remoteVideoTracks.filter { it.kind == "screen" } else emptyList()
+    var expandedScreenKey by remember(channel.id) { mutableStateOf<String?>(null) }
+    val expandedScreenStream = screenStreams.firstOrNull { it.key == expandedScreenKey }
     val stageItems = buildList {
         participants.forEach { (userId, voiceState) ->
             val user = state.users.firstOrNull { it.id == userId } ?: return@forEach
@@ -938,42 +1102,44 @@ private fun VoiceCallPanel(
             }
             val cameraKey = if (userId == state.ownUserId) "local-camera" else webcamTracks[userId]?.key
 
-            add(VoiceStageItem("user-$userId") {
-                if (cameraTrack != null) {
-                    VideoTrackCard(
-                        track = cameraTrack,
-                        key = cameraKey ?: "remote-camera-$userId",
-                        label = user.name
-                    )
-                } else {
-                    VoiceParticipantTile(user = user, voiceState = voiceState)
+            add(
+                VoiceStageItem(key = "user-$userId", isSpeaking = userId in activeSpeakerIds) {
+                    if (cameraTrack != null && eglBaseContext != null) {
+                        VideoTrackCard(
+                            track = cameraTrack,
+                            key = cameraKey ?: "remote-camera-$userId",
+                            eglBaseContext = eglBaseContext,
+                            label = user.name
+                        )
+                    } else {
+                        VoiceParticipantTile(user = user, voiceState = voiceState, model = model)
+                    }
                 }
-            })
+            )
         }
 
-        if (isInThisRoom && localCameraTrack != null && state.cameraEnabled && state.ownUserId !in participantIds) {
-            add(VoiceStageItem("local-camera") {
-                VideoTrackCard(
-                    track = localCameraTrack,
+        if (isInThisRoom && localCameraTrack != null && eglBaseContext != null &&
+            state.cameraEnabled && state.ownUserId !in participantIds
+        ) {
+            add(
+                VoiceStageItem(
                     key = "local-camera",
-                    label = stringResource(R.string.you)
-                )
-            })
-        }
-
-        if (isInThisRoom) {
-            remoteVideoTracks
-                .filter { it.kind == "screen" || (it.kind == "video" && it.remoteId !in participantIds) }
-                .forEach { stream ->
-                    add(VoiceStageItem("stream-${stream.key}") {
-                        RemoteVideoCard(
-                            stream = stream,
-                            label = state.users.firstOrNull { it.id == stream.remoteId }?.name
-                        ) { layer ->
-                            onSetConsumerQuality(stream.remoteId, stream.kind, layer)
-                        }
-                    })
+                    isSpeaking = state.ownUserId in activeSpeakerIds
+                ) {
+                    VideoTrackCard(
+                        track = localCameraTrack,
+                        key = "local-camera",
+                        eglBaseContext = eglBaseContext,
+                        label = stringResource(R.string.you)
+                    )
                 }
+            )
+        }
+    }
+
+    LaunchedEffect(expandedScreenKey, screenStreams) {
+        if (expandedScreenKey != null && screenStreams.none { it.key == expandedScreenKey }) {
+            expandedScreenKey = null
         }
     }
 
@@ -987,7 +1153,19 @@ private fun VoiceCallPanel(
             }
         }
 
-        if (stageItems.isEmpty()) {
+        if (expandedScreenStream != null && eglBaseContext != null) {
+            ExpandedScreenShare(
+                stream = expandedScreenStream,
+                eglBaseContext = eglBaseContext,
+                label = state.users.firstOrNull { it.id == expandedScreenStream.remoteId }?.name
+                    ?: stringResource(R.string.unknown_user),
+                onQualityChange = { layer ->
+                    onSetConsumerQuality(expandedScreenStream.remoteId, expandedScreenStream.kind, layer)
+                },
+                onMinimize = { expandedScreenKey = null },
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            )
+        } else if (stageItems.isEmpty() && screenStreams.isEmpty()) {
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 shape = MaterialTheme.shapes.extraLarge,
@@ -1002,10 +1180,49 @@ private fun VoiceCallPanel(
                 }
             }
         } else {
-            VoiceStageGrid(
-                items = stageItems,
-                modifier = Modifier.weight(1f).fillMaxWidth()
-            )
+            BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (stageItems.isEmpty()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        shape = MaterialTheme.shapes.extraLarge,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                text = stringResource(R.string.no_voice_participants),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+                } else {
+                    VoiceStageGrid(items = stageItems, modifier = Modifier.fillMaxSize())
+                }
+
+                if (screenStreams.isNotEmpty() && eglBaseContext != null) {
+                    val previewSize = calculateScreenSharePreviewSize(maxWidth.value, maxHeight.value)
+                    Row(
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        screenStreams.forEach { stream ->
+                            ScreenSharePreview(
+                                stream = stream,
+                                eglBaseContext = eglBaseContext,
+                                label = state.users.firstOrNull { it.id == stream.remoteId }?.name
+                                    ?: stringResource(R.string.unknown_user),
+                                onMaximize = { expandedScreenKey = stream.key },
+                                onQualityChange = { layer ->
+                                    onSetConsumerQuality(stream.remoteId, stream.kind, layer)
+                                },
+                                modifier = Modifier
+                                    .width(previewSize.width.dp)
+                                    .height(previewSize.height.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
 
     }
@@ -1013,6 +1230,7 @@ private fun VoiceCallPanel(
 
 private data class VoiceStageItem(
     val key: String,
+    val isSpeaking: Boolean = false,
     val content: @Composable () -> Unit
 )
 
@@ -1035,9 +1253,21 @@ private fun VoiceStageGrid(items: List<VoiceStageItem>, modifier: Modifier = Mod
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
                 ) {
                     rowItems.forEach { item ->
-                        key(item.key) {
+                        composeKey(item.key) {
                             Box(modifier = Modifier.width(cellWidth).fillMaxHeight()) {
                                 item.content()
+                                if (item.isSpeaking) {
+                                    Box(
+                                        modifier = Modifier
+                                            .matchParentSize()
+                                            .padding(2.dp)
+                                            .border(
+                                                width = 3.dp,
+                                                color = Color(0xFF4CAF50),
+                                                shape = MaterialTheme.shapes.extraLarge
+                                            )
+                                    )
+                                }
                             }
                         }
                     }
@@ -1048,19 +1278,51 @@ private fun VoiceStageGrid(items: List<VoiceStageItem>, modifier: Modifier = Mod
 }
 
 @Composable
-private fun VoiceParticipantTile(user: User, voiceState: VoiceUserState) {
+private fun VoiceParticipantTile(user: User, voiceState: VoiceUserState, model: CoveViewModel) {
+    val avatarBitmap = rememberUserAvatarBitmap(user.avatar, model)
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val fallbackTileColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val tileBackgroundColor = remember(avatarBitmap, surfaceColor, fallbackTileColor) {
+        val avatarColor = avatarBitmap?.let { bitmap ->
+            avatarTileBackgroundColor(sampleAvatarPixels(bitmap), surfaceColor.toArgb())
+        }
+        Color(avatarColor ?: fallbackTileColor.toArgb())
+    }
+    val tileContentColor = remember(tileBackgroundColor) {
+        Color(avatarTileForegroundColor(tileBackgroundColor.toArgb()))
+    }
+    val avatarImage = remember(avatarBitmap) { avatarBitmap?.asImageBitmap() }
     Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = tileBackgroundColor,
+        contentColor = tileContentColor,
         shape = MaterialTheme.shapes.extraLarge,
         modifier = Modifier.fillMaxSize()
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val avatarSize = minOf(maxWidth * 0.34f, maxHeight * 0.28f).coerceIn(48.dp, 128.dp)
-            UserAvatar(
-                name = user.name,
-                modifier = Modifier.align(Alignment.Center),
-                size = avatarSize
-            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(avatarSize)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                if (avatarImage != null) {
+                    Image(
+                        bitmap = avatarImage,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = user.name.trim().firstOrNull()?.uppercase() ?: "?",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
             Column(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1076,7 +1338,7 @@ private fun VoiceParticipantTile(user: User, voiceState: VoiceUserState) {
                     Icon(
                         imageVector = if (voiceState.micMuted) Icons.Default.MicOff else Icons.Default.Mic,
                         contentDescription = stringResource(if (voiceState.micMuted) R.string.muted else R.string.microphone),
-                        tint = if (voiceState.micMuted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = if (voiceState.micMuted) MaterialTheme.colorScheme.error else tileContentColor.copy(alpha = 0.72f),
                         modifier = Modifier.size(18.dp)
                     )
                     if (voiceState.webcamEnabled) {
@@ -1241,13 +1503,21 @@ private fun VoiceIconControl(
 @Composable
 private fun RemoteVideoCard(
     stream: RemoteVideoTrack,
+    eglBaseContext: EglBase.Context,
     label: String? = null,
-    onQualityChange: (Int?) -> Unit
+    onQualityChange: (Int?) -> Unit,
+    modifier: Modifier = Modifier,
+    showQualityControls: Boolean = true
 ) {
     var menuExpanded by remember(stream.key) { mutableStateOf(false) }
-    Box {
-        VideoTrackCard(track = stream.track, key = stream.key, label = label)
-        if (stream.qualityLayers.isNotEmpty()) {
+    Box(modifier = modifier) {
+        VideoTrackCard(
+            track = stream.track,
+            key = stream.key,
+            eglBaseContext = eglBaseContext,
+            label = label
+        )
+        if (showQualityControls && stream.qualityLayers.isNotEmpty()) {
             Box(modifier = Modifier.align(Alignment.TopEnd)) {
                 IconButton(onClick = { menuExpanded = true }) {
                     Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.video_quality))
@@ -1276,27 +1546,110 @@ private fun RemoteVideoCard(
 }
 
 @Composable
-private fun VideoTrackCard(track: VideoTrack, key: String, label: String? = null) {
-    val eglBase = remember(key) { EglBase.create() }
-    var renderer by remember(key) { mutableStateOf<SurfaceViewRenderer?>(null) }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { context ->
-                SurfaceViewRenderer(context).apply {
-                    init(eglBase.eglBaseContext, null)
-                    setScalingType(org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FIT)
-                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                    track.addSink(this)
-                    renderer = this
-                }
-            },
-            update = { view ->
-                renderer = view
-                track.addSink(view)
+private fun ScreenSharePreview(
+    stream: RemoteVideoTrack,
+    eglBaseContext: EglBase.Context,
+    label: String?,
+    onMaximize: () -> Unit,
+    onQualityChange: (Int?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = Color.Black,
+        shape = RoundedCornerShape(16.dp),
+        tonalElevation = 6.dp
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            RemoteVideoCard(
+                stream = stream,
+                eglBaseContext = eglBaseContext,
+                label = label,
+                onQualityChange = onQualityChange,
+                modifier = Modifier.fillMaxSize()
+            )
+            FilledTonalIconButton(
+                onClick = onMaximize,
+                modifier = Modifier.align(Alignment.TopStart).padding(6.dp).size(38.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Fullscreen,
+                    contentDescription = stringResource(R.string.screen_share_maximize)
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedScreenShare(
+    stream: RemoteVideoTrack,
+    eglBaseContext: EglBase.Context,
+    label: String?,
+    onQualityChange: (Int?) -> Unit,
+    onMinimize: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier) {
+        RemoteVideoCard(
+            stream = stream,
+            eglBaseContext = eglBaseContext,
+            label = label,
+            onQualityChange = onQualityChange,
+            modifier = Modifier.fillMaxSize()
         )
+        FilledTonalIconButton(
+            onClick = onMinimize,
+            modifier = Modifier.align(Alignment.TopStart).padding(8.dp).size(44.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.FullscreenExit,
+                contentDescription = stringResource(R.string.screen_share_minimize)
+            )
+        }
+    }
+}
+
+@Composable
+private fun VideoTrackCard(
+    track: VideoTrack,
+    key: String,
+    eglBaseContext: EglBase.Context,
+    label: String? = null
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        composeKey(eglBaseContext) {
+            var renderer by remember(key) { mutableStateOf<SurfaceViewRenderer?>(null) }
+
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    SurfaceViewRenderer(context).apply {
+                        init(eglBaseContext, null)
+                        setScalingType(org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        renderer = this
+                    }
+                },
+                update = { view -> renderer = view }
+            )
+
+            DisposableEffect(renderer, track) {
+                val activeRenderer = renderer
+                activeRenderer?.let(track::addSink)
+                onDispose {
+                    activeRenderer?.let(track::removeSink)
+                }
+            }
+
+            DisposableEffect(renderer) {
+                val activeRenderer = renderer
+                onDispose { activeRenderer?.release() }
+            }
+        }
         if (label != null) {
             Text(
                 text = label,
@@ -1304,15 +1657,6 @@ private fun VideoTrackCard(track: VideoTrack, key: String, label: String? = null
                 color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.labelMedium
             )
-        }
-    }
-    DisposableEffect(key, track) {
-        onDispose {
-            renderer?.let { view ->
-                track.removeSink(view)
-                view.release()
-            }
-            eglBase.release()
         }
     }
 }

@@ -122,12 +122,6 @@ fun MainNavigationDestination(
         modifier = modifier.fillMaxSize().padding(horizontal = 12.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        if (state.serverLogo != null) {
-            item(key = "server-banner") {
-                ServerBannerCard(state, model)
-            }
-        }
-
         if (state.directMessagesEnabled && shouldShowDirectMessagesSection(directMessages.size)) {
             item(key = "heading-direct-messages") {
                 NavigationSectionHeading(
