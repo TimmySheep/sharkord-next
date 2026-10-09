@@ -54,7 +54,11 @@ struct MemberRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AvatarView(name: user.name, diameter: 40)
+            AvatarView(
+                name: user.name,
+                diameter: 40,
+                imageURL: user.avatar.flatMap(session.publicFileURL(for:))
+            )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(user.name)

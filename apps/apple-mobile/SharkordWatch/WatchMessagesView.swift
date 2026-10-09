@@ -76,7 +76,7 @@ struct WatchMessagesView: View {
                         .foregroundStyle(WatchTheme.textSecondary)
                 }
 
-                if let preview = message.replyTo, let content = preview.content {
+                if let replyExcerpt = message.replyTo, let content = replyExcerpt.content {
                     Text("↳ \(MessageHTML.toPlainText(content))")
                         .font(.caption2)
                         .foregroundStyle(WatchTheme.textSecondary)

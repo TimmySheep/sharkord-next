@@ -1,64 +1,62 @@
 import SharkordCore
 import SwiftUI
 
-/// app shell with native tabs for channels, direct messages and settings.
+enum WorkspaceDestination: Hashable {
+    case channel(Int)
+    case directMessages
+    case settings
+}
+
+/// one navigation stack keeps channel, message and settings routes together.
 struct WorkspaceView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SharkordSession
     @EnvironmentObject private var voice: VoiceEngine
 
-    private enum Tab: Hashable {
-        case channels
-        case directMessages
-        case settings
-    }
-
-    @State private var selectedTab: Tab = .channels
-    @State private var channelPath: [Int] = []
+    @State private var path: [WorkspaceDestination] = []
     @State private var isSearchPresented = false
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            NavigationStack(path: $channelPath) {
-                ChannelListView()
-                    .navigationDestination(for: Int.self) { channelId in
-                        ChannelDetailView(channelId: channelId)
-                    }
-                    .toolbar {
+        NavigationStack(path: $path) {
+            ChannelListView()
+                .navigationTitle(model.serverDisplayName)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    if session.settings?.directMessagesEnabled != false,
+                       session.directMessages.isEmpty {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button {
-                                isSearchPresented = true
+                                path.append(.directMessages)
                             } label: {
-                                Image(systemName: "magnifyingglass")
+                                Image(systemName: "square.and.pencil")
                             }
-                            .accessibilityLabel(L10n.t("search.title"))
+                            .accessibilityLabel(L10n.t("dm.newMessage"))
                         }
                     }
-            }
-            .tabItem {
-                Label(L10n.t("nav.channels"), systemImage: "point.3.connected.trianglepath.dotted")
-            }
-            .tag(Tab.channels)
-
-            DirectMessagesView()
-                .tabItem {
-                    Label(L10n.t("nav.directMessages"), systemImage: "bubble.left.and.bubble.right")
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            isSearchPresented = true
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        .accessibilityLabel(L10n.t("search.title"))
+                        .frame(minWidth: 44, minHeight: 44)
+                    }
                 }
-                .tag(Tab.directMessages)
-
-            NavigationStack {
-                SettingsView()
-            }
-            .tabItem {
-                Label(L10n.t("nav.settings"), systemImage: "slider.horizontal.3")
-            }
-            .tag(Tab.settings)
+                .navigationDestination(for: WorkspaceDestination.self) { destination in
+                    switch destination {
+                    case .channel(let channelId):
+                        ChannelDetailView(channelId: channelId)
+                    case .directMessages:
+                        DirectMessagesView(path: $path)
+                    case .settings:
+                        SettingsView()
+                    }
+                }
         }
         .tint(SharkordTheme.accentSoft)
-        .toolbarBackground(.visible, for: .tabBar)
-        .toolbarBackground(SharkordTheme.background, for: .tabBar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            callBar
+            bottomDock
         }
         .background(BrandBackground())
         .sheet(isPresented: $isSearchPresented) {
@@ -66,30 +64,160 @@ struct WorkspaceView: View {
                 MessageSearchView(onOpenMessage: openSearchMessage)
             }
         }
+        .onAppear(perform: navigateToVoiceCallIfRequested)
+        .onChange(of: model.pendingLiveActivityCallNavigationId) { _, _ in
+            navigateToVoiceCallIfRequested()
+        }
     }
 
-    /// keeps call controls available without adding another destination to the tab bar.
-    @ViewBuilder
-    private var callBar: some View {
-        if let channelId = voice.currentChannelId {
-            if selectedTab == .channels && channelPath.last == channelId {
-                VoiceControlsBar()
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-            } else {
-                BackToCallBar {
-                    selectedTab = .channels
-                    channelPath = [channelId]
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
+    private var bottomDock: some View {
+        VStack(spacing: 0) {
+            if let channelId = statusChannelId {
+                voiceConnectionBar(channelId: channelId)
             }
+            userStatusBar
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+        .background(SharkordTheme.background)
+    }
+
+    private var statusChannelId: Int? {
+        if let channelId = voice.currentChannelId {
+            return channelId
+        }
+        if case .failed = voice.callState {
+            return voice.lastCallChannelId
+        }
+        return nil
+    }
+
+    private var userStatusBar: some View {
+        HStack(spacing: 8) {
+            SessionAvatarView(user: session.ownUser, diameter: 40, showsStatus: true)
+
+            Text(session.ownUser?.name ?? L10n.t("message.unknownAuthor"))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(SharkordTheme.textPrimary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+
+            Button {
+                model.toggleMicrophone()
+            } label: {
+                Image(systemName: voice.microphoneOn ? "mic.fill" : "mic.slash.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(voice.microphoneOn ? SharkordTheme.textPrimary : SharkordTheme.danger)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(voice.currentChannelId == nil)
+            .opacity(voice.currentChannelId == nil ? 0.45 : 1)
+            .accessibilityLabel(L10n.t(voice.microphoneOn ? "voice.action.micOff" : "voice.action.micOn"))
+
+            Button {
+                model.toggleDeafen()
+            } label: {
+                Image(systemName: voice.deafened ? "headphones" : "headphones")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(voice.deafened ? SharkordTheme.danger : SharkordTheme.textPrimary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+                    .overlay(alignment: .center) {
+                        if voice.deafened {
+                            Image(systemName: "line.diagonal")
+                                .font(.system(size: 21, weight: .bold))
+                                .foregroundStyle(SharkordTheme.danger)
+                                .accessibilityHidden(true)
+                        }
+                    }
+            }
+            .buttonStyle(.plain)
+            .disabled(voice.currentChannelId == nil)
+            .opacity(voice.currentChannelId == nil ? 0.45 : 1)
+            .accessibilityLabel(L10n.t(voice.deafened ? "voice.action.speakerOn" : "voice.action.speakerOff"))
+
+            NavigationLink(value: WorkspaceDestination.settings) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(SharkordTheme.textPrimary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.t("nav.settings"))
+        }
+        .padding(.horizontal, 8)
+        .background(SharkordTheme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func voiceConnectionBar(channelId: Int) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                path = [.channel(channelId)]
+            } label: {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(callStateColor)
+                        .frame(width: 8, height: 8)
+                    Text(L10n.format("voice.connectionStatus", callStateTitle, session.channel(for: channelId)?.name ?? ""))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(SharkordTheme.textPrimary)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minHeight: 40)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                model.leaveVoice()
+            } label: {
+                Image(systemName: "phone.down.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(SharkordTheme.danger)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.t("voice.leave"))
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 4)
+        .background(SharkordTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.bottom, 6)
+    }
+
+    private var callStateTitle: String {
+        switch voice.callState {
+        case .idle, .connected:
+            return L10n.t("voice.state.live")
+        case .joining:
+            return L10n.t("voice.state.joining")
+        case .connecting:
+            return L10n.t("voice.state.connecting")
+        case .failed:
+            return L10n.t("voice.state.failed")
+        }
+    }
+
+    private var callStateColor: Color {
+        switch voice.callState {
+        case .idle, .joining, .connecting:
+            return SharkordTheme.accentSoft
+        case .connected:
+            return SharkordTheme.success
+        case .failed:
+            return SharkordTheme.danger
         }
     }
 
     private func openSearchMessage(_ channelId: Int, _ messageId: Int) {
-        selectedTab = .channels
-        channelPath = [channelId]
+        path = [.channel(channelId)]
 
         Task {
             do {
@@ -113,85 +241,15 @@ struct WorkspaceView: View {
             }
         }
     }
-}
 
-/// the three call controls: microphone pill, speaker pill and the exit button. The
-/// microphone pill is disabled while the output is off, which is the protection the first
-/// version requires.
-struct VoiceControlsBar: View {
-    @EnvironmentObject private var model: AppModel
-    @EnvironmentObject private var voice: VoiceEngine
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ControlPill(
-                title: voice.microphoneOn ? L10n.t("voice.action.micOff") : L10n.t("voice.action.micOn"),
-                symbol: voice.microphoneOn ? "mic.fill" : "mic.slash.fill",
-                background: voice.microphoneOn ? SharkordTheme.accent : SharkordTheme.pillNeutral,
-                foreground: voice.microphoneOn ? .white : SharkordTheme.textPrimary,
-                disabled: !voice.microphoneOn && !voice.canEnableMicrophone
-            ) {
-                model.toggleMicrophone()
-            }
-
-            ControlPill(
-                title: voice.deafened ? L10n.t("voice.action.speakerOn") : L10n.t("voice.action.speakerOff"),
-                symbol: voice.deafened ? "speaker.slash.fill" : "speaker.wave.2.fill",
-                background: voice.deafened ? SharkordTheme.danger : SharkordTheme.accent,
-                foreground: .white
-            ) {
-                model.toggleDeafen()
-            }
-
-            ExitButton(label: L10n.t("voice.leave")) {
-                model.leaveVoice()
-            }
+    private func navigateToVoiceCallIfRequested() {
+        guard model.pendingLiveActivityCallNavigationId != nil,
+              let channelId = voice.currentChannelId
+        else {
+            return
         }
-    }
-}
 
-/// compact bar shown while in a call on the non voice tabs: tap to jump back to the call.
-struct BackToCallBar: View {
-    @EnvironmentObject private var session: SharkordSession
-    @EnvironmentObject private var voice: VoiceEngine
-
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: "waveform")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(SharkordTheme.accentSoft)
-
-                Text(L10n.t("voice.backToCall"))
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(SharkordTheme.textPrimary)
-
-                Text(channelName)
-                    .font(.footnote)
-                    .foregroundStyle(SharkordTheme.textSecondary)
-                    .lineLimit(1)
-
-                Spacer(minLength: 8)
-
-                Image(systemName: "chevron.up")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(SharkordTheme.textSecondary)
-            }
-            .padding(.horizontal, 18)
-            .frame(minHeight: 56)
-            .frame(maxWidth: .infinity)
-            .background(SharkordTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var channelName: String {
-        guard let channelId = voice.currentChannelId,
-              let channel = session.channel(for: channelId) else {
-            return ""
-        }
-        return channel.name
+        path = [.channel(channelId)]
+        model.pendingLiveActivityCallNavigationId = nil
     }
 }

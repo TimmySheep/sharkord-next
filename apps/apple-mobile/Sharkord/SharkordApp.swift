@@ -14,6 +14,7 @@ struct SharkordApp: App {
                 .environmentObject(model)
                 .environmentObject(model.session)
                 .environmentObject(model.voice)
+                .environmentObject(model.watchAccountManager)
         }
     }
 }

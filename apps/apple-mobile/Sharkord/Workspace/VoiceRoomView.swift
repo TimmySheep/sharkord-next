@@ -202,7 +202,8 @@ struct VoiceRoomView: View {
             AvatarView(
                 name: participant.user.name,
                 diameter: 68,
-                isSpeaking: isSelf && voice.microphoneOn
+                isSpeaking: isSelf && voice.microphoneOn,
+                imageURL: participant.user.avatar.flatMap(session.publicFileURL(for:))
             )
 
             HStack(spacing: 6) {

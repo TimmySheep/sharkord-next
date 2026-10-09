@@ -91,6 +91,20 @@ public final class SharkordSession: ObservableObject {
         users.first { $0.id == ownUserId }
     }
 
+    public var linkedDeviceHost: String? {
+        guard phase == .connected else {
+            return nil
+        }
+        return credentials?.host
+    }
+
+    public var linkedDeviceServerPassword: String? {
+        guard phase == .connected else {
+            return nil
+        }
+        return credentials?.serverPassword
+    }
+
     public var textChannels: [SharkordChannel] {
         channels.filter { $0.type == .text && !$0.isDm }
     }
@@ -329,6 +343,27 @@ public final class SharkordSession: ObservableObject {
             ClientLogStore.shared.recordError("session.connect.failed", error: error)
             phase = .failed(Self.describe(error))
         }
+    }
+
+    public func registerLinkedWatchAccount(
+        identity: String,
+        password: String,
+        invite: String?
+    ) async throws {
+        guard phase == .connected,
+              let credentials,
+              let baseURL = URL(string: credentials.host)
+        else {
+            throw TRPCClientError(code: "NOT_CONNECTED", message: "Connect to a server before setting up an Apple Watch account.")
+        }
+
+        let trimmedInvite = invite?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let inviteCode = trimmedInvite?.isEmpty == false ? trimmedInvite : credentials.invite
+        _ = try await SharkordHTTPClient(baseURL: baseURL).login(
+            identity: identity,
+            password: password,
+            invite: inviteCode
+        )
     }
 
     public func attemptAutomaticLogin(enabled: Bool) async {

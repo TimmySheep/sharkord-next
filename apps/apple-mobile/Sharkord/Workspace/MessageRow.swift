@@ -2,7 +2,7 @@ import SharkordCore
 import SwiftUI
 
 /// One message: author, timestamp, body (the server's HTML shown as plain text), reply
-/// preview, attachments, reaction chips and the message actions on long press.
+/// image attachments, reaction chips and the message actions on long press.
 struct MessageRow: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SharkordSession
@@ -13,28 +13,29 @@ struct MessageRow: View {
 
     @State private var isEditing = false
     @State private var editedText = ""
-    @State private var previewFile: SharkordFile?
+    @State private var selectedImageFile: SharkordFile?
 
     private static let quickReactions = ["👍", "❤️", "😂", "🎉", "😮"]
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            AvatarView(name: authorName, diameter: 40)
+            AvatarView(
+                name: authorName,
+                diameter: 40,
+                imageURL: message.userId
+                    .flatMap { session.user(for: $0)?.avatar }
+                    .flatMap(session.publicFileURL(for:))
+            )
 
             VStack(alignment: .leading, spacing: 4) {
                 header
 
                 if let replyTo = message.replyTo {
-                    replyPreview(replyTo)
+                    replySnippet(replyTo)
                 }
 
-                let body = MessageText.plainText(fromHTML: message.content)
-                if !body.isEmpty {
-                    Text(body)
-                        .font(.body)
-                        .foregroundStyle(SharkordTheme.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
+                if !MessageHTML.parse(message.content ?? "").isEmpty {
+                    MessageRichText(html: message.content ?? "")
                 }
 
                 if let files = message.files, !files.isEmpty {
@@ -104,13 +105,13 @@ struct MessageRow: View {
             }
             Button(L10n.t("common.cancel"), role: .cancel) {}
         }
-        .fullScreenCover(item: $previewFile) { file in
+        .fullScreenCover(item: $selectedImageFile) { file in
             NavigationStack {
                 AsyncImage(url: session.publicFileURL(for: file)) { phase in
                     if let image = phase.image {
                         image.resizable().scaledToFit()
                     } else if phase.error != nil {
-                        ContentUnavailableView(L10n.t("message.previewFailed"), systemImage: "exclamationmark.triangle")
+                        ContentUnavailableView(L10n.t("message.imageLoadFailed"), systemImage: "exclamationmark.triangle")
                     } else {
                         ProgressView()
                     }
@@ -121,7 +122,7 @@ struct MessageRow: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(L10n.t("common.done")) { previewFile = nil }
+                        Button(L10n.t("common.done")) { selectedImageFile = nil }
                     }
                 }
             }
@@ -154,7 +155,7 @@ struct MessageRow: View {
         }
     }
 
-    private func replyPreview(_ reply: SharkordReplyPreview) -> some View {
+    private func replySnippet(_ reply: SharkordReplyPreview) -> some View {
         let name = reply.userId.flatMap { session.user(for: $0)?.name } ?? L10n.t("message.unknownAuthor")
 
         return HStack(spacing: 5) {
@@ -181,7 +182,7 @@ struct MessageRow: View {
             ForEach(files) { file in
                 if file.mimeType.hasPrefix("image/"), let url = session.publicFileURL(for: file) {
                     Button {
-                        previewFile = file
+                        selectedImageFile = file
                     } label: {
                         AsyncImage(url: url) { phase in
                             if let image = phase.image {

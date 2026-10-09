@@ -136,6 +136,17 @@ struct ConnectView: View {
                     )
                 }
             }
+
+            if model.canRetryConnection, case .failed = session.phase {
+                Button {
+                    model.retryConnection()
+                } label: {
+                    Label(L10n.t("connect.retry"), systemImage: "arrow.clockwise")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+            }
         }
         .sharkordCard(cornerRadius: 28)
     }

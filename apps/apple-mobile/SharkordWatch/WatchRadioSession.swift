@@ -32,26 +32,6 @@ protocol RadioTransport: AnyObject {
     func disconnect(channelId: Int?) async
 }
 
-/// offline stand-in for previews that do not connect to a server.
-@MainActor
-final class MockRadioTransport: RadioTransport {
-    var onReceiveFrame: ((Int, Data) -> Void)?
-
-    private(set) var sentFrames = 0
-
-    func connect(channelId: Int) async throws {
-        try await Task.sleep(nanoseconds: 400_000_000)
-    }
-
-    func setMicrophoneMuted(_ muted: Bool) async throws {}
-
-    func sendFrame(_ data: Data) async {
-        sentFrames += 1
-    }
-
-    func disconnect(channelId: Int?) async {}
-}
-
 /// AVAudioSession plus microphone capture with level metering. The engine activates on join,
 /// captures only while the user holds to talk, and hands raw PCM frames to the server transport.
 final class RadioAudioEngine {
@@ -459,6 +439,7 @@ final class WatchRadioSession: ObservableObject {
     @Published private(set) var state: RadioState = .idle
     @Published private(set) var microphoneLevel: Float = 0
     @Published private(set) var currentChannelId: Int?
+    @Published private(set) var speakingUserIds: Set<Int> = []
     /// output volume, driven by the digital crown
     @Published var volume: Double = 0.8 {
         didSet {
@@ -469,16 +450,21 @@ final class WatchRadioSession: ObservableObject {
     private let audio = RadioAudioEngine()
     private var transport: WatchRadioTRPCTransport?
     private var pushToTalkRequest = 0
+    private var lastIncomingAudioAt: [Int: Date] = [:]
+    private var speakingMonitorTask: Task<Void, Never>?
 
     init() {}
 
     func configure(credentials: WatchRadioCredentials) {
         transport = WatchRadioTRPCTransport(credentials: credentials)
         transport?.onReceiveFrame = { [weak self] userId, data in
+            self?.noteIncomingAudio(from: userId)
             self?.audio.play(data, from: userId)
         }
         transport?.onRemoveUser = { [weak self] userId in
             self?.audio.removeUser(userId)
+            self?.lastIncomingAudioAt.removeValue(forKey: userId)
+            self?.speakingUserIds.remove(userId)
         }
         transport?.onError = { [weak self] message in
             guard self?.state == .listening || self?.state == .transmitting else {
@@ -604,6 +590,37 @@ final class WatchRadioSession: ObservableObject {
 
         currentChannelId = nil
         state = .idle
+        speakingMonitorTask?.cancel()
+        speakingMonitorTask = nil
+        lastIncomingAudioAt.removeAll()
+        speakingUserIds.removeAll()
+    }
+
+    private func noteIncomingAudio(from userId: Int) {
+        lastIncomingAudioAt[userId] = Date()
+        guard speakingMonitorTask == nil else {
+            return
+        }
+
+        speakingMonitorTask = Task { [weak self] in
+            while let self, !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 180_000_000)
+                } catch {
+                    return
+                }
+
+                let cutoff = Date().addingTimeInterval(-0.55)
+                let activeUsers = Set(self.lastIncomingAudioAt.compactMap { userId, timestamp in
+                    timestamp >= cutoff ? userId : nil
+                })
+                self.speakingUserIds = activeUsers
+                guard !activeUsers.isEmpty else {
+                    self.speakingMonitorTask = nil
+                    return
+                }
+            }
+        }
     }
 
     private func fail(_ message: String) async {
