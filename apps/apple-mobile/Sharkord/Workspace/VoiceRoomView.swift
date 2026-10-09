@@ -507,7 +507,7 @@ struct VoiceRoomView: View {
                 symbol: voice.microphoneOn ? "mic.fill" : "mic.slash.fill",
                 accessibilityLabel: L10n.t(voice.microphoneOn ? "voice.action.micOff" : "voice.action.micOn"),
                 active: voice.microphoneOn,
-                enabled: voice.callState == .connected,
+                enabled: voice.callState == .connected && !voice.microphoneStarting,
                 action: model.toggleMicrophone
             )
             VoiceRoomControlButton(
@@ -520,7 +520,7 @@ struct VoiceRoomView: View {
                 symbol: voice.cameraOn ? "video.fill" : "video.slash.fill",
                 accessibilityLabel: L10n.t(voice.cameraOn ? "voice.camera.stop" : "voice.camera.start"),
                 active: voice.cameraOn,
-                enabled: voice.callState == .connected && (cameraAllowed || voice.cameraOn),
+                enabled: voice.callState == .connected && !voice.cameraStarting && (cameraAllowed || voice.cameraOn),
                 action: model.toggleCamera
             )
             ScreenShareControls(channelId: channelId, compact: true)

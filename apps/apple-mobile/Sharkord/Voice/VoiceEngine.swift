@@ -38,6 +38,12 @@ enum VoiceError: LocalizedError {
     }
 }
 
+// these WebRTC objects stay confined to the serial queue until producer creation returns.
+private struct ProducerCreationInput: @unchecked Sendable {
+    let transport: SendTransport
+    let track: RTCMediaStreamTrack
+}
+
 /// The media half of a voice session. `SharkordSession` owns the mediasoup signalling
 /// (join, transports, produce, consume, state updates); this class owns the device, the
 /// transports and the tracks, and mirrors the web client's call rules:
@@ -56,6 +62,7 @@ final class VoiceEngine: ObservableObject {
 
     @Published private(set) var callState: CallState = .idle
     @Published private(set) var microphoneOn = false
+    @Published private(set) var microphoneStarting = false
     @Published private(set) var deafened = false
     @Published private(set) var screenSharing = false
     @Published private(set) var screenShareStarting = false
@@ -71,6 +78,9 @@ final class VoiceEngine: ObservableObject {
 
     private let session: SharkordSession
     private let factory = RTCPeerConnectionFactory()
+    // run this synchronous wait off the main actor because its callback needs main actor server signaling.
+    private let producerCreationQueue = DispatchQueue(label: "cove.voice.producer")
+    private var audioSessionIsActive = false
     private var device: Device?
     private var sendTransport: SendTransport?
     private var receiveTransport: ReceiveTransport?
@@ -121,7 +131,7 @@ final class VoiceEngine: ObservableObject {
             // decides when to speak
             let joinResult = try await session.joinVoice(channelId: channelId, micMuted: true, soundMuted: deafened)
 
-            let device = Device(captureAudioSession: true)
+            let device = Device(pcFactory: factory)
             try device.load(with: RTPCodec.string(from: joinResult["routerRtpCapabilities"] ?? .null))
             self.device = device
 
@@ -149,7 +159,7 @@ final class VoiceEngine: ObservableObject {
             receive.delegate = self
             receiveTransport = receive
 
-            configureAudioSession()
+            try configureAudioSession()
             microphoneOn = false
             screenSharing = false
             cameraOn = false
@@ -177,9 +187,11 @@ final class VoiceEngine: ObservableObject {
             device = nil
             pendingProduceKinds.removeAll()
             microphoneOn = false
+            microphoneStarting = false
             cameraOn = false
             localCameraTrack = nil
             try? await session.leaveVoice()
+            deactivateAudioSession()
             currentChannelId = nil
             callState = .failed(message)
             lastErrorMessage = message
@@ -192,6 +204,7 @@ final class VoiceEngine: ObservableObject {
             if screenBroadcastServer != nil || screenShareStarting || screenSharing || screenProducer != nil {
                 await stopScreenShare()
             }
+            deactivateAudioSession()
             lastCallChannelId = nil
             callState = .idle
             lastErrorMessage = nil
@@ -228,10 +241,12 @@ final class VoiceEngine: ObservableObject {
         device = nil
         pendingProduceKinds.removeAll()
         microphoneOn = false
+        microphoneStarting = false
         cameraOn = false
         localCameraTrack = nil
 
         try? await session.leaveVoice()
+        deactivateAudioSession()
         callState = .idle
     }
 
@@ -258,20 +273,43 @@ final class VoiceEngine: ObservableObject {
     }
 
     func setMicrophoneEnabled(_ enabled: Bool) async throws {
-        guard currentChannelId != nil else {
+        guard let channelId = currentChannelId, let transportID = sendTransport?.id else {
             throw VoiceError.notInCall
         }
+        guard !microphoneStarting else {
+            return
+        }
+
+        microphoneStarting = true
+        defer { microphoneStarting = false }
 
         if enabled {
             try await requestMicrophoneAccess()
-            let producer = try ensureMicrophoneProducer()
+            guard currentChannelId == channelId, sendTransport?.id == transportID else {
+                throw VoiceError.notInCall
+            }
+            let producer = try await ensureMicrophoneProducer()
+            guard currentChannelId == channelId, sendTransport?.id == transportID else {
+                producer.track.isEnabled = false
+                throw VoiceError.notInCall
+            }
+            try await session.updateVoiceState(micMuted: false)
+            guard currentChannelId == channelId, sendTransport?.id == transportID else {
+                producer.track.isEnabled = false
+                throw VoiceError.notInCall
+            }
             producer.track.isEnabled = true
             microphoneOn = true
-            try await session.updateVoiceState(micMuted: false)
         } else {
+            let wasMicrophoneOn = microphoneOn
             microphoneProducer?.track.isEnabled = false
-            microphoneOn = false
-            try await session.updateVoiceState(micMuted: true)
+            do {
+                try await session.updateVoiceState(micMuted: true)
+                microphoneOn = false
+            } catch {
+                microphoneProducer?.track.isEnabled = wasMicrophoneOn
+                throw error
+            }
         }
     }
 
@@ -280,14 +318,15 @@ final class VoiceEngine: ObservableObject {
             throw VoiceError.notInCall
         }
 
-        if on {
-            deafened = true
-            setRemoteAudioEnabled(false)
-            try await session.updateVoiceState(soundMuted: true)
-        } else {
-            deafened = false
-            setRemoteAudioEnabled(true)
-            try await session.updateVoiceState(soundMuted: false)
+        let wasDeafened = deafened
+        deafened = on
+        setRemoteAudioEnabled(!on)
+        do {
+            try await session.updateVoiceState(soundMuted: on)
+        } catch {
+            deafened = wasDeafened
+            setRemoteAudioEnabled(!wasDeafened)
+            throw error
         }
     }
 
@@ -306,6 +345,9 @@ final class VoiceEngine: ObservableObject {
             throw VoiceError.cameraNotAllowed
         }
         try await requestCameraAccess()
+        guard currentChannelId == channelId, sendTransport?.id == transport.id else {
+            throw VoiceError.notInCall
+        }
 
         guard let device = preferredCamera(position: .front),
               let format = preferredCameraFormat(for: device) else {
@@ -314,18 +356,21 @@ final class VoiceEngine: ObservableObject {
 
         let source = factory.videoSource()
         let capturer = RTCCameraVideoCapturer(delegate: source)
+        var producer: Producer?
         do {
             try await startCapture(capturer, device: device, format: format)
+            guard currentChannelId == channelId, sendTransport?.id == transport.id else {
+                throw VoiceError.notInCall
+            }
             let track = factory.videoTrack(with: source, trackId: "video-\(channelId)")
-            pendingProduceKinds.append(.video)
-            let producer = try transport.createProducer(
-                for: track,
-                encodings: nil,
-                codecOptions: nil,
-                codec: nil,
-                appData: nil
-            )
+            producer = try await createProducer(for: track, kind: .video)
+            guard currentChannelId == channelId, sendTransport?.id == transport.id else {
+                throw VoiceError.notInCall
+            }
             try await session.updateVoiceState(webcamEnabled: true)
+            guard currentChannelId == channelId, sendTransport?.id == transport.id else {
+                throw VoiceError.notInCall
+            }
             cameraSource = source
             cameraCapturer = capturer
             cameraTrack = track
@@ -334,7 +379,7 @@ final class VoiceEngine: ObservableObject {
             localCameraTrack = track
             cameraOn = true
         } catch {
-            pendingProduceKinds.removeAll { $0 == .video }
+            producer?.close()
             await stopCapture(capturer)
             try? await session.closeProducer(kind: .video)
             try? await session.updateVoiceState(webcamEnabled: false)
@@ -552,16 +597,17 @@ final class VoiceEngine: ObservableObject {
         }
 
         let track = factory.videoTrack(with: source, trackId: "screen-\(channelId)")
-        pendingProduceKinds.append(.screen)
 
         do {
-            let producer = try transport.createProducer(
-                for: track,
-                encodings: nil,
-                codecOptions: nil,
-                codec: nil,
-                appData: nil
-            )
+            let producer = try await createProducer(for: track, kind: .screen)
+            guard screenBroadcastID == operationID,
+                  currentChannelId == channelId,
+                  sendTransport?.id == transport.id
+            else {
+                producer.close()
+                try? await session.closeProducer(kind: .screen)
+                return
+            }
             screenProducer = producer
             try await session.updateVoiceState(sharingScreen: true)
             guard screenBroadcastID == operationID else {
@@ -571,7 +617,6 @@ final class VoiceEngine: ObservableObject {
             screenShareStarting = false
             screenSharing = true
         } catch {
-            pendingProduceKinds.removeAll { $0 == .screen }
             lastErrorMessage = error.localizedDescription
             await finishScreenBroadcast(requestExtensionStop: true)
         }
@@ -798,40 +843,76 @@ final class VoiceEngine: ObservableObject {
         }
     }
 
-    private func ensureMicrophoneProducer() throws -> Producer {
+    private func ensureMicrophoneProducer() async throws -> Producer {
         if let microphoneProducer {
             return microphoneProducer
         }
 
+        let track = factory.audioTrack(withTrackId: "microphone")
+        track.isEnabled = false
+        let producer = try await createProducer(for: track, kind: .audio)
+        microphoneProducer = producer
+        return producer
+    }
+
+    private func createProducer(for track: RTCMediaStreamTrack, kind: ProducibleKind) async throws -> Producer {
         guard let transport = sendTransport else {
             throw VoiceError.notInCall
         }
 
-        let track = factory.audioTrack(withTrackId: "microphone")
-        pendingProduceKinds.append(.audio)
-
+        pendingProduceKinds.append(kind)
+        let input = ProducerCreationInput(transport: transport, track: track)
         do {
-            let producer = try transport.createProducer(
-                for: track,
-                encodings: nil,
-                codecOptions: nil,
-                codec: nil,
-                appData: nil
-            )
-            microphoneProducer = producer
-            return producer
+            return try await withCheckedThrowingContinuation { continuation in
+                producerCreationQueue.async { [input] in
+                    do {
+                        let producer = try input.transport.createProducer(
+                            for: input.track,
+                            encodings: nil,
+                            codecOptions: nil,
+                            codec: nil,
+                            appData: nil
+                        )
+                        continuation.resume(returning: producer)
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
         } catch {
-            pendingProduceKinds.removeAll { $0 == .audio }
+            if let pendingIndex = pendingProduceKinds.firstIndex(of: kind) {
+                pendingProduceKinds.remove(at: pendingIndex)
+            }
             throw error
         }
     }
 
-    private func configureAudioSession() {
-        let audioSession = AVAudioSession.sharedInstance()
+    private func configureAudioSession() throws {
+        let audioSession = RTCAudioSession.sharedInstance()
+        audioSession.lockForConfiguration()
+        defer { audioSession.unlockForConfiguration() }
+
+        try audioSession.setCategory(
+            AVAudioSession.Category.playAndRecord,
+            with: [.allowBluetoothHFP, .defaultToSpeaker]
+        )
+        try audioSession.setMode(AVAudioSession.Mode.voiceChat)
+        try audioSession.setActive(true)
+        audioSessionIsActive = true
+    }
+
+    private func deactivateAudioSession() {
+        guard audioSessionIsActive else {
+            return
+        }
+
+        let audioSession = RTCAudioSession.sharedInstance()
+        audioSession.lockForConfiguration()
+        defer { audioSession.unlockForConfiguration() }
 
         do {
-            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetoothHFP, .defaultToSpeaker])
-            try audioSession.setActive(true)
+            try audioSession.setActive(false)
+            audioSessionIsActive = false
         } catch {
             lastErrorMessage = error.localizedDescription
         }
