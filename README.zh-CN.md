@@ -3,7 +3,7 @@
 **Cove 是面向 [Sharkord](https://github.com/Sharkord/sharkord) 的非官方、开源兼容客户端，不是独立通信平台，也不是独立服务端项目。**
 Cove 连接 Sharkord 服务器：后端、账号、频道与媒体基础设施由 Sharkord 提供，Cove 专注原生客户端体验。Cove 不隶属于 Sharkord，也没有获得其维护者的背书。
 
-**当前重点：Android、iOS 和 Apple Watch。欢迎一起来构建这些客户端。**
+**开发状态：** Android 客户端已有 MVP。维护者的社会识别码遭盗用，正在与 Apple Developer 部门交涉处理，因此 Apple 平台开发目前受阻。macOS 和 Windows 原生客户端正在推进。欢迎一起来构建 Cove。
 
 **语言：** [English](README.md) | 中文
 
@@ -16,10 +16,10 @@ Cove 连接 Sharkord 服务器：后端、账号、频道与媒体基础设施�
 
 | 平台 | 当前方向 |
 | --- | --- |
-| **Android** | 核心重点：[`apps/android`](apps/android) 下的 Kotlin / Jetpack Compose 原生客户端 |
-| **iOS（iPhone；现有 Apple 工程也包含 iPad）** | 核心重点：[`apps/apple-mobile`](apps/apple-mobile) 下的 Swift / SwiftUI 原生客户端 |
-| **Apple Watch** | 与 iOS 一起推进的 watchOS 方向：腕上按住说话，需通过真机网络与音频可行性验证 |
-| **Windows / macOS 原生客户端** | 暂缓，不是放弃。保留已有源码与研究，不承诺近期交付 |
+| **Android** | 已有 MVP：[`apps/android`](apps/android) 下的 Kotlin / Jetpack Compose 原生客户端 |
+| **iOS（iPhone；现有 Apple 工程也包含 iPad）** | Apple 平台开发目前受阻，维护者正与 Apple Developer 部门处理身份信息被盗用一事 |
+| **Apple Watch** | Apple 平台开发目前受阻；腕上按住说话仍是规划方向，需通过真机验证 |
+| **Windows / macOS 原生客户端** | 正在推进；各平台进度与功能完整度可能不同 |
 | **桌面网页端** | 使用 Sharkord 已有 Web UI；Cove 不另建桌面网页平台 |
 
 这些是优先级，不代表三个客户端已经完成或功能对齐。Apple Watch 的目标是进入一个语音频道、按住说话、听到频道、退出。持续语音、后台行为与耗电必须在真机验证，界面或模拟器跑通不能证明语音可用。见 [`docs/APPLE_WATCH.zh-CN.md`](docs/APPLE_WATCH.zh-CN.md)。

@@ -3,7 +3,7 @@
 **Cove is an unofficial, open-source compatible client for [Sharkord](https://github.com/Sharkord/sharkord), not a standalone communication platform or an independent server project.**
 It connects to a Sharkord server: Sharkord provides the backend, accounts, channels and media infrastructure; Cove focuses on the native client experience.
 
-**Current focus: Android, iOS and Apple Watch.** We welcome contributors to build these clients together.
+**Development status:** Android has an MVP. Apple-platform development is currently blocked while the maintainer works with Apple Developer after the maintainer’s social identification number was misused. Native macOS and Windows clients are in progress. We welcome contributors to build Cove together.
 
 **Languages:** English | [中文](README.zh-CN.md)
 
@@ -16,10 +16,10 @@ A single maintainer cannot sustainably develop five native platforms at once. Sh
 
 | Platform | Current direction |
 | --- | --- |
-| **Android** | Core focus: native Kotlin / Jetpack Compose client in [`apps/android`](apps/android) |
-| **iOS (iPhone; iPad in the existing Apple project)** | Core focus: native Swift / SwiftUI client in [`apps/apple-mobile`](apps/apple-mobile) |
-| **Apple Watch** | Part of the iOS / watchOS effort: wrist push-to-talk, subject to real-device networking and audio feasibility validation |
-| **Windows / macOS native clients** | Deferred, not abandoned. Existing source and research are retained; no near-term delivery commitment |
+| **Android** | MVP available: native Kotlin / Jetpack Compose client in [`apps/android`](apps/android) |
+| **iOS (iPhone; iPad in the existing Apple project)** | Apple-platform development is currently blocked while the maintainer resolves an identity misuse issue with Apple Developer |
+| **Apple Watch** | Apple-platform development is currently blocked; wrist push-to-talk remains a planned direction, subject to real-device validation |
+| **Windows / macOS native clients** | In progress; status and feature completeness vary by platform |
 | **Desktop web** | Use Sharkord's existing web UI; Cove is not building a separate desktop web platform |
 
 These are priorities, not a claim that all three clients are complete or have feature parity. Apple Watch's intended experience is to join one voice channel, hold to talk, hear the channel and leave. Persistent voice, background behaviour and battery impact must be tested on real hardware; UI or simulator success is not proof that voice works. See [`docs/APPLE_WATCH.md`](docs/APPLE_WATCH.md).
