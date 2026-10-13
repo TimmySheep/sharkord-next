@@ -15,6 +15,9 @@ struct ConnectView: View {
     @State private var showsServerPasswordPrompt = false
     @State private var didLoadSavedCredentials = false
     @State private var credentialStorageError = false
+    @State private var serverInfo: SharkordServerInfo?
+    @State private var serverLogoURL: URL?
+    @State private var selectedLanguage = L10n.language
 
     private let loginCredentialStore = KeychainLoginCredentialsStore()
 
@@ -27,21 +30,24 @@ struct ConnectView: View {
     }
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Theme.sidebar, Theme.panel],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                backgroundGlow
 
-            VStack(spacing: 20) {
-                header
-                card
+                ScrollView {
+                    VStack(spacing: 22) {
+                        card
+                        footer
+                    }
+                    .frame(maxWidth: 420)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 32)
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height)
+                }
+                .scrollIndicators(.hidden)
             }
-            .frame(maxWidth: 420)
-            .padding(32)
         }
+        .environment(\.colorScheme, .dark)
         .sheet(isPresented: $showsServerPasswordPrompt) {
             ServerPasswordPromptView()
                 .environmentObject(session)
@@ -57,52 +63,91 @@ struct ConnectView: View {
                 showsServerPasswordPrompt = true
             }
         }
-    }
-
-    private var header: some View {
-        VStack(spacing: 8) {
-            Image("cove-icon", bundle: .module)
-                .resizable()
-                .interpolation(.high)
-                .scaledToFit()
-                .frame(width: 72, height: 72)
-                .accessibilityHidden(true)
-
-            Text("cove")
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(.primary)
+        .task(id: host) {
+            await refreshServerPreview(for: host)
         }
     }
 
+    /// Kept as an overlay on the background so the oversized glow cannot widen the
+    /// content stack and push the login card off centre.
+    private var backgroundGlow: some View {
+        Color(red: 0.035, green: 0.043, blue: 0.059)
+            .ignoresSafeArea()
+            .overlay(alignment: .top) {
+                RadialGradient(
+                    colors: [Color(red: 0.18, green: 0.20, blue: 0.38).opacity(0.34), .clear],
+                    center: .top,
+                    startRadius: 10,
+                    endRadius: 520
+                )
+                .frame(height: 720)
+                .offset(y: -300)
+                .allowsHitTesting(false)
+            }
+    }
+
     private var card: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            field(
-                title: L10n.t("connectServerAddress", ns: "macos"),
-                text: $host,
-                placeholder: "localhost:4991"
-            )
-            field(
-                title: L10n.t("identityLabel", ns: "connect"),
-                text: $identity,
-                placeholder: L10n.t("identityLabel", ns: "connect")
-            )
-            secureField(
-                title: L10n.t("passwordLabel", ns: "connect"),
-                text: $password,
-                placeholder: L10n.t("passwordLabel", ns: "connect")
-            )
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(spacing: 12) {
+                Group {
+                    if let serverLogoURL {
+                        AsyncImage(url: serverLogoURL) { phase in
+                            if let image = phase.image {
+                                image.resizable().scaledToFit()
+                            } else {
+                                fallbackLogo
+                            }
+                        }
+                    } else {
+                        fallbackLogo
+                    }
+                }
+                .frame(width: 88, height: 88)
+                .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .accessibilityHidden(true)
 
-            Toggle(isOn: $autoLoginEnabled) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(L10n.t("autoLoginLabel", ns: "macos"))
-                        .font(.system(size: 12, weight: .medium))
+                Text(serverDisplayName)
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.center)
 
-                    Text(L10n.t("autoLoginDescription", ns: "macos"))
-                        .font(.system(size: 10.5))
+                if let description = serverInfo?.description?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !description.isEmpty
+                {
+                    Text(description)
+                        .font(.system(size: 13))
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .toggleStyle(.checkbox)
+            .frame(maxWidth: .infinity)
+            .padding(.bottom, 2)
+
+            VStack(alignment: .leading, spacing: 14) {
+                field(
+                    title: L10n.t("connectServerAddress", ns: "macos"),
+                    text: $host,
+                    placeholder: "localhost:4991"
+                )
+                field(
+                    title: L10n.t("identityLabel", ns: "connect"),
+                    text: $identity,
+                    placeholder: L10n.t("identityLabel", ns: "connect")
+                )
+                secureField(
+                    title: L10n.t("passwordLabel", ns: "connect"),
+                    text: $password,
+                    placeholder: L10n.t("passwordLabel", ns: "connect")
+                )
+            }
+
+            Toggle(isOn: $autoLoginEnabled) {
+                Text(L10n.t("autoLoginLabel", ns: "macos"))
+                    .font(.callout.weight(.medium))
+            }
+            .toggleStyle(.switch)
             .controlSize(.small)
             .disabled(isConnecting)
             .onChange(of: autoLoginEnabled) { _, enabled in
@@ -112,13 +157,6 @@ struct ConnectView: View {
                 }
 
                 credentialStorageError = !loginCredentialStore.deleteCredentials()
-            }
-
-            if credentialStorageError || session.loginCredentialsSaveFailed {
-                Label(L10n.t("credentialStorageFailed", ns: "macos"), systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
             }
 
             DisclosureGroup(L10n.t("advancedOptions", ns: "macos")) {
@@ -136,71 +174,165 @@ struct ConnectView: View {
                 }
                 .padding(.top, 10)
             }
-            .font(.system(size: 12))
-            .foregroundStyle(.secondary)
+            .font(.callout)
+
+            if credentialStorageError || session.loginCredentialsSaveFailed {
+                Label(L10n.t("credentialStorageFailed", ns: "macos"), systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             if case .failed(let message) = session.phase {
                 Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 12))
+                    .font(.callout)
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Button(action: submit) {
-                HStack {
+                HStack(spacing: 8) {
                     if isConnecting {
                         ProgressView().controlSize(.small)
                     }
 
-                    Text(isConnecting
-                        ? L10n.t("connecting", ns: "macos")
-                        : L10n.t("connectBtn", ns: "connect"))
-                        .fontWeight(.semibold)
+                    Text(
+                        isConnecting
+                            ? L10n.t("connecting", ns: "macos")
+                            : L10n.t("connectBtn", ns: "connect")
+                    )
+                    .fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
             }
             .buttonStyle(.borderedProminent)
             .tint(Theme.accent)
+            .controlSize(.large)
             .disabled(!canSubmit)
             .keyboardShortcut(.defaultAction)
-
-            DiagnosticLogExportButton()
-                .frame(maxWidth: .infinity)
         }
-        .padding(20)
-        .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(26)
+        .background(Color(red: 0.075, green: 0.086, blue: 0.112), in: RoundedRectangle(cornerRadius: 20))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Color.white.opacity(0.075), lineWidth: 1)
         )
+        .shadow(color: .black.opacity(0.35), radius: 34, x: 0, y: 18)
+    }
+
+    private var footer: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 12) {
+                Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0")")
+                    .foregroundStyle(.tertiary)
+                Link("GitHub", destination: URL(string: "https://github.com/sharkord/sharkord")!)
+                Link("Sharkord", destination: URL(string: "https://sharkord.com")!)
+                DiagnosticLogExportButton()
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+            }
+            .font(.system(size: 12))
+
+            Menu {
+                ForEach(Array(L10n.supportedLanguages.enumerated()), id: \.offset) { item in
+                    Button(item.element.nativeName) {
+                        selectedLanguage = item.element.code
+                        L10n.language = item.element.code
+                    }
+                }
+            } label: {
+                Label(
+                    L10n.supportedLanguages.first(where: { $0.code == selectedLanguage })?.nativeName ?? "English",
+                    systemImage: "globe"
+                )
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            }
+            .menuStyle(.borderlessButton)
+        }
+        .frame(maxWidth: .infinity)
+        .foregroundStyle(.secondary)
+    }
+
+    private var fallbackLogo: some View {
+        Image("cove-icon", bundle: .module)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .padding(8)
+    }
+
+    private var serverDisplayName: String {
+        guard let name = serverInfo?.name.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+            return "cove"
+        }
+
+        return name
     }
 
     private func field(title: String, text: Binding<String>, placeholder: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Eyebrow(text: title)
+            Text(title)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.primary)
 
             TextField(placeholder, text: text)
-                .textFieldStyle(.plain)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.large)
                 .disableAutocorrection(true)
-                .padding(10)
-                .background(Theme.input, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .foregroundStyle(.primary)
                 .accessibilityLabel(title)
         }
     }
 
     private func secureField(title: String, text: Binding<String>, placeholder: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Eyebrow(text: title)
+            Text(title)
+                .font(.callout.weight(.medium))
+                .foregroundStyle(.primary)
 
             SecureField(placeholder, text: text)
-                .textFieldStyle(.plain)
-                .padding(10)
-                .background(Theme.input, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .foregroundStyle(.primary)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.large)
                 .accessibilityLabel(title)
         }
+    }
+
+    private func refreshServerPreview(for host: String) async {
+        serverInfo = nil
+        serverLogoURL = nil
+
+        let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedHost.isEmpty else {
+            return
+        }
+
+        let address = trimmedHost.contains("://") ? trimmedHost : "http://\(trimmedHost)"
+        guard
+            let components = URLComponents(string: address),
+            let scheme = components.scheme?.lowercased(),
+            ["http", "https"].contains(scheme),
+            let serverHost = components.host,
+            !serverHost.isEmpty,
+            let baseURL = components.url
+        else {
+            return
+        }
+
+        do {
+            try await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled else {
+                return
+            }
+
+            let client = SharkordHTTPClient(baseURL: baseURL)
+            let info = try await client.serverInfo()
+            guard !Task.isCancelled else {
+                return
+            }
+
+            serverInfo = info
+            serverLogoURL = info.logo.flatMap { client.publicFileURL(for: $0) }
+        } catch {}
     }
 
     private func submit() {

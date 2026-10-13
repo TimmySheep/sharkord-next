@@ -81,3 +81,46 @@
 - Delivered `~/Downloads/Cove-1.4-build26-debug.apk` (71 MB), SHA-256
   `314063e0cd466c764995c7ce7ba37ce0cd0ebf030a85f266275050ac7a71b7ae`. APK version metadata and
   v2 signature were verified.
+
+## Voice connection controls placement
+
+- Moved the persistent voice connection bar from the bottom controls to a fixed position beneath
+  the server title and above the scrollable home navigation list, and to the top of selected channel
+  content, below its title and above messages. It is hidden while the keyboard is open on channel
+  pages; the user status/settings row remains at the bottom.
+- Changed the bar label to show only the voice channel name and added a microphone toggle beside the
+  leave button. The toggle uses the existing microphone permission and deafen behavior.
+- Advanced Android to `1.5` / build `27` and synchronized iPhone app and Live Activity metadata to
+  `1.5` / build `24`. Apple Watch was not changed and no iOS build was run.
+- Android unit tests, `lintDebug`, and `assembleDebug` passed. Physical-device visual acceptance is
+  pending. `bun run magic`, Xcode project `plutil -lint`, and `git diff --check` also passed.
+- Delivered `~/Downloads/Cove-1.5-build27-voice-controls-debug.apk` (71 MB), SHA-256
+  `728b5f33df2fc42d7dcfc1d5506550c8d04f31fdb0e43453640a73c5fe893782`. APK version metadata and
+  v2 signature were verified.
+
+## Direct message list overflow affordance
+
+- Kept the three most recent direct-message conversations on the home list and now show “View all
+  direct messages” only when more than three valid conversations are available. Exactly three or
+  fewer no longer show a redundant navigation button.
+- Added boundary coverage for zero, three, and four conversations. Android tests passed: 36 tests,
+  with no failures or skips; `lintDebug`, `assembleDebug`, `bun run magic`, Xcode project
+  `plutil -lint`, and `git diff --check` passed.
+- Advanced Android to `1.6` / build `28` and synchronized iPhone app and Live Activity metadata to
+  `1.6` / build `25`. Apple Watch was not changed and no iOS build was run.
+- Delivered `~/Downloads/Cove-1.6-build28-debug.apk` (71 MB), SHA-256
+  `03274437ed5afac8557bccc7982176df3b814222db26a41cbd9855920645a8c7`. APK version metadata and
+  v2 signature were verified. Device visual acceptance remains pending.
+
+## Direct-message empty-state action cleanup
+
+- Removed the redundant bottom “New message” text button from the all-direct-messages page's empty
+  state. The top-right add-person icon remains the single create-conversation action.
+- Android unit tests, `lintDebug`, and `assembleDebug` passed. Android advanced to `1.7` / build `29`;
+  iPhone app and Live Activity metadata advanced to `1.7` / build `26`. Apple Watch was not changed
+  and no iOS build was run.
+- `bun run magic`, Xcode project `plutil -lint`, and `git diff --check` passed. Physical-device
+  visual acceptance remains pending.
+- Delivered `~/Downloads/Cove-1.7-build29-debug.apk` (71 MB), SHA-256
+  `fcc65be78a52b9848e2f7d925ffd9d5ce6c0b58b737b55e167410d1b18a8f7d3`. APK version metadata and
+  v2 signature were verified.

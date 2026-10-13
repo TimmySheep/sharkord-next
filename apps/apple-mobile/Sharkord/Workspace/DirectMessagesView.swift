@@ -4,49 +4,64 @@ import SwiftUI
 /// recent direct messages and the member picker for starting a conversation.
 struct DirectMessagesView: View {
     @EnvironmentObject private var session: SharkordSession
+    @Binding var path: [WorkspaceDestination]
 
-    @State private var path: [Int] = []
     @State private var isShowingMemberPicker = false
+    @State private var query = ""
 
     private var recentConversations: [DirectMessageConversation] {
-        session.directMessages.sorted { $0.lastMessageAt > $1.lastMessageAt }
+        session.directMessages
+            .filter { conversation in
+                guard !query.isEmpty else { return true }
+                let userName = session.user(for: conversation.userId)?.name
+                    ?? session.channel(for: conversation.channelId).flatMap(session.directMessagePartner(for:))?.name
+                    ?? ""
+                return userName.localizedCaseInsensitiveContains(query)
+            }
+            .sorted { $0.lastMessageAt > $1.lastMessageAt }
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            Group {
-                if recentConversations.isEmpty {
+        Group {
+            if recentConversations.isEmpty {
+                VStack(spacing: 16) {
                     EmptyStateView(
                         symbol: "bubble.left.and.bubble.right",
                         title: L10n.t("dm.emptyTitle"),
                         body_: L10n.t("dm.emptyBody")
                     )
-                } else {
-                    conversationList
-                }
-            }
-            .background(BrandBackground())
-            .navigationTitle(L10n.t("nav.directMessages"))
-            .navigationBarTitleDisplayMode(.large)
-            .navigationDestination(for: Int.self) { channelId in
-                ChannelDetailView(channelId: channelId)
-            }
-            .toolbar {
-                if session.settings?.directMessagesEnabled != false {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
+                    if session.settings?.directMessagesEnabled != false {
+                        SharkordPrimaryButton(title: L10n.t("dm.newMessage"), symbol: "plus") {
                             isShowingMemberPicker = true
-                        } label: {
-                            Image(systemName: "plus")
                         }
-                        .accessibilityLabel(L10n.t("dm.newMessage"))
+                        .padding(.horizontal, 24)
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(BrandBackground())
+            } else {
+                conversationList
+                    .background(BrandBackground())
+                    .searchable(text: $query, prompt: L10n.t("dm.searchMembers"))
             }
-            .sheet(isPresented: $isShowingMemberPicker) {
-                NewDirectMessageView { channelId in
-                    path.append(channelId)
+        }
+        .navigationTitle(L10n.t("dm.allConversations"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if session.settings?.directMessagesEnabled != false {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isShowingMemberPicker = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel(L10n.t("dm.newMessage"))
                 }
+            }
+        }
+        .sheet(isPresented: $isShowingMemberPicker) {
+            NewDirectMessageView { channelId in
+                path.append(.channel(channelId))
             }
         }
         .tint(SharkordTheme.accentSoft)
@@ -55,7 +70,7 @@ struct DirectMessagesView: View {
     private var conversationList: some View {
         List {
             ForEach(recentConversations) { conversation in
-                NavigationLink(value: conversation.channelId) {
+                NavigationLink(value: WorkspaceDestination.channel(conversation.channelId)) {
                     conversationRow(conversation)
                 }
                 .listRowBackground(Color.clear)
@@ -76,7 +91,7 @@ struct DirectMessagesView: View {
         let name = user?.name ?? channelPartnerName ?? L10n.t("message.unknownAuthor")
 
         return HStack(spacing: 13) {
-            AvatarView(name: name, diameter: 48)
+            SessionAvatarView(user: user, diameter: 48, showsStatus: true)
 
             Text(name)
                 .font(.body.weight(.semibold))
@@ -181,7 +196,11 @@ private struct NewDirectMessageView: View {
 
     private func memberRow(_ user: SharkordUser) -> some View {
         HStack(spacing: 12) {
-            AvatarView(name: user.name, diameter: 42)
+            AvatarView(
+                name: user.name,
+                diameter: 42,
+                imageURL: user.avatar.flatMap(session.publicFileURL(for:))
+            )
 
             Text(user.name)
                 .font(.body.weight(.medium))

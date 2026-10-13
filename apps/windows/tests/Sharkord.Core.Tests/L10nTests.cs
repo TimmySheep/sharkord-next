@@ -19,6 +19,10 @@ public class L10nTests
 {
     private static readonly string[] WindowsKeys =
     [
+        "pushToTalkTitle",
+        "pushToTalkDescription",
+        "pushToTalkReady",
+        "pushToTalkUnavailable",
         "tagline",
         "serverAddress",
         "serverPassword",
@@ -55,6 +59,30 @@ public class L10nTests
         "close"
     ];
 
+    private static readonly string[] KeyboardShortcutMacKeys =
+    [
+        "keyboardShortcutsDescription",
+        "keyboardShortcutSendTitle",
+        "keyboardShortcutSendDescription",
+        "keyboardShortcutSendUnsetDescription",
+        "keyboardShortcutMuteMicrophoneTitle",
+        "keyboardShortcutMuteMicrophoneDescription",
+        "keyboardShortcutUnmuteMicrophoneTitle",
+        "keyboardShortcutUnmuteMicrophoneDescription",
+        "keyboardShortcutMuteVoiceAudioTitle",
+        "keyboardShortcutMuteVoiceAudioDescription",
+        "keyboardShortcutUnmuteVoiceAudioTitle",
+        "keyboardShortcutUnmuteVoiceAudioDescription",
+        "keyboardShortcutPress",
+        "keyboardShortcutNotSet",
+        "keyboardShortcutClear",
+        "keyboardShortcutCaptureHint",
+        "keyboardShortcutConflict",
+        "keyboardShortcutModifierRequired",
+        "keyboardShortcutReturnReserved",
+        "keyboardShortcutReservedForPushToTalk"
+    ];
+
     public static IEnumerable<object[]> Languages =>
         L10n.SupportedLanguages.Select(language => new object[] { language.Code });
 
@@ -87,6 +115,21 @@ public class L10nTests
         foreach (var key in WindowsKeys)
         {
             var value = L10n.T(key, ns: "windows");
+
+            Assert.NotEqual(key, value);
+            Assert.False(string.IsNullOrWhiteSpace(value));
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(Languages))]
+    public void EveryLanguageTranslatesEveryWindowsKeyboardShortcutString(string language)
+    {
+        L10n.Language = language;
+
+        foreach (var key in KeyboardShortcutMacKeys)
+        {
+            var value = L10n.T(key, ns: "macos");
 
             Assert.NotEqual(key, value);
             Assert.False(string.IsNullOrWhiteSpace(value));
@@ -273,6 +316,25 @@ public class L10nTests
     }
 
     [Fact]
+    public void WinUiConnectScreenUsesDarkServerBrandingAndKeepsAppearanceScoped()
+    {
+        var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
+        var code = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml.cs"));
+
+        Assert.Contains("x:Name=\"ConnectScreen\"", xaml);
+        Assert.Contains("RequestedTheme=\"Dark\"", xaml);
+        Assert.Contains("TextChanged=\"OnHostTextChanged\"", xaml);
+        Assert.Contains("ImageFailed=\"OnServerLogoFailed\"", xaml);
+        Assert.Contains("x:Name=\"LoginLanguageBox\"", xaml);
+        Assert.Contains("x:Name=\"LoginExportLogsButton\"", xaml);
+        Assert.Contains("new SharkordHttpClient(baseUrl, _serverPreviewHttpClient)", code);
+        Assert.Contains("client.GetInfoAsync(cancellation.Token)", code);
+        Assert.Contains("ConnectScreen.Visibility = isConnected ? Visibility.Collapsed : Visibility.Visible;", code);
+        Assert.Contains("TopActionsPanel.Visibility = isConnected ? Visibility.Visible : Visibility.Collapsed;", code);
+        Assert.Contains("foreach (var languageBox in new[] { LanguageBox, LoginLanguageBox })", code);
+    }
+
+    [Fact]
     public void WinUiUsesCoveBrandingAndIcon()
     {
         var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
@@ -308,6 +370,125 @@ public class L10nTests
         Assert.Contains("Click=\"OnExportLogsClick\"", xaml);
         Assert.Contains("FileSavePicker", code);
         Assert.Contains("ClientLogStore.Shared.ExportLogsAsync", code);
+    }
+
+    [Fact]
+    public void WinUiExposesPersistentContinuousNoiseSuppressionControl()
+    {
+        var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
+        var code = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Local.cs"));
+        var project = File.ReadAllText(SourceFile("Sharkord.Core/Sharkord.Core.csproj"));
+
+        Assert.Contains("x:Name=\"SettingsButton\" Click=\"OnSettingsClick\"", xaml);
+        Assert.Contains("Minimum = 0", code);
+        Assert.Contains("Maximum = 100", code);
+        Assert.Contains("voice.noiseSuppressionMix", code);
+        Assert.Contains("setNoiseSuppressionMix", code);
+        Assert.Contains("macos/Resources/locales/**/*.json", project);
+        Assert.Equal("Noise Suppression", L10n.T("noiseSuppressionLabel", ns: "settings"));
+    }
+
+    [Fact]
+    public void WinUiServerSettingsArePermissionGatedAndDoNotClearAnUnchangedPassword()
+    {
+        var code = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Navigation.cs"));
+        var serverSettings = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Server.cs"));
+        var session = File.ReadAllText(SourceFile("Sharkord.Core/SharkordSession.cs"));
+
+        Assert.Contains("_session.HasPermission(\"MANAGE_SETTINGS\")", code);
+        Assert.Contains("_session.HasPermission(\"MANAGE_STORAGE\")", code);
+        Assert.Contains("_session.HasPermission(\"MANAGE_USERS\")", code);
+        Assert.Contains("_session.HasPermission(\"MANAGE_INVITES\")", code);
+        Assert.Contains("_session.HasPermission(\"MANAGE_ROLES\")", code);
+        Assert.Contains("_session.HasPermission(\"MANAGE_EMOJIS\")", code);
+        Assert.Contains("_session.HasPermission(\"MANAGE_PLUGINS\")", code);
+        Assert.Contains("_session.HasPermission(\"MANAGE_UPDATES\")", code);
+        Assert.Contains("BuildGeneralServerSettingsAsync", code);
+        Assert.Contains("if (!string.IsNullOrEmpty(password.Password))", serverSettings);
+        Assert.Contains("GetAdminSettingsAsync", session);
+        Assert.Contains("UpdateAdminSettingsAsync", session);
+        Assert.Contains("CallQueryAsync(\"others.getSettings\"", session);
+        Assert.Contains("CallMutationAsync(\"others.updateSettings\"", session);
+    }
+
+    [Fact]
+    public void WinUiAccountAndStorageSettingsUseTheExistingTrpcProcedures()
+    {
+        var localSettings = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Local.cs"));
+        var serverSettings = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Server.cs"));
+        var managementSettings = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Management.cs"));
+        var session = File.ReadAllText(SourceFile("Sharkord.Core/SharkordSession.cs"));
+
+        Assert.Contains("CallMutationAsync(\"users.update\"", localSettings);
+        Assert.Contains("CallMutationAsync(\"users.updatePassword\"", localSettings);
+        Assert.Contains("users.changeAvatar", localSettings);
+        Assert.Contains("users.changeBanner", localSettings);
+        Assert.DoesNotContain("app.appearance", localSettings);
+        Assert.Contains("RootGrid.RequestedTheme = ElementTheme.Dark;", File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml.cs")));
+        Assert.Contains("RequestedTheme=\"Dark\"", File.ReadAllText(SourceFile("Sharkord.App/App.xaml")));
+        Assert.Contains("notify.allMessages", localSettings);
+        Assert.Contains("notify.mentionsOnly", localSettings);
+        Assert.Contains("app.autoJoinLastChannel", localSettings);
+        Assert.Contains("DesktopNotificationPolicy.ShouldNotify", File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Notifications.cs")));
+        Assert.Contains("CallQueryAsync(\"others.getStorageSettings\"", serverSettings);
+        Assert.Contains("CallQueryAsync(\"users.getAll\"", managementSettings);
+        Assert.Contains("CallQueryAsync(\"invites.getAll\"", managementSettings);
+        Assert.Contains("users.ban", managementSettings);
+        Assert.Contains("users.delete", managementSettings);
+        Assert.Contains("invites.add", managementSettings);
+        Assert.Contains("invites.delete", managementSettings);
+        Assert.Contains("storageImageOptimizationEnabled", serverSettings);
+        Assert.Contains("CallQueryAsync(\n        string path", session);
+        Assert.Contains("CallMutationAsync(\n        string path", session);
+    }
+
+    [Fact]
+    public void WinUiServerManagementSettingsUsePermissionCheckedProcedures()
+    {
+        var management = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Management.cs"));
+        var integrations = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Integrations.cs"));
+
+        Assert.Contains("roles.getAll", management);
+        Assert.Contains("roles.update", management);
+        Assert.Contains("emojis.getAll", management);
+        Assert.Contains("emojis.add", management);
+        Assert.Contains("emojis.update", management);
+        Assert.Contains("emojis.delete", management);
+        Assert.Contains("plugins.get", integrations);
+        Assert.Contains("plugins.toggle", integrations);
+        Assert.Contains("others.getUpdate", integrations);
+        Assert.Contains("others.updateServer", integrations);
+    }
+
+    [Fact]
+    public void WindowsConnectScreenKeepsOptionalCredentialsInAdvancedOptions()
+    {
+        var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
+
+        Assert.Contains("x:Name=\"AdvancedOptionsExpander\"", xaml);
+        Assert.Contains("x:Name=\"ServerPasswordBox\"", xaml);
+        Assert.Contains("x:Name=\"InviteBox\"", xaml);
+        Assert.Contains("x:Name=\"ConnectButton\"", xaml);
+        Assert.Contains("x:Name=\"ConnectError\"", xaml);
+    }
+
+    [Fact]
+    public void WindowsPersistsShortcutsAndLastChannelPerServerAndUsesGlobalPushToTalk()
+    {
+        var shortcuts = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.KeyboardShortcuts.cs"));
+        var pttHook = File.ReadAllText(SourceFile("Sharkord.App/GlobalPushToTalkHook.cs"));
+        var channelPreferences = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.ChannelPreferences.cs"));
+        var channelKey = File.ReadAllText(SourceFile("Sharkord.Core/LastChannelPreference.cs"));
+        var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
+
+        Assert.Contains("keyboard.shortcuts", shortcuts);
+        Assert.Contains("SaveKeyboardShortcutPreferences", shortcuts);
+        Assert.Contains("SetWindowsHookEx", pttHook);
+        Assert.Contains("F13VirtualKey", pttHook);
+        Assert.Contains("app.autoJoinLastChannel", channelPreferences);
+        Assert.Contains("LastChannelPreference.SettingKey", channelPreferences);
+        Assert.Contains("SHA256.HashData", channelKey);
+        Assert.Contains("AcceptsReturn=\"True\"", xaml);
     }
 
     /// <summary>

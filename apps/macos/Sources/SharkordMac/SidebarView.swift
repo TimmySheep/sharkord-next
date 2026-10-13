@@ -5,6 +5,7 @@ import SwiftUI
 /// people in them, direct messages and the viewer's own controls.
 struct SidebarView: View {
     @EnvironmentObject private var session: SharkordSession
+    @EnvironmentObject private var voiceMedia: VoiceMediaController
 
     var onOpenSettings: () -> Void
     var onOpenServerSettings: () -> Void
@@ -212,9 +213,7 @@ struct SidebarView: View {
                         unread: session.unreadByChannel[channel.id] ?? 0
                     )
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        Task { await session.select(channelId: channel.id) }
-                    }
+                    .onTapGesture { openChannel(channel) }
                     .contextMenu { channelMenu(channel) }
 
                     if channel.type == .voice {
@@ -258,9 +257,7 @@ struct SidebarView: View {
                             unread: session.unreadByChannel[channel.id] ?? 0
                         )
                         .contentShape(Rectangle())
-                        .onTapGesture {
-                            Task { await session.select(channelId: channel.id) }
-                        }
+                        .onTapGesture { openChannel(channel) }
                         .contextMenu { channelMenu(channel) }
 
                         if channel.type == .voice {
@@ -455,6 +452,26 @@ struct SidebarView: View {
     }
 
     // MARK: - actions
+
+    /// Selecting a channel is also the join gesture for voice channels, matching the web
+    /// client: one click on the row joins directly instead of requiring a second press in
+    /// the channel screen. Permission is checked first so an unpermitted row only selects.
+    private func openChannel(_ channel: SharkordChannel) {
+        Task {
+            await session.select(channelId: channel.id)
+
+            guard
+                channel.type == .voice,
+                session.currentVoiceChannelId != channel.id,
+                session.hasPermission(.joinVoiceChannels),
+                session.hasChannelPermission(channel.id, .join)
+            else {
+                return
+            }
+
+            await voiceMedia.joinVoiceChannel(channel.id)
+        }
+    }
 
     private func openDirectMessage(named name: String) {
         guard let user = session.users.first(where: {

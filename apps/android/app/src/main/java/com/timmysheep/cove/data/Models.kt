@@ -67,6 +67,31 @@ data class User(
 )
 
 @Serializable
+data class AdminUser(
+    val id: Int,
+    val name: String,
+    val profileColor: String = "",
+    val bio: String = "",
+    val avatar: MessageFile? = null,
+    val banner: MessageFile? = null,
+    val createdAt: Long = 0,
+    val lastLoginAt: Long = 0,
+    val banned: Boolean = false,
+    val banReason: String? = null,
+    val bannedAt: Long? = null,
+    val roleIds: List<Int> = emptyList(),
+    val status: String? = null
+) {
+    val isDeletedPlaceholder: Boolean
+        get() = name == DELETED_USER_PLACEHOLDER
+}
+
+internal const val DELETED_USER_PLACEHOLDER = "__deleted_user__"
+
+internal fun canBanOrDeleteUser(user: AdminUser, ownUserId: Int): Boolean =
+    user.id != ownUserId && !user.isDeletedPlaceholder
+
+@Serializable
 data class VoiceUserState(
     val micMuted: Boolean = true,
     val soundMuted: Boolean = false,
@@ -79,7 +104,15 @@ data class MessageReaction(
     val messageId: Int,
     val userId: Int? = null,
     val emoji: String,
-    val fileId: Int? = null
+    val fileId: Int? = null,
+    val file: MessageFile? = null
+)
+
+@Serializable
+data class ServerEmoji(
+    val id: Int,
+    val name: String,
+    val file: MessageFile? = null
 )
 
 @Serializable
@@ -217,7 +250,9 @@ data class JoinResponse(
     val channels: List<Channel> = emptyList(),
     val users: List<User> = emptyList(),
     val roles: List<Role> = emptyList(),
+    val emojis: List<ServerEmoji> = emptyList(),
     val ownUserId: Int,
+    val ownUserPasswordSet: Boolean = true,
     val serverName: String,
     val voiceMap: JsonObject = JsonObject(emptyMap()),
     val channelPermissions: JsonObject = JsonObject(emptyMap()),
@@ -236,6 +271,13 @@ data class VoiceJoinEvent(
 data class VoiceLeaveEvent(
     val channelId: Int,
     val userId: Int
+)
+
+@Serializable
+data class UserDeleteEvent(
+    val isWipe: Boolean,
+    val userId: Int,
+    val deletedUserId: Int
 )
 
 @Serializable
@@ -302,10 +344,13 @@ data class SessionState(
     val serverName: String = "",
     val serverLogo: MessageFile? = null,
     val ownUserId: Int = 0,
+    val ownUserPasswordSet: Boolean = true,
     val categories: List<Category> = emptyList(),
     val channels: List<Channel> = emptyList(),
     val users: List<User> = emptyList(),
     val roles: List<Role> = emptyList(),
+    val emojis: List<ServerEmoji> = emptyList(),
+    val typingPresence: List<TypingPresence> = emptyList(),
     val conversations: List<DirectMessageConversation> = emptyList(),
     val directMessagesLoaded: Boolean = false,
     val messagesByChannel: Map<Int, List<Message>> = emptyMap(),

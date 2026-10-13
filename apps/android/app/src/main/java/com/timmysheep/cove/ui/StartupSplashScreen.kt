@@ -32,7 +32,10 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 internal val startupSplashEnterEasing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
-internal val startupSplashExitEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+internal val startupSplashExitEasing = CubicBezierEasing(0.42f, 0f, 1f, 1f)
+
+internal fun startupSplashExitDistance(maxHeightPx: Float, iconSizePx: Float): Float =
+    maxHeightPx / 2f + iconSizePx
 
 @Composable
 internal fun StartupSplashScreen(
@@ -69,7 +72,9 @@ internal fun StartupSplashScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         val density = LocalDensity.current
-        val exitDistance = with(density) { maxHeight.toPx() + iconSize.toPx() }
+        val exitDistance = with(density) {
+            startupSplashExitDistance(maxHeight.toPx(), iconSize.toPx())
+        }
 
         LaunchedEffect(isReady, iconEntered, exitDistance) {
             if (!isReady || !iconEntered) return@LaunchedEffect

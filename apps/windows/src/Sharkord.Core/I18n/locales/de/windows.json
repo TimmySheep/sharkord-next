@@ -1,4 +1,8 @@
 {
+  "pushToTalkTitle": "Push-to-Talk (F13 halten)",
+  "pushToTalkDescription": "Halte F13, um dein Mikrofon während einer Sprachverbindung vorübergehend zu aktivieren.",
+  "pushToTalkReady": "Halte F13, um dein Mikrofon vorübergehend zu aktivieren.",
+  "pushToTalkUnavailable": "Der globale Tastatur-Hook konnte nicht aktiviert werden. Starte Cove neu und versuche es erneut.",
   "tagline": "Nativer Windows-Client",
   "serverAddress": "Serveradresse",
   "serverPassword": "Serverpasswort (optional)",

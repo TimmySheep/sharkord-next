@@ -14,10 +14,18 @@ struct RemoteVideoStream: Identifiable {
 /// Renders one remote WebRTC video track (camera or screen share).
 struct RemoteVideoView: UIViewRepresentable {
     final class Coordinator {
-        let track: RTCVideoTrack
+        private(set) var track: RTCVideoTrack
 
         init(track: RTCVideoTrack) {
             self.track = track
+        }
+
+        func update(track: RTCVideoTrack, view: RTCMTLVideoView) {
+            guard self.track !== track else { return }
+
+            self.track.remove(view)
+            self.track = track
+            track.add(view)
         }
     }
 
@@ -35,7 +43,9 @@ struct RemoteVideoView: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ uiView: RTCMTLVideoView, context: Context) {}
+    func updateUIView(_ uiView: RTCMTLVideoView, context: Context) {
+        context.coordinator.update(track: track, view: uiView)
+    }
 
     static func dismantleUIView(_ uiView: RTCMTLVideoView, coordinator: Coordinator) {
         coordinator.track.remove(uiView)

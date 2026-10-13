@@ -122,5 +122,6 @@
   "reconnectingAttempt": "Tentativa {{attempt}} de {{total}}",
   "reconnectingHint": "Sua sessão é mantida. O aplicativo continua sozinho assim que o servidor responder.",
   "reconnectingAbort": "Parar de tentar reconectar",
+  "changeImage": "Alterar imagem",
   "removeImage": "Remover imagem"
 }

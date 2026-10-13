@@ -1,30 +1,40 @@
 import SwiftUI
 import SharkordCore
 
-/// routing: connect -> channel list -> radio room. Same explicit lifecycle as the
-/// product definition: joining a channel starts a radio session, leaving ends it.
+/// shows the sign-in screen until the shared session connects to a server.
 struct WatchRootView: View {
     @EnvironmentObject private var session: SharkordSession
+    @EnvironmentObject private var model: WatchSessionModel
+    @State private var isSearchActive = false
 
     var body: some View {
+        let _ = model.language
         NavigationStack {
             Group {
                 switch session.phase {
                 case .disconnected, .connecting, .awaitingServerPassword, .failed:
-                    WatchConnectView()
+                    WatchDisconnectedView()
                 case .connected:
-                    WatchChannelListView()
+                    WatchChannelListView(isSearchActive: $isSearchActive)
                 }
             }
             .background(WatchTheme.background)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarLeading) {
                     NavigationLink {
-                        WatchDiagnosticsView()
+                        WatchSettingsView()
                     } label: {
-                        Image(systemName: "doc.text")
+                        Image(systemName: "gearshape")
                     }
-                    .accessibilityLabel(L10n.t("settings.viewLogs"))
+                    .accessibilityLabel(L10n.t("nav.settings"))
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isSearchActive.toggle()
+                    } label: {
+                        Image(systemName: isSearchActive ? "xmark" : "magnifyingglass")
+                    }
+                    .accessibilityLabel(L10n.t(isSearchActive ? "search.close" : "search.open"))
                 }
             }
         }

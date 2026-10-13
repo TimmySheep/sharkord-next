@@ -332,32 +332,7 @@ struct VoiceChannelView: View {
 
     private func connectVoice() {
         Task {
-            do {
-                if session.currentVoiceChannelId != nil {
-                    voiceMedia.stop()
-                    try await session.leaveVoice()
-                }
-
-                let result = try await session.joinVoice(channelId: channel.id, micMuted: true)
-                let capabilities = result["routerRtpCapabilities"] ?? .null
-                try await voiceMedia.start(
-                    channelId: channel.id,
-                    routerRtpCapabilities: capabilities,
-                    canProduceAudio: session.hasChannelPermission(channel.id, .speak),
-                    canShareScreen: session.hasPermission(.shareScreen) &&
-                        session.hasChannelPermission(channel.id, .shareScreen),
-                    screenShareLabels: [
-                        "share": L10n.t("shareScreen", ns: "macos"),
-                        "stop": L10n.t("stopScreenShare", ns: "macos"),
-                        "local": L10n.t("mediaLocalUser", ns: "macos"),
-                        "screen": L10n.t("mediaScreen", ns: "macos"),
-                        "camera": L10n.t("mediaCamera", ns: "macos")
-                    ]
-                )
-            } catch {
-                try? await session.leaveVoice()
-                voiceMedia.presentError(error)
-            }
+            await voiceMedia.joinVoiceChannel(channel.id)
         }
     }
 

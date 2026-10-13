@@ -138,6 +138,10 @@ public struct SharkordChannel: Codable, Sendable, Identifiable, Hashable {
     public let createdAt: Int
     public let updatedAt: Int?
 
+    public var isVoiceChannel: Bool {
+        !isDm && type == .voice
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case type

@@ -122,5 +122,6 @@
   "reconnectingAttempt": "Tentativo {{attempt}} di {{total}}",
   "reconnectingHint": "La tua sessione è mantenuta. L'app riprenderà da sola appena il server risponde.",
   "reconnectingAbort": "Interrompi la riconnessione",
+  "changeImage": "Cambia immagine",
   "removeImage": "Rimuovi immagine"
 }

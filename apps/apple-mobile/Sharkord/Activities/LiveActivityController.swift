@@ -1,11 +1,7 @@
 import ActivityKit
 import Foundation
 
-/// owns the Live Activity that represents a session in the Dynamic Island and on the lock screen.
-///
-/// this is the framework seam, not a feature: the session layer that would drive it does not exist
-/// yet, so the only caller is the preview hook in settings. when voice lands, start/stop move to the
-/// real join and leave events and this file should not need to change.
+/// owns the Live Activity that represents a voice session in the Dynamic Island and on the lock screen.
 @MainActor
 final class LiveActivityController {
     private var activity: Activity<LiveActivityAttributes>?

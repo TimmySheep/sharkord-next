@@ -1,4 +1,8 @@
 {
+  "pushToTalkTitle": "按键通话（按住 F13）",
+  "pushToTalkDescription": "语音连接时按住 F13 可临时取消麦克风静音。",
+  "pushToTalkReady": "按住 F13 可临时取消麦克风静音。",
+  "pushToTalkUnavailable": "无法启用全局键盘钩子。请重启 Cove 后重试。",
   "tagline": "Windows 原生客户端",
   "serverAddress": "服务器地址",
   "serverPassword": "服务器密码（可选）",

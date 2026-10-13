@@ -70,6 +70,7 @@
   "noiseSuppressionNone": "Keine",
   "noiseSuppressionInfoTitle": "Rauschunterdrückungsmodi",
   "noiseSuppressionInfoDescription": "Ungefähre Abwägungen für jeden Modus. Die tatsächliche CPU- und Speicherauslastung sowie die Sprachqualität hängen von deinem Browser, Gerät und Mikrofon ab.",
+  "noiseSuppressionMixDescription": "Lege fest, wie viel von RNNoise verarbeitetes Audio in dein Mikrofonsignal gemischt wird. Dies ändert die Mischung, nicht die interne Stärke des Modells.",
   "noiseSuppressionTechniqueColumn": "Technik",
   "noiseSuppressionMemoryUsageColumn": "Speicher",
   "noiseSuppressionCpuUsageColumn": "CPU",

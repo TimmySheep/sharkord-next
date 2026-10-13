@@ -8,6 +8,7 @@
     <AssemblyTitle>cove</AssemblyTitle>
     <AssemblyName>cove</AssemblyName>
     <Product>cove</Product>
+    <Version>0.0.26</Version>
     <ApplicationIcon>Assets\cove.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64;ARM64</Platforms>
