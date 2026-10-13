@@ -1,4 +1,9 @@
 {
+  "developerTab": "Vývojář",
+  "messagePlaceholder": "Zde napište zprávu",
+  "messageNotAllowed": "Zde nemůžete odesílat zprávy",
+  "noiseModeOff": "Vypnuto",
+  "noiseModeStandard": "Standardní",
   "selectChannel": "Vyberte kanál",
   "moveUp": "Posunout nahoru",
   "moveDown": "Posunout dolů",

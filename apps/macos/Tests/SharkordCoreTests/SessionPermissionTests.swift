@@ -67,6 +67,44 @@ struct SessionPermissionTests {
         #expect(!session.hasChannelPermission(channel.id, .speak))
     }
 
+    @Test
+    @MainActor
+    func publicChannelsAndOwnerIgnoreDefaultDenyRows() throws {
+        let session = SharkordSession()
+        session.channels = [try Self.channel(id: 10, isPrivate: false), try Self.channel(id: 11, isPrivate: true)]
+        let denied = Dictionary(uniqueKeysWithValues: ChannelPermission.allCases.map { ($0.rawValue, false) })
+        session.channelPermissions = .init(entries: [
+            10: .init(channelId: 10, permissions: denied),
+            11: .init(channelId: 11, permissions: denied)
+        ])
+
+        for permission in ChannelPermission.allCases {
+            #expect(session.hasChannelPermission(10, permission))
+            #expect(!session.hasChannelPermission(11, permission))
+        }
+
+        session.ownUserId = 1
+        session.users = [try Self.user(id: 1, roleIds: [ProtocolDefaults.ownerRoleId])]
+        for permission in ChannelPermission.allCases {
+            #expect(session.hasChannelPermission(11, permission))
+            #expect(!session.hasChannelPermission(999, permission))
+        }
+    }
+
+    @Test
+    @MainActor
+    func invisiblePrivateChannelDeniesOtherPermissions() throws {
+        let session = SharkordSession()
+        session.channels = [try Self.channel(id: 10, isPrivate: true)]
+        session.channelPermissions = .init(entries: [10: .init(channelId: 10, permissions: [
+            ChannelPermission.viewChannel.rawValue: false,
+            ChannelPermission.join.rawValue: true,
+            ChannelPermission.sendMessages.rawValue: true
+        ])])
+        #expect(!session.hasChannelPermission(10, .join))
+        #expect(!session.hasChannelPermission(10, .sendMessages))
+    }
+
     private static func user(id: Int, roleIds: [Int]) throws -> SharkordUser {
         let data = try JSONSerialization.data(withJSONObject: [
             "id": id,

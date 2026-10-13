@@ -94,6 +94,8 @@ let microphoneNoiseNode: AudioWorkletNode | undefined;
 let microphoneProducer: Producer | undefined;
 let microphoneTrack: MediaStreamTrack | undefined;
 let microphoneNoiseMix = 1;
+type TNoiseMode = 'off' | 'standard' | 'rnnoise';
+let microphoneNoiseMode: TNoiseMode = 'rnnoise';
 let canSpeak = false;
 let canPublishAudio = false;
 let cameraStream: MediaStream | undefined;
@@ -438,7 +440,7 @@ const openMicrophone = async () => {
       audio: {
         autoGainControl: true,
         echoCancellation: true,
-        noiseSuppression: false
+        noiseSuppression: microphoneNoiseMode === 'standard'
       },
       video: false
     });
@@ -448,30 +450,34 @@ const openMicrophone = async () => {
       throw new Error('No microphone audio track is available.');
     }
 
-    audioContext = new AudioContext({ sampleRate: 48000 });
-    await audioContext.audioWorklet.addModule(
-      new URL('./rnnoise-bundle.js', document.baseURI)
-    );
-    const source = audioContext.createMediaStreamSource(inputStream);
-    const noiseNode = new AudioWorkletNode(audioContext, 'RnnoiseProcessor', {
-      outputChannelCount: [1]
-    });
-    const destination = audioContext.createMediaStreamDestination();
-    const mixParameter = getNoiseMixParameter(noiseNode);
+    let noiseNode: AudioWorkletNode | undefined;
+    outputStream = inputStream;
+    if (microphoneNoiseMode === 'rnnoise') {
+      audioContext = new AudioContext({ sampleRate: 48000 });
+      await audioContext.audioWorklet.addModule(
+        new URL('./rnnoise-bundle.js', document.baseURI)
+      );
+      const source = audioContext.createMediaStreamSource(inputStream);
+      noiseNode = new AudioWorkletNode(audioContext, 'RnnoiseProcessor', {
+        outputChannelCount: [1]
+      });
+      const destination = audioContext.createMediaStreamDestination();
+      const mixParameter = getNoiseMixParameter(noiseNode);
 
-    if (!mixParameter) {
-      throw new Error('The noise suppression control is unavailable.');
+      if (!mixParameter) {
+        throw new Error('The noise suppression control is unavailable.');
+      }
+
+      mixParameter.setValueAtTime(microphoneNoiseMix, audioContext.currentTime);
+      source.connect(noiseNode);
+      noiseNode.connect(destination);
+
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      outputStream = destination.stream;
     }
-
-    mixParameter.setValueAtTime(microphoneNoiseMix, audioContext.currentTime);
-    source.connect(noiseNode);
-    noiseNode.connect(destination);
-
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume();
-    }
-
-    outputStream = destination.stream;
     const track = outputStream.getAudioTracks()[0];
 
     if (!track) {
@@ -518,15 +524,18 @@ const start = async (
   canProduceAudio = true,
   canPublishScreen = false,
   labels: TMediaLabels = defaultMediaLabels,
-  initialNoiseMix = 1
+  initialNoiseMix = 1,
+  initialNoiseMode: TNoiseMode = 'rnnoise'
 ) => {
   if (activeChannelId === channelId) return;
   closeMedia();
+  const generation = mediaGeneration;
   activeChannelId = channelId;
   canSpeak = canProduceAudio;
   canPublishAudio = canSpeak;
   canShareScreen = canPublishScreen;
   microphoneNoiseMix = Math.min(1, Math.max(0, initialNoiseMix));
+  microphoneNoiseMode = initialNoiseMode;
   mediaLabels = labels;
   shareScreenLabel = labels.share;
   stopScreenShareLabel = labels.stop;
@@ -542,6 +551,7 @@ const start = async (
         Device['load']
       >[0]['routerRtpCapabilities']
     });
+    if (generation !== mediaGeneration) return;
     device = nextDevice;
 
     const [sendParameters, receiveParameters] = await Promise.all([
@@ -552,6 +562,7 @@ const start = async (
         'voice.createConsumerTransport'
       )
     ]);
+    if (generation !== mediaGeneration) return;
 
     const nextSendTransport = nextDevice.createSendTransport(sendParameters);
     const nextReceiveTransport =
@@ -830,6 +841,27 @@ const setMicrophoneMuted = async (muted: boolean) => {
   }
 };
 
+const setNoiseSuppressionMode = async (mode: TNoiseMode) => {
+  if (!['off', 'standard', 'rnnoise'].includes(mode)) {
+    throw new Error('Unknown noise suppression mode.');
+  }
+  if (microphoneNoiseMode === mode) return;
+  const wasMuted = microphoneMuted;
+  if (microphoneProducer) {
+    await callNative('voice.closeProducer', { kind: 'audio' });
+    microphoneProducer.close();
+    microphoneProducer = undefined;
+    microphoneTrack = undefined;
+    microphoneStream?.getTracks().forEach((track) => track.stop());
+    microphoneInputStream?.getTracks().forEach((track) => track.stop());
+    await microphoneAudioContext?.close();
+    microphoneAudioContext = undefined;
+    microphoneNoiseNode = undefined;
+  }
+  microphoneNoiseMode = mode;
+  if (!wasMuted) await setMicrophoneMuted(false);
+};
+
 const setNoiseSuppressionMix = (mix: number) => {
   microphoneNoiseMix = Math.min(1, Math.max(0, mix));
   const parameter = microphoneNoiseNode
@@ -912,6 +944,7 @@ const reportActionError = async (
   stop,
   setRemoteAudioVolume,
   setNoiseSuppressionMix,
+  setNoiseSuppressionMode,
   setMicrophoneMuted: (muted: boolean) =>
     reportActionError(() => setMicrophoneMuted(muted), 'microphone'),
   setOutputMuted: (muted: boolean) =>

@@ -32,7 +32,7 @@ var __toESM = (mod, isNodeMode, target) => {
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
 
-// ../../node_modules/.bun/ms@2.1.3/node_modules/ms/index.js
+// node_modules/.bun/ms@2.1.3/node_modules/ms/index.js
 var require_ms = __commonJS(function(exports, module) {
   var s = 1000;
   var m = s * 60;
@@ -142,7 +142,7 @@ var require_ms = __commonJS(function(exports, module) {
   }
 });
 
-// ../../node_modules/.bun/debug@4.4.3/node_modules/debug/src/common.js
+// node_modules/.bun/debug@4.4.3/node_modules/debug/src/common.js
 var require_common = __commonJS(function(exports, module) {
   function setup(env) {
     createDebug.debug = createDebug;
@@ -317,7 +317,7 @@ var require_common = __commonJS(function(exports, module) {
   module.exports = setup;
 });
 
-// ../../node_modules/.bun/debug@4.4.3/node_modules/debug/src/browser.js
+// node_modules/.bun/debug@4.4.3/node_modules/debug/src/browser.js
 var require_browser = __commonJS(function(exports, module) {
   exports.formatArgs = formatArgs;
   exports.save = save;
@@ -477,12 +477,12 @@ var require_browser = __commonJS(function(exports, module) {
   };
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/types.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/types.js
 var require_types = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Logger.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Logger.js
 var require_Logger = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Logger = undefined;
@@ -520,7 +520,7 @@ var require_Logger = __commonJS(function(exports) {
   exports.Logger = Logger;
 });
 
-// ../../node_modules/.bun/events@3.3.0/node_modules/events/events.js
+// node_modules/.bun/events@3.3.0/node_modules/events/events.js
 var require_events = __commonJS(function(exports, module) {
   var R = typeof Reflect === "object" ? Reflect : null;
   var ReflectApply = R && typeof R.apply === "function" ? R.apply : function ReflectApply(target, receiver, args) {
@@ -884,7 +884,7 @@ var require_events = __commonJS(function(exports, module) {
   }
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/enhancedEvents.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/enhancedEvents.js
 var require_enhancedEvents = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.EnhancedEventEmitter = undefined;
@@ -959,7 +959,7 @@ var require_enhancedEvents = __commonJS(function(exports) {
   exports.EnhancedEventEmitter = EnhancedEventEmitter;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/errors.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/errors.js
 var require_errors = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.InvalidStateError = exports.UnsupportedError = undefined;
@@ -991,7 +991,7 @@ var require_errors = __commonJS(function(exports) {
   exports.InvalidStateError = InvalidStateError;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/utils.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/utils.js
 var require_utils = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.clone = clone;
@@ -1023,7 +1023,7 @@ var require_utils = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/h264-profile-level-id@2.3.2/node_modules/h264-profile-level-id/lib/Logger.js
+// node_modules/.bun/h264-profile-level-id@2.3.2/node_modules/h264-profile-level-id/lib/Logger.js
 var require_Logger2 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Logger = undefined;
@@ -1061,7 +1061,7 @@ var require_Logger2 = __commonJS(function(exports) {
   exports.Logger = Logger;
 });
 
-// ../../node_modules/.bun/h264-profile-level-id@2.3.2/node_modules/h264-profile-level-id/lib/index.js
+// node_modules/.bun/h264-profile-level-id@2.3.2/node_modules/h264-profile-level-id/lib/index.js
 var require_lib = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.ProfileLevelId = exports.Level = exports.Profile = undefined;
@@ -1498,7 +1498,7 @@ var require_lib = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/ortc.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/ortc.js
 var require_ortc = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.validateAndNormalizeRtpCapabilities = validateAndNormalizeRtpCapabilities;
@@ -2219,7 +2219,7 @@ var require_ortc = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/Logger.js
+// node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/Logger.js
 var require_Logger3 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Logger = undefined;
@@ -2257,7 +2257,7 @@ var require_Logger3 = __commonJS(function(exports) {
   exports.Logger = Logger;
 });
 
-// ../../node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/errors.js
+// node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/errors.js
 var require_errors2 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.AwaitQueueRemovedTaskError = exports.AwaitQueueStoppedError = undefined;
@@ -2285,7 +2285,7 @@ var require_errors2 = __commonJS(function(exports) {
   exports.AwaitQueueRemovedTaskError = AwaitQueueRemovedTaskError;
 });
 
-// ../../node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/AwaitQueue.js
+// node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/AwaitQueue.js
 var require_AwaitQueue = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.AwaitQueue = undefined;
@@ -2413,7 +2413,7 @@ var require_AwaitQueue = __commonJS(function(exports) {
   exports.AwaitQueue = AwaitQueue;
 });
 
-// ../../node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/index.js
+// node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/index.js
 var require_lib2 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.AwaitQueueRemovedTaskError = exports.AwaitQueueStoppedError = exports.AwaitQueue = undefined;
@@ -2430,7 +2430,7 @@ var require_lib2 = __commonJS(function(exports) {
   } });
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Producer.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Producer.js
 var require_Producer = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Producer = undefined;
@@ -2654,7 +2654,7 @@ var require_Producer = __commonJS(function(exports) {
   exports.Producer = Producer;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Consumer.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Consumer.js
 var require_Consumer = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Consumer = undefined;
@@ -2802,7 +2802,7 @@ var require_Consumer = __commonJS(function(exports) {
   exports.Consumer = Consumer;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/DataProducer.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/DataProducer.js
 var require_DataProducer = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.DataProducer = undefined;
@@ -2939,7 +2939,7 @@ var require_DataProducer = __commonJS(function(exports) {
   exports.DataProducer = DataProducer;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/DataConsumer.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/DataConsumer.js
 var require_DataConsumer = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.DataConsumer = undefined;
@@ -3064,7 +3064,7 @@ var require_DataConsumer = __commonJS(function(exports) {
   exports.DataConsumer = DataConsumer;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Transport.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Transport.js
 var require_Transport = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Transport = undefined;
@@ -3726,7 +3726,7 @@ var require_Transport = __commonJS(function(exports) {
   exports.Transport = Transport;
 });
 
-// ../../node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/grammar.js
+// node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/grammar.js
 var require_grammar = __commonJS(function(exports, module) {
   var grammar = module.exports = {
     v: [{
@@ -4101,7 +4101,7 @@ var require_grammar = __commonJS(function(exports, module) {
   });
 });
 
-// ../../node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/parser.js
+// node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/parser.js
 var require_parser = __commonJS(function(exports) {
   var toIntIfInt = function(v) {
     return String(Number(v)) === v ? Number(v) : v;
@@ -4203,7 +4203,7 @@ var require_parser = __commonJS(function(exports) {
   };
 });
 
-// ../../node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/writer.js
+// node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/writer.js
 var require_writer = __commonJS(function(exports, module) {
   var grammar = require_grammar();
   var formatRegExp = /%[sdv%]/g;
@@ -4309,7 +4309,7 @@ var require_writer = __commonJS(function(exports, module) {
   };
 });
 
-// ../../node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/index.js
+// node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/index.js
 var require_lib3 = __commonJS(function(exports) {
   var parser = require_parser();
   var writer = require_writer();
@@ -4325,7 +4325,7 @@ var require_lib3 = __commonJS(function(exports) {
   exports.parseSimulcastStreamList = parser.parseSimulcastStreamList;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/scalabilityModes.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/scalabilityModes.js
 var require_scalabilityModes = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.parse = parse;
@@ -4346,7 +4346,7 @@ var require_scalabilityModes = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/MediaSection.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/MediaSection.js
 var require_MediaSection = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.OfferMediaSection = exports.AnswerMediaSection = exports.MediaSection = undefined;
@@ -4773,7 +4773,7 @@ var require_MediaSection = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/RemoteSdp.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/RemoteSdp.js
 var require_RemoteSdp = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.RemoteSdp = undefined;
@@ -5010,7 +5010,7 @@ var require_RemoteSdp = __commonJS(function(exports) {
   exports.RemoteSdp = RemoteSdp;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/commonUtils.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/commonUtils.js
 var require_commonUtils = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.extractRtpCapabilities = extractRtpCapabilities;
@@ -5190,7 +5190,7 @@ var require_commonUtils = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/unifiedPlanUtils.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/unifiedPlanUtils.js
 var require_unifiedPlanUtils = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.getRtpEncodings = getRtpEncodings;
@@ -5308,7 +5308,7 @@ var require_unifiedPlanUtils = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/ortc/utils.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/ortc/utils.js
 var require_utils2 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.addNackSupportForOpus = addNackSupportForOpus;
@@ -5365,7 +5365,7 @@ var require_utils2 = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Chrome111.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Chrome111.js
 var require_Chrome111 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Chrome111 = undefined;
@@ -6088,7 +6088,7 @@ var require_Chrome111 = __commonJS(function(exports) {
   exports.Chrome111 = Chrome111;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Chrome74.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Chrome74.js
 var require_Chrome74 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Chrome74 = undefined;
@@ -6815,7 +6815,7 @@ var require_Chrome74 = __commonJS(function(exports) {
   exports.Chrome74 = Chrome74;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Firefox120.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Firefox120.js
 var require_Firefox120 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Firefox120 = undefined;
@@ -7509,7 +7509,7 @@ var require_Firefox120 = __commonJS(function(exports) {
   exports.Firefox120 = Firefox120;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Safari12.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Safari12.js
 var require_Safari12 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Safari12 = undefined;
@@ -8240,7 +8240,7 @@ var require_Safari12 = __commonJS(function(exports) {
   exports.Safari12 = Safari12;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/ReactNative106.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/ReactNative106.js
 var require_ReactNative106 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.ReactNative106 = undefined;
@@ -8989,7 +8989,7 @@ var require_ReactNative106 = __commonJS(function(exports) {
   exports.ReactNative106 = ReactNative106;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Device.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Device.js
 var require_Device = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Device = undefined;
@@ -9416,7 +9416,7 @@ var require_Device = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/@lukeed+uuid@2.0.1/node_modules/@lukeed/uuid/dist/index.js
+// node_modules/.bun/@lukeed+uuid@2.0.1/node_modules/@lukeed/uuid/dist/index.js
 var require_dist = __commonJS(function(exports) {
   var IDX = 256;
   var HEX = [];
@@ -9448,7 +9448,7 @@ var require_dist = __commonJS(function(exports) {
   exports.v4 = v4;
 });
 
-// ../../node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEventTarget.js
+// node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEventTarget.js
 var require_FakeEventTarget = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.FakeEventTarget = undefined;
@@ -9500,7 +9500,7 @@ var require_FakeEventTarget = __commonJS(function(exports) {
   exports.FakeEventTarget = FakeEventTarget;
 });
 
-// ../../node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEvent.js
+// node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEvent.js
 var require_FakeEvent = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.FakeEvent = undefined;
@@ -9543,7 +9543,7 @@ var require_FakeEvent = __commonJS(function(exports) {
   exports.FakeEvent = FakeEvent;
 });
 
-// ../../node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/utils.js
+// node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/utils.js
 var require_utils3 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.clone = clone;
@@ -9560,7 +9560,7 @@ var require_utils3 = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/index.js
+// node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/index.js
 var require_lib4 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.FakeMediaStreamTrack = undefined;
@@ -9764,7 +9764,7 @@ var require_lib4 = __commonJS(function(exports) {
   exports.FakeMediaStreamTrack = FakeMediaStreamTrack;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/fakeEvents/FakeEventTarget.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/fakeEvents/FakeEventTarget.js
 var require_FakeEventTarget2 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.FakeEventTarget = undefined;
@@ -9816,7 +9816,7 @@ var require_FakeEventTarget2 = __commonJS(function(exports) {
   exports.FakeEventTarget = FakeEventTarget;
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/FakeHandler.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/FakeHandler.js
 var require_FakeHandler = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.FakeHandler = undefined;
@@ -10219,7 +10219,7 @@ var require_FakeHandler = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/test/fakeParameters.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/test/fakeParameters.js
 var require_fakeParameters = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.generateRouterRtpCapabilities = generateRouterRtpCapabilities;
@@ -10918,7 +10918,7 @@ var require_fakeParameters = __commonJS(function(exports) {
   }
 });
 
-// ../../node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/index.js
+// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/index.js
 var require_lib5 = __commonJS(function(exports) {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.debug = exports.testFakeParameters = exports.FakeHandler = exports.enhancedEvents = exports.ortc = exports.parseScalabilityMode = exports.detectDeviceAsync = exports.detectDevice = exports.Device = exports.version = exports.types = undefined;
@@ -10949,7 +10949,7 @@ var require_lib5 = __commonJS(function(exports) {
   exports.testFakeParameters = require_fakeParameters();
 });
 
-// scripts/voice-worker.ts
+// apps/client/scripts/voice-worker.ts
 var import_mediasoup_client = __toESM(require_lib5(), 1);
 var defaultMediaLabels = {
   share: "",
@@ -10972,6 +10972,7 @@ var microphoneNoiseNode;
 var microphoneProducer;
 var microphoneTrack;
 var microphoneNoiseMix = 1;
+var microphoneNoiseMode = "rnnoise";
 var canSpeak = false;
 var canPublishAudio = false;
 var cameraStream;
@@ -11243,7 +11244,7 @@ var openMicrophone = async () => {
       audio: {
         autoGainControl: true,
         echoCancellation: true,
-        noiseSuppression: false
+        noiseSuppression: microphoneNoiseMode === "standard"
       },
       video: false
     });
@@ -11251,24 +11252,28 @@ var openMicrophone = async () => {
     if (!inputTrack) {
       throw new Error("No microphone audio track is available.");
     }
-    audioContext = new AudioContext({ sampleRate: 48000 });
-    await audioContext.audioWorklet.addModule(new URL("./rnnoise-bundle.js", document.baseURI));
-    const source = audioContext.createMediaStreamSource(inputStream);
-    const noiseNode = new AudioWorkletNode(audioContext, "RnnoiseProcessor", {
-      outputChannelCount: [1]
-    });
-    const destination = audioContext.createMediaStreamDestination();
-    const mixParameter = getNoiseMixParameter(noiseNode);
-    if (!mixParameter) {
-      throw new Error("The noise suppression control is unavailable.");
+    let noiseNode;
+    outputStream = inputStream;
+    if (microphoneNoiseMode === "rnnoise") {
+      audioContext = new AudioContext({ sampleRate: 48000 });
+      await audioContext.audioWorklet.addModule(new URL("./rnnoise-bundle.js", document.baseURI));
+      const source = audioContext.createMediaStreamSource(inputStream);
+      noiseNode = new AudioWorkletNode(audioContext, "RnnoiseProcessor", {
+        outputChannelCount: [1]
+      });
+      const destination = audioContext.createMediaStreamDestination();
+      const mixParameter = getNoiseMixParameter(noiseNode);
+      if (!mixParameter) {
+        throw new Error("The noise suppression control is unavailable.");
+      }
+      mixParameter.setValueAtTime(microphoneNoiseMix, audioContext.currentTime);
+      source.connect(noiseNode);
+      noiseNode.connect(destination);
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+      outputStream = destination.stream;
     }
-    mixParameter.setValueAtTime(microphoneNoiseMix, audioContext.currentTime);
-    source.connect(noiseNode);
-    noiseNode.connect(destination);
-    if (audioContext.state === "suspended") {
-      await audioContext.resume();
-    }
-    outputStream = destination.stream;
     const track = outputStream.getAudioTracks()[0];
     if (!track) {
       throw new Error("The processed microphone audio track is unavailable.");
@@ -11302,15 +11307,17 @@ var openMicrophone = async () => {
     throw error;
   }
 };
-var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, canPublishScreen = false, labels = defaultMediaLabels, initialNoiseMix = 1) => {
+var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, canPublishScreen = false, labels = defaultMediaLabels, initialNoiseMix = 1, initialNoiseMode = "rnnoise") => {
   if (activeChannelId === channelId)
     return;
   closeMedia();
+  const generation = mediaGeneration;
   activeChannelId = channelId;
   canSpeak = canProduceAudio;
   canPublishAudio = canSpeak;
   canShareScreen = canPublishScreen;
   microphoneNoiseMix = Math.min(1, Math.max(0, initialNoiseMix));
+  microphoneNoiseMode = initialNoiseMode;
   mediaLabels = labels;
   shareScreenLabel = labels.share;
   stopScreenShareLabel = labels.stop;
@@ -11324,11 +11331,15 @@ var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, can
     await nextDevice.load({
       routerRtpCapabilities
     });
+    if (generation !== mediaGeneration)
+      return;
     device = nextDevice;
     const [sendParameters, receiveParameters] = await Promise.all([
       callNative("voice.createProducerTransport"),
       callNative("voice.createConsumerTransport")
     ]);
+    if (generation !== mediaGeneration)
+      return;
     const nextSendTransport = nextDevice.createSendTransport(sendParameters);
     const nextReceiveTransport = nextDevice.createRecvTransport(receiveParameters);
     sendTransport = nextSendTransport;
@@ -11563,6 +11574,28 @@ var setMicrophoneMuted = async (muted) => {
     throw error;
   }
 };
+var setNoiseSuppressionMode = async (mode) => {
+  if (!["off", "standard", "rnnoise"].includes(mode)) {
+    throw new Error("Unknown noise suppression mode.");
+  }
+  if (microphoneNoiseMode === mode)
+    return;
+  const wasMuted = microphoneMuted;
+  if (microphoneProducer) {
+    await callNative("voice.closeProducer", { kind: "audio" });
+    microphoneProducer.close();
+    microphoneProducer = undefined;
+    microphoneTrack = undefined;
+    microphoneStream?.getTracks().forEach((track) => track.stop());
+    microphoneInputStream?.getTracks().forEach((track) => track.stop());
+    await microphoneAudioContext?.close();
+    microphoneAudioContext = undefined;
+    microphoneNoiseNode = undefined;
+  }
+  microphoneNoiseMode = mode;
+  if (!wasMuted)
+    await setMicrophoneMuted(false);
+};
 var setNoiseSuppressionMix = (mix) => {
   microphoneNoiseMix = Math.min(1, Math.max(0, mix));
   const parameter = microphoneNoiseNode ? getNoiseMixParameter(microphoneNoiseNode) : undefined;
@@ -11626,6 +11659,7 @@ window.coveVoice = {
   stop,
   setRemoteAudioVolume,
   setNoiseSuppressionMix,
+  setNoiseSuppressionMode,
   setMicrophoneMuted: (muted) => reportActionError(() => setMicrophoneMuted(muted), "microphone"),
   setOutputMuted: (muted) => reportActionError(() => setOutputMuted(muted), "audio"),
   setWebcamEnabled: (enabled) => reportActionError(() => setWebcamEnabled(enabled), "camera"),

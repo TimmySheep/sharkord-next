@@ -186,20 +186,21 @@ public final class SharkordSession: ObservableObject {
 
     /// Effective channel permissions the server computed for the viewer.
     public func hasChannelPermission(_ channelId: Int, _ permission: ChannelPermission) -> Bool {
-        if let entry = channelPermissions[channelId] {
-            return entry.allows(permission)
-        }
-
         guard let channel = channel(for: channelId) else {
             return false
         }
 
         // the server includes dm channels only for participants and gives them no permission rows
-        if channel.isDm {
+        if channel.isDm || isOwner() || !channel.isPrivate {
             return true
         }
 
-        return isOwner() || !channel.isPrivate
+        guard let entry = channelPermissions[channelId],
+              entry.permissions[ChannelPermission.viewChannel.rawValue] != false else {
+            return false
+        }
+
+        return entry.allows(permission)
     }
 
     public var canManageUsers: Bool { hasPermission(.manageUsers) }

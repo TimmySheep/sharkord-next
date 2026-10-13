@@ -10,8 +10,16 @@ struct VoiceSettingsView: View {
             subtitle: L10n.t("noiseSuppressionMixDescription", ns: "settings")
         ) {
             VStack(alignment: .leading, spacing: 12) {
-                Text(L10n.t("noiseSuppressionLabel", ns: "settings"))
-                    .font(.system(size: 12, weight: .medium))
+                Picker(L10n.t("noiseSuppressionLabel", ns: "settings"), selection: Binding(
+                    get: { voiceMedia.noiseSuppressionMode },
+                    set: { voiceMedia.setNoiseSuppressionMode($0) }
+                )) {
+                    Text(L10n.t("noiseModeOff", ns: "macos")).tag("off")
+                    Text(L10n.t("noiseModeStandard", ns: "macos")).tag("standard")
+                    Text("RNNoise").tag("rnnoise")
+                }
+
+                if voiceMedia.noiseSuppressionMode == "rnnoise" {
 
                 Text(L10n.t("noiseSuppressionRnnoiseNotes", ns: "settings"))
                     .font(.system(size: 10.5))
@@ -31,6 +39,7 @@ struct VoiceSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: 420)
+                }
             }
             .padding(.vertical, 8)
         }

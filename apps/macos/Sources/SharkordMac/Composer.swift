@@ -89,6 +89,7 @@ struct ComposerTextEditor: NSViewRepresentable {
         textView.drawsBackground = false
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
         textView.textContainer?.widthTracksTextView = true
         textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
         textView.textContainerInset = NSSize(width: 8, height: 8)
@@ -113,6 +114,7 @@ struct ComposerTextEditor: NSViewRepresentable {
 
         context.coordinator.owner = self
 
+        textView.setFrameSize(NSSize(width: scrollView.contentSize.width, height: max(38, textView.frame.height)))
         textView.sendShortcut = sendShortcut
         textView.onSubmit = onSubmit
         textView.onCancel = onCancel
@@ -175,7 +177,7 @@ struct Composer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let editing {
+            if editing != nil {
                 banner("Editing message") {
                     self.editing = nil
                     text = ""
@@ -201,7 +203,7 @@ struct Composer: View {
             HStack(alignment: .bottom, spacing: 8) {
                 ZStack(alignment: .topLeading) {
                     if text.isEmpty {
-                        Text(canSend ? "Message #\(channel.name)" : "You cannot send messages here")
+                        Text(L10n.t(canSend ? "messagePlaceholder" : "messageNotAllowed", ns: "macos"))
                             .font(.system(size: 13.5))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 14)

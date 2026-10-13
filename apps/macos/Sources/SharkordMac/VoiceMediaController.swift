@@ -12,6 +12,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
     @Published private(set) var canPublishAudio = false
     @Published private(set) var remoteAudioVolumes = VoiceAudioVolumeSettings.load()
     @Published private(set) var noiseSuppressionMix = VoiceMediaController.loadNoiseSuppressionMix()
+    @Published private(set) var noiseSuppressionMode = UserDefaults.standard.string(forKey: "voice.noiseSuppressionMode") ?? "standard"
 
     private weak var session: SharkordSession?
     private var webView: WKWebView?
@@ -19,7 +20,6 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
     private var currentChannelId: Int?
     private var knownProducerKeys = Set<String>()
     private var ready = false
-    private var readyContinuations: [CheckedContinuation<Void, Never>] = []
     private var previousRemoteAudioVolumes: [String: Double] = [:]
 
     func bind(to session: SharkordSession) {
@@ -103,7 +103,11 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         errorMessage = nil
         errorContext = nil
         status = "connecting"
-        await waitUntilReady()
+        try await waitUntilReady()
+
+        guard session.currentVoiceChannelId == channelId, currentChannelId == channelId else {
+            throw CancellationError()
+        }
 
         guard let webView else {
             throw TRPCClientError(code: "INTERNAL_SERVER_ERROR", message: "The voice media engine is unavailable.")
@@ -114,19 +118,38 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         let capabilitiesData = try JSONEncoder().encode(routerRtpCapabilities)
         let capabilities = try JSONSerialization.jsonObject(with: capabilitiesData, options: [.fragmentsAllowed])
         _ = try await webView.callAsyncJavaScript(
-            "return await window.coveVoice.start(channelId, capabilities, canProduceAudio, canShareScreen, screenShareLabels, noiseSuppressionMix)",
+            "return await window.coveVoice.start(channelId, capabilities, canProduceAudio, canShareScreen, screenShareLabels, noiseSuppressionMix, noiseSuppressionMode)",
             arguments: [
                 "channelId": channelId,
                 "capabilities": capabilities,
                 "canProduceAudio": canProduceAudio,
                 "canShareScreen": canShareScreen,
                 "screenShareLabels": screenShareLabels,
-                "noiseSuppressionMix": VoiceAudioVolumeSettings.clamped(noiseSuppressionMix)
+                "noiseSuppressionMix": VoiceAudioVolumeSettings.clamped(noiseSuppressionMix),
+                "noiseSuppressionMode": noiseSuppressionMode
             ],
             in: nil,
             contentWorld: .page
         )
         syncProducers()
+    }
+
+    func setNoiseSuppressionMode(_ mode: String) {
+        guard ["off", "standard", "rnnoise"].contains(mode) else { return }
+        Task {
+            do {
+                if let webView, currentChannelId != nil {
+                    _ = try await webView.callAsyncJavaScript(
+                        "return await window.coveVoice.setNoiseSuppressionMode(mode)",
+                        arguments: ["mode": mode], in: nil, contentWorld: .page
+                    )
+                }
+                noiseSuppressionMode = mode
+                UserDefaults.standard.set(mode, forKey: "voice.noiseSuppressionMode")
+            } catch {
+                presentError(error, context: "microphone")
+            }
+        }
     }
 
     func setNoiseSuppressionMix(_ mix: Double) {
@@ -314,8 +337,6 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
 
         if type == "ready" {
             ready = true
-            readyContinuations.forEach { $0.resume() }
-            readyContinuations.removeAll()
             return
         }
 
@@ -364,20 +385,13 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         decisionHandler(origin.protocol == "file" ? .grant : .deny)
     }
 
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        ready = true
-        readyContinuations.forEach { $0.resume() }
-        readyContinuations.removeAll()
-    }
-
-    private func waitUntilReady() async {
-        if ready {
-            return
+    private func waitUntilReady() async throws {
+        // navigation completion does not prove the worker script initialized successfully
+        for _ in 0..<100 {
+            if ready { return }
+            try await Task.sleep(for: .milliseconds(100))
         }
-
-        await withCheckedContinuation { continuation in
-            readyContinuations.append(continuation)
-        }
+        throw TRPCClientError(code: "INTERNAL_SERVER_ERROR", message: "The voice media engine did not become ready.")
     }
 
     private static func loadNoiseSuppressionMix() -> Double {

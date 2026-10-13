@@ -11,6 +11,7 @@ enum SettingsSection: String, Identifiable, CaseIterable {
     case others
     case devices
     case shortcuts
+    case developer
     case general
     case storage
     case users
@@ -36,6 +37,8 @@ enum SettingsSection: String, Identifiable, CaseIterable {
             return L10n.t("microphoneLabel", ns: "settings")
         case .shortcuts:
             return L10n.t("keyboardShortcutsTab", ns: "macos")
+        case .developer:
+            return L10n.t("developerTab", ns: "macos")
         case .general:
             return L10n.t("generalTab", ns: "settings")
         case .storage:
@@ -69,6 +72,8 @@ enum SettingsSection: String, Identifiable, CaseIterable {
             return "waveform"
         case .shortcuts:
             return "keyboard"
+        case .developer:
+            return "hammer"
         case .general:
             return "gearshape"
         case .storage:
@@ -93,7 +98,7 @@ enum SettingsSection: String, Identifiable, CaseIterable {
         switch self {
         case .general, .storage, .users, .roles, .emojis, .invites, .plugins, .updates:
             return true
-        case .profile, .password, .notifications, .others, .devices, .shortcuts:
+        case .profile, .password, .notifications, .others, .devices, .shortcuts, .developer:
             return false
         }
     }
@@ -179,6 +184,10 @@ struct SettingsView: View {
             VoiceSettingsView()
         case .shortcuts:
             KeyboardShortcutsSettingsView()
+        case .developer:
+            SettingsSectionLayout(title: L10n.t("developerTab", ns: "macos")) {
+                DiagnosticLogExportButton()
+            }
         case .general:
             GeneralServerSettingsView()
         case .storage:

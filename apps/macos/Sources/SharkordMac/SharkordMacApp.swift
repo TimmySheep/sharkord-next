@@ -23,6 +23,7 @@ struct SharkordMacApp: App {
                 .preferredColorScheme(.dark)
         }
         .defaultSize(width: 1160, height: 760)
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
