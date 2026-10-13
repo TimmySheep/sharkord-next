@@ -1163,6 +1163,10 @@ public final class SharkordSession: ObservableObject {
         }
     }
 
+    public func clearChannelSelection() {
+        selectedChannelId = nil
+    }
+
     public func loadOlder(channelId: Int) async {
         guard
             !isLoadingMore.contains(channelId),

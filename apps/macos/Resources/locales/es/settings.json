@@ -70,6 +70,7 @@
   "noiseSuppressionNone": "Ninguna",
   "noiseSuppressionInfoTitle": "Modos de supresión de ruido",
   "noiseSuppressionInfoDescription": "Compensaciones aproximadas para cada modo. El uso real de CPU, memoria y calidad de voz dependen de tu navegador, dispositivo y micrófono.",
+  "noiseSuppressionMixDescription": "Ajusta cuánto audio procesado por RNNoise se mezcla con la señal del micrófono. Cambia la mezcla, no la intensidad interna del modelo.",
   "noiseSuppressionTechniqueColumn": "Técnica",
   "noiseSuppressionMemoryUsageColumn": "Memoria",
   "noiseSuppressionCpuUsageColumn": "CPU",

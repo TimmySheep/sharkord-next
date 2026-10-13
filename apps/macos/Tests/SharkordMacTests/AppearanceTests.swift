@@ -3,7 +3,7 @@ import XCTest
 @testable import SharkordMac
 
 final class AppearanceTests: XCTestCase {
-    func testWindowAppearanceUsesTheSavedSystemLightOrDarkPreference() throws {
+    func testDesktopAppearanceIsDarkRegardlessOfSavedPreference() throws {
         let packageRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -11,9 +11,9 @@ final class AppearanceTests: XCTestCase {
         let appSource = packageRoot.appendingPathComponent("Sources/SharkordMac/SharkordMacApp.swift")
         let source = try String(contentsOf: appSource, encoding: .utf8)
 
-        XCTAssertTrue(source.contains("@AppStorage(\"app.appearance\")"))
-        XCTAssertTrue(source.contains(".preferredColorScheme(colorScheme)"))
-        XCTAssertFalse(source.contains(".preferredColorScheme(.dark)"))
+        XCTAssertFalse(source.contains("@AppStorage(\"app.appearance\")"))
+        XCTAssertTrue(source.contains(".preferredColorScheme(.dark)"))
+        XCTAssertTrue(source.contains("NSApp.appearance = NSAppearance(named: .darkAqua)"))
     }
 
     func testCoveAppIconIsPresent() throws {
@@ -92,15 +92,63 @@ final class AppearanceTests: XCTestCase {
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
 
         XCTAssertTrue(source.contains("Image(\"cove-icon\", bundle: .module)"))
-        XCTAssertTrue(source.contains("Text(\"cove\")"))
+        XCTAssertTrue(source.contains("Text(serverDisplayName)"))
+        XCTAssertTrue(source.contains("return \"cove\""))
         XCTAssertTrue(source.contains(".foregroundStyle(.primary)"))
-        XCTAssertTrue(source.contains("Theme.input"))
+        XCTAssertTrue(source.contains(".textFieldStyle(.roundedBorder)"))
+        XCTAssertTrue(source.contains(".environment(\\.colorScheme, .dark)"))
+        XCTAssertTrue(source.contains("RadialGradient("))
+        XCTAssertTrue(source.contains("AsyncImage(url: serverLogoURL)"))
+        XCTAssertTrue(source.contains("L10n.supportedLanguages"))
+        XCTAssertTrue(source.contains(".toggleStyle(.switch)"))
+        XCTAssertFalse(source.contains("autoLoginDescription"))
+        XCTAssertFalse(source.contains(".background(.regularMaterial"))
+        XCTAssertFalse(source.contains("Theme.input"))
         XCTAssertFalse(source.contains(".foregroundStyle(.white)"))
         XCTAssertTrue(source.contains("L10n.t(\"optional\", ns: \"connect\")"))
         XCTAssertFalse(source.contains("Native macOS client"))
         XCTAssertFalse(source.contains("Text(\"Sharkord\")"))
         XCTAssertFalse(source.contains("tagline"))
         XCTAssertFalse(source.contains("WebSocket"))
+    }
+
+    func testLogExportButtonUsesTextWithoutAnIcon() throws {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = packageRoot.appendingPathComponent("Sources/SharkordMac/DiagnosticLogExportButton.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("Text(L10n.t(\"exportLogs\", ns: \"macos\"))"))
+        XCTAssertFalse(source.contains("systemImage:"))
+    }
+
+    func testMainWindowHasOneUserSettingsEntryPoint() throws {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let mainWindowURL = packageRoot.appendingPathComponent("Sources/SharkordMac/MainWindow.swift")
+        let sidebarURL = packageRoot.appendingPathComponent("Sources/SharkordMac/SidebarView.swift")
+        let mainWindow = try String(contentsOf: mainWindowURL, encoding: .utf8)
+        let sidebar = try String(contentsOf: sidebarURL, encoding: .utf8)
+
+        XCTAssertNil(mainWindow.range(of: "settingsButton", options: .caseInsensitive))
+        XCTAssertTrue(sidebar.contains("Image(systemName: \"gearshape\")"))
+    }
+
+    func testVoiceSettingsDescribeAndExposeTheDenoisedAudioMix() throws {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = packageRoot.appendingPathComponent("Sources/SharkordMac/VoiceSettingsView.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        XCTAssertTrue(source.contains("noiseSuppressionMixDescription"))
+        XCTAssertTrue(source.contains("Slider(value: noiseSuppressionMix, in: 0...1, step: 0.01)"))
+        XCTAssertTrue(source.contains("voiceMedia.setNoiseSuppressionMix($0)"))
     }
 
     func testMainWindowDoesNotSetCoveAsItsWindowTitle() throws {

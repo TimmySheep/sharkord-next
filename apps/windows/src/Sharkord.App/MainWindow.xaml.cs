@@ -8,11 +8,11 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Windowing;
 using Sharkord.Core;
 using Sharkord.Core.I18n;
 using Windows.Storage.Pickers;
-using Windows.System;
 using WinRT.Interop;
 
 namespace Sharkord.App;
@@ -22,8 +22,11 @@ public sealed partial class MainWindow : Window
     private readonly SharkordSession _session;
     private readonly ObservableCollection<MessageItem> _messages = [];
     private readonly Dictionary<string, bool> _expandedChannelGroups = [];
+    private readonly HttpClient _serverPreviewHttpClient = new();
     private string? _languagePreference;
     private bool _isUpdatingLanguagePicker;
+    private CancellationTokenSource? _serverPreviewCancellation;
+    private bool _windowIsActive;
     private bool _voiceWebViewInitialized;
     private bool _voiceWorkerReady;
     private bool _canPublishAudio;
@@ -31,6 +34,7 @@ public sealed partial class MainWindow : Window
     private bool _deafened;
     private bool _webcamEnabled;
     private string _voiceMediaStatus = "idle";
+    private double _noiseSuppressionMix = 100;
 
     private static readonly string[] QuickReactionShortcodes =
     [
@@ -57,10 +61,21 @@ public sealed partial class MainWindow : Window
     {
         _session = session;
         InitializeComponent();
+        ResetServerBranding();
+        _noiseSuppressionMix = ReadNoiseSuppressionMix();
+        _keyboardShortcutPreferences = ReadKeyboardShortcutPreferences();
+        _pushToTalkEnabled = ReadPreference("voice.pushToTalkEnabled", defaultValue: false);
+        RootGrid.RequestedTheme = ElementTheme.Dark;
+        RootGrid.AddHandler(
+            UIElement.KeyDownEvent,
+            new KeyEventHandler(OnRootKeyDown),
+            handledEventsToo: true
+        );
 
         RootGrid.ActualThemeChanged += OnRootThemeChanged;
         SetWindowIconForCurrentTheme();
         Closed += (_, _) => RootGrid.ActualThemeChanged -= OnRootThemeChanged;
+        Activated += (_, args) => _windowIsActive = args.WindowActivationState != WindowActivationState.Deactivated;
 
         _languagePreference = ReadLanguagePreference();
         if (_languagePreference is null)
@@ -77,14 +92,27 @@ public sealed partial class MainWindow : Window
         ApplyLocalisation();
         L10n.LanguageChanged += ApplyLocalisation;
         Closed += (_, _) => L10n.LanguageChanged -= ApplyLocalisation;
+        Closed += OnMainWindowClosed;
+        Closed += (_, _) =>
+        {
+            _serverPreviewCancellation?.Cancel();
+            _serverPreviewHttpClient.Dispose();
+        };
 
         _session.Changed += OnSessionChanged;
         _session.VoiceProducerChanged += OnVoiceProducerChanged;
+        _session.IncomingMessage += OnIncomingMessage;
         Closed += (_, _) =>
         {
             _session.Changed -= OnSessionChanged;
             _session.VoiceProducerChanged -= OnVoiceProducerChanged;
+            _session.IncomingMessage -= OnIncomingMessage;
         };
+
+        if (_pushToTalkEnabled)
+        {
+            EnablePushToTalk();
+        }
     }
 
     private void OnRootThemeChanged(FrameworkElement sender, object args)
@@ -108,8 +136,12 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void ApplyLocalisation()
     {
-        TaglineText.Text = L10n.T("tagline", ns: "windows");
         ExportLogsButton.Content = L10n.T("exportLogs", ns: "windows");
+        LoginExportLogsButton.Content = L10n.T("exportLogs", ns: "windows");
+        GitHubLink.Content = "GitHub";
+        SharkordLink.Content = "Sharkord";
+        SettingsButton.Content = L10n.T("settingsButton", ns: "macos");
+        AdvancedOptionsText.Text = L10n.T("advancedOptions", ns: "macos");
         RefreshLanguagePicker();
         HostBox.Header = L10n.T("serverAddress", ns: "windows");
         IdentityBox.Header = L10n.T("identityLabel", ns: "connect");
@@ -135,23 +167,26 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            LanguageBox.Header = L10n.T("languageLabel", ns: "windows");
-            LanguageBox.Items.Clear();
-            LanguageBox.Items.Add(new ComboBoxItem
+            foreach (var languageBox in new[] { LanguageBox, LoginLanguageBox })
             {
-                Content = L10n.T("systemLanguage", ns: "windows"),
-                Tag = "system"
-            });
+                languageBox.Header = L10n.T("languageLabel", ns: "windows");
+                languageBox.Items.Clear();
+                languageBox.Items.Add(new ComboBoxItem
+                {
+                    Content = L10n.T("systemLanguage", ns: "windows"),
+                    Tag = "system"
+                });
 
-            foreach (var language in L10n.SupportedLanguages)
-            {
-                LanguageBox.Items.Add(new ComboBoxItem { Content = language.NativeName, Tag = language.Code });
+                foreach (var language in L10n.SupportedLanguages)
+                {
+                    languageBox.Items.Add(new ComboBoxItem { Content = language.NativeName, Tag = language.Code });
+                }
+
+                var selectedTag = _languagePreference ?? "system";
+                languageBox.SelectedItem = languageBox.Items
+                    .OfType<ComboBoxItem>()
+                    .First(item => string.Equals(item.Tag as string, selectedTag, StringComparison.OrdinalIgnoreCase));
             }
-
-            var selectedTag = _languagePreference ?? "system";
-            LanguageBox.SelectedItem = LanguageBox.Items
-                .OfType<ComboBoxItem>()
-                .First(item => string.Equals(item.Tag as string, selectedTag, StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
@@ -161,7 +196,11 @@ public sealed partial class MainWindow : Window
 
     private void OnLanguageSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isUpdatingLanguagePicker || LanguageBox.SelectedItem is not ComboBoxItem item)
+        if (
+            _isUpdatingLanguagePicker
+            || sender is not ComboBox languageBox
+            || languageBox.SelectedItem is not ComboBoxItem item
+        )
         {
             return;
         }
@@ -177,6 +216,22 @@ public sealed partial class MainWindow : Window
         }
 
         L10n.Language = _languagePreference;
+    }
+
+    private static double ReadNoiseSuppressionMix()
+    {
+        try
+        {
+            var settings = Windows.Storage.ApplicationData.Current.LocalSettings.Values;
+            return settings.TryGetValue("voice.noiseSuppressionMix", out var value) && value is double mix
+                ? Math.Clamp(mix, 0, 100)
+                : 100;
+        }
+        catch (Exception exception)
+        {
+            ClientLogStore.Shared.RecordError("preferences.noise_suppression.read_failed", exception);
+            return 100;
+        }
     }
 
     private static string? ReadLanguagePreference()
@@ -295,15 +350,16 @@ public sealed partial class MainWindow : Window
         ConnectButton.IsEnabled = _session.Phase != SessionPhase.Connecting;
         ConnectProgress.IsActive = _session.Phase == SessionPhase.Connecting;
         ConnectError.Text = _session.Phase == SessionPhase.Failed ? _session.LastError ?? "" : "";
+        var isConnected = _session.Phase == SessionPhase.Connected;
+        ConnectScreen.Visibility = isConnected ? Visibility.Collapsed : Visibility.Visible;
+        TopActionsPanel.Visibility = isConnected ? Visibility.Visible : Visibility.Collapsed;
 
-        if (_session.Phase != SessionPhase.Connected)
+        if (!isConnected)
         {
             ChatPanel.Visibility = Visibility.Collapsed;
-            ConnectPanel.Visibility = Visibility.Visible;
             return;
         }
 
-        ConnectPanel.Visibility = Visibility.Collapsed;
         ChatPanel.Visibility = Visibility.Visible;
         ServerNameText.Text = _session.ServerName;
 
@@ -457,13 +513,111 @@ public sealed partial class MainWindow : Window
             InviteBox.Text
         );
 
+        if (_session.Phase == SessionPhase.Connected)
+        {
+            await RestoreLastSelectedChannelAsync();
+        }
+
         Refresh();
+    }
+
+    private async void OnHostTextChanged(object sender, TextChangedEventArgs e)
+    {
+        _serverPreviewCancellation?.Cancel();
+        ResetServerBranding();
+
+        var cancellation = new CancellationTokenSource();
+        _serverPreviewCancellation = cancellation;
+        if (!TryNormalizePreviewHost(HostBox.Text, out var baseUrl))
+        {
+            cancellation.Dispose();
+            _serverPreviewCancellation = null;
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(450, cancellation.Token);
+            var client = new SharkordHttpClient(baseUrl, _serverPreviewHttpClient);
+            var info = await client.GetInfoAsync(cancellation.Token);
+            if (cancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            ServerTitleText.Text = string.IsNullOrWhiteSpace(info.Name) ? "cove" : info.Name;
+            ServerDescriptionText.Text = info.Description ?? "";
+            ServerDescriptionText.Visibility = string.IsNullOrWhiteSpace(info.Description)
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+
+            if (info.Logo is not null)
+            {
+                ServerLogoImage.Source = new BitmapImage(client.PublicFileUrl(info.Logo));
+                ServerLogoImage.Visibility = Visibility.Visible;
+                ServerLogoFallback.Visibility = Visibility.Collapsed;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_serverPreviewCancellation, cancellation))
+            {
+                _serverPreviewCancellation = null;
+            }
+
+            cancellation.Dispose();
+        }
+    }
+
+    private static bool TryNormalizePreviewHost(string host, out Uri baseUrl)
+    {
+        baseUrl = null!;
+        var trimmed = host.Trim();
+        if (trimmed.Length == 0)
+        {
+            return false;
+        }
+
+        var withScheme = trimmed.Contains("://", StringComparison.Ordinal) ? trimmed : $"http://{trimmed}";
+        if (!Uri.TryCreate(withScheme, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            || string.IsNullOrEmpty(uri.Host))
+        {
+            return false;
+        }
+
+        baseUrl = uri;
+        return true;
+    }
+
+    private void ResetServerBranding()
+    {
+        ServerTitleText.Text = "cove";
+        ServerDescriptionText.Text = "";
+        ServerDescriptionText.Visibility = Visibility.Collapsed;
+        ServerLogoImage.Source = null;
+        ServerLogoImage.Visibility = Visibility.Collapsed;
+        ServerLogoFallback.Text = "c";
+        ServerLogoFallback.Visibility = Visibility.Visible;
+    }
+
+    private void OnServerLogoFailed(object sender, ExceptionRoutedEventArgs e)
+    {
+        ServerLogoImage.Visibility = Visibility.Collapsed;
+        ServerLogoFallback.Visibility = Visibility.Visible;
     }
 
     private async void OnChannelInvoked(TreeView sender, TreeViewItemInvokedEventArgs e)
     {
         if (e.InvokedItem is TreeViewNode { Content: ChannelTreeItem { ChannelId: { } channelId } })
         {
+            RememberLastSelectedChannel(channelId);
             await _session.SelectChannelAsync(channelId);
         }
     }
@@ -679,7 +833,7 @@ public sealed partial class MainWindow : Window
                 screen = L10n.T("mediaScreen", ns: "windows"),
                 camera = L10n.T("mediaCamera", ns: "windows")
             });
-            var script = $"window.coveVoice?.start({channelId}, JSON.parse({JsonSerializer.Serialize(capabilities.ToJsonString())}), {JsonSerializer.Serialize(canProduceAudio)}, {JsonSerializer.Serialize(canShareScreen)}, {screenShareLabels}).catch(() => {{}})";
+            var script = $"window.coveVoice?.start({channelId}, JSON.parse({JsonSerializer.Serialize(capabilities.ToJsonString())}), {JsonSerializer.Serialize(canProduceAudio)}, {JsonSerializer.Serialize(canShareScreen)}, {screenShareLabels}, {JsonSerializer.Serialize(_noiseSuppressionMix / 100)}).catch(() => {{}})";
             await VoiceMediaWebView.ExecuteScriptAsync(script);
             _microphoneMuted = true;
             _deafened = false;
@@ -724,14 +878,7 @@ public sealed partial class MainWindow : Window
 
     private async void OnMicrophoneClick(object sender, RoutedEventArgs e)
     {
-        _microphoneMuted = !_microphoneMuted;
-        if (_deafened && !_microphoneMuted)
-        {
-            _deafened = false;
-        }
-
-        await ExecuteVoiceActionAsync("setMicrophoneMuted", _microphoneMuted);
-        RefreshVoiceControls();
+        await SetMicrophoneMutedAsync(!_microphoneMuted);
     }
 
     private async void OnDeafenClick(object sender, RoutedEventArgs e)
@@ -883,15 +1030,6 @@ public sealed partial class MainWindow : Window
             ClientLogStore.Shared.RecordError("chat.reaction.failed", exception);
             ChatErrorText.Text = exception.Message;
             Refresh();
-        }
-    }
-
-    private async void OnComposerKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key == VirtualKey.Enter && !e.KeyStatus.IsMenuKeyDown)
-        {
-            e.Handled = true;
-            await SendComposer();
         }
     }
 

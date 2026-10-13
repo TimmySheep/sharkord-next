@@ -70,6 +70,7 @@
   "noiseSuppressionNone": "Aucune",
   "noiseSuppressionInfoTitle": "Modes de suppression du bruit",
   "noiseSuppressionInfoDescription": "Compromis approximatifs pour chaque mode. L'utilisation reelle du CPU, de la memoire et la qualite vocale dependent de votre navigateur, de votre appareil et de votre microphone.",
+  "noiseSuppressionMixDescription": "Reglez la part du signal traite par RNNoise melangee au son du microphone. Cela modifie le melange, pas l'intensite interne du modele.",
   "noiseSuppressionTechniqueColumn": "Technique",
   "noiseSuppressionMemoryUsageColumn": "Memoire",
   "noiseSuppressionCpuUsageColumn": "CPU",

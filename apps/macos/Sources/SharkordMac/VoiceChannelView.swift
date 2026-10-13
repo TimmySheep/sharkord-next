@@ -352,7 +352,8 @@ struct VoiceChannelView: View {
                         "local": L10n.t("mediaLocalUser", ns: "macos"),
                         "screen": L10n.t("mediaScreen", ns: "macos"),
                         "camera": L10n.t("mediaCamera", ns: "macos")
-                    ]
+                    ],
+                    noiseSuppressionMix: voiceMedia.noiseSuppressionMix
                 )
             } catch {
                 try? await session.leaveVoice()

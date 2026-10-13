@@ -43,10 +43,12 @@ public sealed class SharkordSession : IAsyncDisposable
     /// <summary>Raised whenever observable state changes; the UI re-reads the properties.</summary>
     public event Action? Changed;
     public event Action<VoiceProducerEvent, bool>? VoiceProducerChanged;
+    public event Action<SharkordMessage>? IncomingMessage;
 
     public SessionPhase Phase { get; private set; } = SessionPhase.Disconnected;
     public SharkordServerInfo? ServerInfo { get; private set; }
     public string ServerName { get; private set; } = "";
+    public string? ServerBaseUrl => _http?.BaseUrl.AbsoluteUri;
     public IReadOnlyList<SharkordCategory> Categories { get; private set; } = [];
     public IReadOnlyList<SharkordChannel> Channels { get; private set; } = [];
     public IReadOnlyList<SharkordUser> Users { get; private set; } = [];
@@ -79,6 +81,41 @@ public sealed class SharkordSession : IAsyncDisposable
     {
         var ownRoleIds = OwnUser?.RoleIds ?? [];
         return Roles.Any(role => ownRoleIds.Contains(role.Id) && role.Permissions?.Contains(permission) == true);
+    }
+
+    public async Task<JsonNode?> CallQueryAsync(
+        string path,
+        JsonNode? input = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var client = _client ?? throw new InvalidOperationException("Not connected to a server");
+        return await client.QueryAsync(path, input, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<JsonNode?> CallMutationAsync(
+        string path,
+        JsonNode? input = null,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var client = _client ?? throw new InvalidOperationException("Not connected to a server");
+        return await client.MutationAsync(path, input, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<JsonNode?> GetAdminSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        return await CallQueryAsync("others.getSettings", null, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task UpdateAdminSettingsAsync(JsonObject settings, CancellationToken cancellationToken = default)
+    {
+        if (settings.Count == 0)
+        {
+            return;
+        }
+
+        await CallMutationAsync("others.updateSettings", settings, cancellationToken).ConfigureAwait(false);
     }
 
     public SharkordUser? User(int id) => Users.FirstOrDefault(u => u.Id == id);
@@ -291,6 +328,7 @@ public sealed class SharkordSession : IAsyncDisposable
             if (message is not null)
             {
                 Upsert(message, markUnread: message.UserId != OwnUserId);
+                IncomingMessage?.Invoke(message);
             }
         });
 

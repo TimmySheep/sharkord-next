@@ -10966,8 +10966,12 @@ var device;
 var sendTransport;
 var receiveTransport;
 var microphoneStream;
+var microphoneInputStream;
+var microphoneAudioContext;
+var microphoneNoiseNode;
 var microphoneProducer;
 var microphoneTrack;
+var microphoneNoiseMix = 1;
 var canSpeak = false;
 var canPublishAudio = false;
 var cameraStream;
@@ -10986,6 +10990,15 @@ var screenShareEnabled = false;
 var shareScreenLabel = "";
 var stopScreenShareLabel = "";
 var mediaLabels = defaultMediaLabels;
+var getNoiseMixParameter = (node) => {
+  let parameter;
+  node.parameters.forEach((value, name) => {
+    if (name === "mix") {
+      parameter = value;
+    }
+  });
+  return parameter;
+};
 var setGalleryVisible = (visible) => {
   document.body.classList.toggle("has-video", visible);
   postToNative({ type: "video", visible });
@@ -11148,10 +11161,15 @@ var closeMedia = () => {
   microphoneProducer?.close();
   microphoneProducer = undefined;
   microphoneTrack = undefined;
+  microphoneNoiseNode = undefined;
+  microphoneAudioContext?.close().catch(() => {});
+  microphoneAudioContext = undefined;
   canSpeak = false;
   canPublishAudio = false;
   microphoneStream?.getTracks().forEach((track) => track.stop());
   microphoneStream = undefined;
+  microphoneInputStream?.getTracks().forEach((track) => track.stop());
+  microphoneInputStream = undefined;
   cameraProducer?.close();
   cameraProducer = undefined;
   cameraStream?.getTracks().forEach((track) => track.stop());
@@ -11216,20 +11234,44 @@ var openMicrophone = async () => {
     return;
   const transport = sendTransport;
   const generation = mediaGeneration;
-  let stream;
+  let inputStream;
+  let outputStream;
+  let audioContext;
   let producer;
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
+    inputStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         autoGainControl: true,
         echoCancellation: true,
-        noiseSuppression: true
+        noiseSuppression: false
       },
       video: false
     });
-    const track = stream.getAudioTracks()[0];
-    if (!track) {
+    const inputTrack = inputStream.getAudioTracks()[0];
+    if (!inputTrack) {
       throw new Error("No microphone audio track is available.");
+    }
+    audioContext = new AudioContext({ sampleRate: 48000 });
+    await audioContext.audioWorklet.addModule(new URL("./rnnoise-bundle.js", document.baseURI));
+    const source = audioContext.createMediaStreamSource(inputStream);
+    const noiseNode = new AudioWorkletNode(audioContext, "RnnoiseProcessor", {
+      outputChannelCount: [1]
+    });
+    const destination = audioContext.createMediaStreamDestination();
+    const mixParameter = getNoiseMixParameter(noiseNode);
+    if (!mixParameter) {
+      throw new Error("The noise suppression control is unavailable.");
+    }
+    mixParameter.setValueAtTime(microphoneNoiseMix, audioContext.currentTime);
+    source.connect(noiseNode);
+    noiseNode.connect(destination);
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+    outputStream = destination.stream;
+    const track = outputStream.getAudioTracks()[0];
+    if (!track) {
+      throw new Error("The processed microphone audio track is unavailable.");
     }
     track.enabled = false;
     if (generation !== mediaGeneration || sendTransport !== transport) {
@@ -11244,18 +11286,23 @@ var openMicrophone = async () => {
       producer.close();
       throw new Error("Voice media is no longer connected.");
     }
-    microphoneStream = stream;
+    microphoneInputStream = inputStream;
+    microphoneStream = outputStream;
+    microphoneAudioContext = audioContext;
+    microphoneNoiseNode = noiseNode;
     microphoneProducer = producer;
     microphoneTrack = track;
     microphoneMuted = true;
     canPublishAudio = true;
   } catch (error) {
     producer?.close();
-    stream?.getTracks().forEach((track) => track.stop());
+    outputStream?.getTracks().forEach((track) => track.stop());
+    inputStream?.getTracks().forEach((track) => track.stop());
+    audioContext?.close().catch(() => {});
     throw error;
   }
 };
-var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, canPublishScreen = false, labels = defaultMediaLabels) => {
+var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, canPublishScreen = false, labels = defaultMediaLabels, initialNoiseMix = 1) => {
   if (activeChannelId === channelId)
     return;
   closeMedia();
@@ -11263,6 +11310,7 @@ var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, can
   canSpeak = canProduceAudio;
   canPublishAudio = canSpeak;
   canShareScreen = canPublishScreen;
+  microphoneNoiseMix = Math.min(1, Math.max(0, initialNoiseMix));
   mediaLabels = labels;
   shareScreenLabel = labels.share;
   stopScreenShareLabel = labels.stop;
@@ -11515,6 +11563,13 @@ var setMicrophoneMuted = async (muted) => {
     throw error;
   }
 };
+var setNoiseSuppressionMix = (mix) => {
+  microphoneNoiseMix = Math.min(1, Math.max(0, mix));
+  const parameter = microphoneNoiseNode ? getNoiseMixParameter(microphoneNoiseNode) : undefined;
+  if (parameter && microphoneAudioContext) {
+    parameter.setTargetAtTime(microphoneNoiseMix, microphoneAudioContext.currentTime, 0.03);
+  }
+};
 var setOutputMuted = async (muted) => {
   const previousOutputMuted = outputMuted;
   const previousMicrophoneMuted = microphoneMuted;
@@ -11570,6 +11625,7 @@ window.coveVoice = {
   start,
   stop,
   setRemoteAudioVolume,
+  setNoiseSuppressionMix,
   setMicrophoneMuted: (muted) => reportActionError(() => setMicrophoneMuted(muted), "microphone"),
   setOutputMuted: (muted) => reportActionError(() => setOutputMuted(muted), "audio"),
   setWebcamEnabled: (enabled) => reportActionError(() => setWebcamEnabled(enabled), "camera"),

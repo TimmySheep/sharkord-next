@@ -10,18 +10,6 @@ struct SharkordMacApp: App {
     @StateObject private var notifications = DesktopNotificationController()
     @StateObject private var pushToTalk = PushToTalkController()
     @StateObject private var keyboardShortcuts = KeyboardShortcutsController()
-    @AppStorage("app.appearance") private var appearance = "system"
-
-    private var colorScheme: ColorScheme? {
-        switch appearance {
-        case "light":
-            return .light
-        case "dark":
-            return .dark
-        default:
-            return nil
-        }
-    }
 
     var body: some Scene {
         WindowGroup(id: "main") {
@@ -32,7 +20,7 @@ struct SharkordMacApp: App {
                 .environmentObject(pushToTalk)
                 .environmentObject(keyboardShortcuts)
                 .frame(minWidth: 900, minHeight: 600)
-                .preferredColorScheme(colorScheme)
+                .preferredColorScheme(.dark)
         }
         .defaultSize(width: 1160, height: 760)
         .commands {
@@ -63,6 +51,7 @@ struct SharkordMacApp: App {
 /// accessory. Promoting it to a regular app is what makes the window appear and focus.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.appearance = NSAppearance(named: .darkAqua)
         let osMajorVersion = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
         ClientLogStore.shared.recordInfo("app.launched", code: "macos.\(osMajorVersion)")
         NSSetUncaughtExceptionHandler { exception in

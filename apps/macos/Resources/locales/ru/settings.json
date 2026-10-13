@@ -400,6 +400,7 @@
   "noiseSuppressionNone": "Нет",
   "noiseSuppressionInfoTitle": "Режимы шумоподавления",
   "noiseSuppressionInfoDescription": "Примерные компромиссы для каждого режима. Фактическое использование ЦП, памяти и качество голоса зависят от вашего браузера, устройства и микрофона.",
+  "noiseSuppressionMixDescription": "Настройте, какая доля обработанного RNNoise звука подмешивается к сигналу микрофона. Это меняет соотношение сигналов, а не внутреннюю силу модели.",
   "noiseSuppressionTechniqueColumn": "Техника",
   "noiseSuppressionMemoryUsageColumn": "Память",
   "noiseSuppressionCpuUsageColumn": "ЦП",

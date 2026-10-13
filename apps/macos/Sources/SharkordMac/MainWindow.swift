@@ -123,13 +123,6 @@ struct MainWindow: View {
             .help(showsMembers ? "Close members sidebar" : "Open members sidebar")
 
             Button {
-                settingsSection = .general
-            } label: {
-                Label(L10n.t("settingsButton", ns: "macos"), systemImage: "gearshape")
-            }
-            .help("Settings")
-
-            Button {
                 session.disconnect()
             } label: {
                 Label(L10n.t("disconnect", ns: "sidebar"), systemImage: "rectangle.portrait.and.arrow.right")

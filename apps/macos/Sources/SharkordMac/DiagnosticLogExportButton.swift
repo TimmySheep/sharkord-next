@@ -9,7 +9,7 @@ struct DiagnosticLogExportButton: View {
 
     var body: some View {
         Button(action: exportLogs) {
-            Label(L10n.t("exportLogs", ns: "macos"), systemImage: "square.and.arrow.up")
+            Text(L10n.t("exportLogs", ns: "macos"))
         }
         .alert(isPresented: $showsResult) {
             let title = didExport ? "logsExportSuccessTitle" : "logsExportFailureTitle"

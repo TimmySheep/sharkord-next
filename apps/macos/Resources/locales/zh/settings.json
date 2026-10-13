@@ -70,6 +70,7 @@
   "noiseSuppressionNone": "无",
   "noiseSuppressionInfoTitle": "噪声抑制模式",
   "noiseSuppressionInfoDescription": "下表给出各模式的大致取舍。实际的 CPU、内存占用和语音效果会因浏览器、设备和麦克风而异。",
+  "noiseSuppressionMixDescription": "调整 RNNoise 处理后的声音混入麦克风音频的比例。这是混合比例，不是模型内部的降噪强度。",
   "noiseSuppressionTechniqueColumn": "技术",
   "noiseSuppressionMemoryUsageColumn": "内存占用",
   "noiseSuppressionCpuUsageColumn": "CPU 占用",

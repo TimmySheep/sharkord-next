@@ -11,6 +11,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
     @Published private(set) var errorContext: String?
     @Published private(set) var canPublishAudio = false
     @Published private(set) var remoteAudioVolumes = VoiceAudioVolumeSettings.load()
+    @Published private(set) var noiseSuppressionMix = VoiceMediaController.loadNoiseSuppressionMix()
 
     private weak var session: SharkordSession?
     private var webView: WKWebView?
@@ -86,7 +87,8 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         routerRtpCapabilities: JSONValue,
         canProduceAudio: Bool,
         canShareScreen: Bool,
-        screenShareLabels: [String: String]
+        screenShareLabels: [String: String],
+        noiseSuppressionMix: Double
     ) async throws {
         guard let session else {
             throw TRPCClientError(code: "DISCONNECTED", message: "The server session is not available.")
@@ -112,18 +114,42 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         let capabilitiesData = try JSONEncoder().encode(routerRtpCapabilities)
         let capabilities = try JSONSerialization.jsonObject(with: capabilitiesData, options: [.fragmentsAllowed])
         _ = try await webView.callAsyncJavaScript(
-            "return await window.coveVoice.start(channelId, capabilities, canProduceAudio, canShareScreen, screenShareLabels)",
+            "return await window.coveVoice.start(channelId, capabilities, canProduceAudio, canShareScreen, screenShareLabels, noiseSuppressionMix)",
             arguments: [
                 "channelId": channelId,
                 "capabilities": capabilities,
                 "canProduceAudio": canProduceAudio,
                 "canShareScreen": canShareScreen,
-                "screenShareLabels": screenShareLabels
+                "screenShareLabels": screenShareLabels,
+                "noiseSuppressionMix": VoiceAudioVolumeSettings.clamped(noiseSuppressionMix)
             ],
             in: nil,
             contentWorld: .page
         )
         syncProducers()
+    }
+
+    func setNoiseSuppressionMix(_ mix: Double) {
+        let normalized = VoiceAudioVolumeSettings.clamped(mix)
+        noiseSuppressionMix = normalized
+        UserDefaults.standard.set(normalized, forKey: "voice.noiseSuppressionMix")
+
+        guard let webView, currentChannelId != nil else {
+            return
+        }
+
+        Task {
+            do {
+                _ = try await webView.callAsyncJavaScript(
+                    "window.coveVoice?.setNoiseSuppressionMix(mix)",
+                    arguments: ["mix": normalized],
+                    in: nil,
+                    contentWorld: .page
+                )
+            } catch {
+                presentError(error, context: "microphone")
+            }
+        }
     }
 
     func setMicrophoneMuted(_ muted: Bool) async throws {
@@ -352,6 +378,15 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         await withCheckedContinuation { continuation in
             readyContinuations.append(continuation)
         }
+    }
+
+    private static func loadNoiseSuppressionMix() -> Double {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: "voice.noiseSuppressionMix") != nil else {
+            return 1
+        }
+
+        return VoiceAudioVolumeSettings.clamped(defaults.double(forKey: "voice.noiseSuppressionMix"))
     }
 
     private func applyRemoteAudioVolumes(to webView: WKWebView) async throws {

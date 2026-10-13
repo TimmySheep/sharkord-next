@@ -9,6 +9,7 @@ enum SettingsSection: String, Identifiable, CaseIterable {
     case password
     case notifications
     case others
+    case devices
     case shortcuts
     case general
     case storage
@@ -31,6 +32,8 @@ enum SettingsSection: String, Identifiable, CaseIterable {
             return L10n.t("notificationsTab", ns: "settings")
         case .others:
             return L10n.t("othersTab", ns: "settings")
+        case .devices:
+            return L10n.t("microphoneLabel", ns: "settings")
         case .shortcuts:
             return L10n.t("keyboardShortcutsTab", ns: "macos")
         case .general:
@@ -62,6 +65,8 @@ enum SettingsSection: String, Identifiable, CaseIterable {
             return "bell"
         case .others:
             return "slider.horizontal.3"
+        case .devices:
+            return "waveform"
         case .shortcuts:
             return "keyboard"
         case .general:
@@ -88,7 +93,7 @@ enum SettingsSection: String, Identifiable, CaseIterable {
         switch self {
         case .general, .storage, .users, .roles, .emojis, .invites, .plugins, .updates:
             return true
-        case .profile, .password, .notifications, .others, .shortcuts:
+        case .profile, .password, .notifications, .others, .devices, .shortcuts:
             return false
         }
     }
@@ -170,6 +175,8 @@ struct SettingsView: View {
             NotificationSettingsView()
         case .others:
             OtherSettingsView()
+        case .devices:
+            VoiceSettingsView()
         case .shortcuts:
             KeyboardShortcutsSettingsView()
         case .general:
@@ -531,7 +538,6 @@ struct OtherSettingsView: View {
     @EnvironmentObject private var pushToTalk: PushToTalkController
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("app.autoJoinLastChannel") private var autoJoin = true
-    @AppStorage("app.appearance") private var appearance = "system"
     @AppStorage("voice.pushToTalkEnabled") private var pushToTalkEnabled = false
     @State private var language = L10n.language
 
@@ -564,13 +570,7 @@ struct OtherSettingsView: View {
                 }
 
                 SettingsField(label: L10n.t("appearanceLabel", ns: "macos")) {
-                    Picker(L10n.t("appearanceLabel", ns: "macos"), selection: $appearance) {
-                        Text(L10n.t("appearanceSystem", ns: "macos")).tag("system")
-                        Text(L10n.t("appearanceLight", ns: "macos")).tag("light")
-                        Text(L10n.t("appearanceDark", ns: "macos")).tag("dark")
-                    }
-                    .labelsHidden()
-                    .frame(maxWidth: 240)
+                    Text(L10n.t("appearanceDark", ns: "macos"))
                 }
 
                 Divider().padding(.vertical, 8)
