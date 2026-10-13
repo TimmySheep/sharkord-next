@@ -112,6 +112,38 @@ final class AppearanceTests: XCTestCase {
         XCTAssertFalse(source.contains("WebSocket"))
     }
 
+    func testConnectScreenGlowCannotPushTheCardOffCentre() throws {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: packageRoot.appendingPathComponent("Sources/SharkordMac/ConnectView.swift"),
+            encoding: .utf8
+        )
+
+        // a sibling gradient wider than the window inflates the ZStack and shifts the card
+        XCTAssertTrue(source.contains("private var backgroundGlow"))
+        XCTAssertTrue(source.contains(".overlay(alignment: .top)"))
+        XCTAssertFalse(source.contains("geometry.size.width * 1.5"))
+    }
+
+    func testSelectingAVoiceChannelInTheSidebarJoinsIt() throws {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: packageRoot.appendingPathComponent("Sources/SharkordMac/SidebarView.swift"),
+            encoding: .utf8
+        )
+
+        // the web client joins on the row click, not after a second press in the channel
+        XCTAssertTrue(source.contains(".onTapGesture { openChannel(channel) }"))
+        XCTAssertTrue(source.contains("voiceMedia.joinVoiceChannel(channel.id)"))
+        XCTAssertTrue(source.contains("session.hasChannelPermission(channel.id, .join)"))
+    }
+
     func testLogExportButtonUsesTextWithoutAnIcon() throws {
         let packageRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

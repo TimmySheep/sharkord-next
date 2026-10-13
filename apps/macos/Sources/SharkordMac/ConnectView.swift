@@ -32,18 +32,7 @@ struct ConnectView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .top) {
-                Color(red: 0.035, green: 0.043, blue: 0.059)
-                    .ignoresSafeArea()
-
-                RadialGradient(
-                    colors: [Color(red: 0.18, green: 0.20, blue: 0.38).opacity(0.34), .clear],
-                    center: .top,
-                    startRadius: 10,
-                    endRadius: 520
-                )
-                .frame(width: geometry.size.width * 1.5, height: 720)
-                .offset(y: -300)
-                .allowsHitTesting(false)
+                backgroundGlow
 
                 ScrollView {
                     VStack(spacing: 22) {
@@ -77,6 +66,24 @@ struct ConnectView: View {
         .task(id: host) {
             await refreshServerPreview(for: host)
         }
+    }
+
+    /// Kept as an overlay on the background so the oversized glow cannot widen the
+    /// content stack and push the login card off centre.
+    private var backgroundGlow: some View {
+        Color(red: 0.035, green: 0.043, blue: 0.059)
+            .ignoresSafeArea()
+            .overlay(alignment: .top) {
+                RadialGradient(
+                    colors: [Color(red: 0.18, green: 0.20, blue: 0.38).opacity(0.34), .clear],
+                    center: .top,
+                    startRadius: 10,
+                    endRadius: 520
+                )
+                .frame(height: 720)
+                .offset(y: -300)
+                .allowsHitTesting(false)
+            }
     }
 
     private var card: some View {

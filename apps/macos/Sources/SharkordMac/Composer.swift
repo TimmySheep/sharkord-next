@@ -65,8 +65,11 @@ final class ComposerTextView: NSTextView {
 
 struct ComposerTextEditor: NSViewRepresentable {
     @Binding var text: String
+    @Binding var height: CGFloat
 
     var isEnabled: Bool = true
+    var minHeight: CGFloat = 42
+    var maxHeight: CGFloat = 150
     var sendShortcut: KeyboardShortcutBinding? = .returnKey
     var onTextChange: (String) -> Void = { _ in }
     var onSubmit: () -> Void = {}
@@ -98,11 +101,13 @@ struct ComposerTextEditor: NSViewRepresentable {
         textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
 
         scrollView.documentView = textView
-        scrollView.hasVerticalScroller = true
+        scrollView.hasVerticalScroller = false
         scrollView.drawsBackground = false
 
         context.coordinator.textView = textView
         context.coordinator.owner = self
+        context.coordinator.minHeight = minHeight
+        context.coordinator.maxHeight = maxHeight
 
         return scrollView
     }
@@ -113,6 +118,8 @@ struct ComposerTextEditor: NSViewRepresentable {
         }
 
         context.coordinator.owner = self
+        context.coordinator.minHeight = minHeight
+        context.coordinator.maxHeight = maxHeight
 
         textView.setFrameSize(NSSize(width: scrollView.contentSize.width, height: max(38, textView.frame.height)))
         textView.sendShortcut = sendShortcut
@@ -127,6 +134,8 @@ struct ComposerTextEditor: NSViewRepresentable {
 
         textView.isEditable = isEnabled
         textView.textColor = isEnabled ? .labelColor : .secondaryLabelColor
+
+        context.coordinator.reportHeightIfWidthChanged()
     }
 
     func makeCoordinator() -> Coordinator {
@@ -136,6 +145,11 @@ struct ComposerTextEditor: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var owner: ComposerTextEditor
         weak var textView: ComposerTextView?
+        var minHeight: CGFloat = 42
+        var maxHeight: CGFloat = 150
+
+        private var lastWidth: CGFloat = 0
+        private var hasReportedInitialHeight = false
 
         init(owner: ComposerTextEditor) {
             self.owner = owner
@@ -146,7 +160,53 @@ struct ComposerTextEditor: NSViewRepresentable {
 
             owner.text = textView.string
             owner.onTextChange(textView.string)
+            reportHeight()
         }
+
+        /// wrapping changes when the pane is resized, so the measured height can change
+        /// even though the text stayed the same
+        func reportHeightIfWidthChanged() {
+            guard let scrollView = textView?.enclosingScrollView else { return }
+            let width = scrollView.contentSize.width
+
+            guard width != lastWidth || !hasReportedInitialHeight else {
+                return
+            }
+
+            lastWidth = width
+            hasReportedInitialHeight = true
+            reportHeight()
+        }
+
+        private func reportHeight() {
+            guard let textView, let scrollView = textView.enclosingScrollView else { return }
+
+            let measured = textView.measuredContentHeight(min: minHeight, max: maxHeight)
+            scrollView.hasVerticalScroller = measured >= maxHeight
+
+            guard abs(owner.height - measured) > 0.5 else {
+                return
+            }
+
+            // the measurement happens during a layout pass, so publish it afterwards
+            DispatchQueue.main.async { [owner] in
+                owner.height = measured
+            }
+        }
+    }
+}
+
+/// Grows with the message up to a maximum height, then scrolls.
+extension NSTextView {
+    func measuredContentHeight(min minHeight: CGFloat, max maxHeight: CGFloat) -> CGFloat {
+        guard let layoutManager, let textContainer else {
+            return minHeight
+        }
+
+        layoutManager.ensureLayout(for: textContainer)
+        let used = layoutManager.usedRect(for: textContainer).height + textContainerInset.height * 2
+
+        return Swift.min(maxHeight, Swift.max(minHeight, used))
     }
 }
 
@@ -165,6 +225,10 @@ struct Composer: View {
     @State private var uploading = false
     @State private var errorMessage: String?
     @State private var showsEmoji = false
+    @State private var composerHeight: CGFloat = 42
+
+    private let composerMinHeight: CGFloat = 42
+    private let composerMaxHeight: CGFloat = 150
 
     private var canSend: Bool {
         session.hasPermission(.sendMessages)
@@ -213,7 +277,10 @@ struct Composer: View {
 
                     ComposerTextEditor(
                         text: $text,
+                        height: $composerHeight,
                         isEnabled: canSend && !uploading,
+                        minHeight: composerMinHeight,
+                        maxHeight: composerMaxHeight,
                         sendShortcut: keyboardShortcuts.preferences.sendMessage,
                         onTextChange: { _ in signalTyping() },
                         onSubmit: send,
@@ -222,7 +289,7 @@ struct Composer: View {
                         onPasteFiles: { urls in Task { await upload(urls: urls) } }
                     )
                 }
-                .frame(minHeight: 42, maxHeight: 150)
+                .frame(height: composerHeight)
                 .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 8))
 
                 if canSend {

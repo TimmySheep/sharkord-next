@@ -55,17 +55,29 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
             .store(in: &cancellables)
     }
 
+    /// The media worker's web view needs a Safari-shaped user agent; the configuration is
+    /// built here so a test can assert the agent it actually produces.
+    static func makeConfiguration() -> WKWebViewConfiguration {
+        let configuration = WKWebViewConfiguration()
+        configuration.mediaTypesRequiringUserActionForPlayback = []
+        // mediasoup-client only recognizes Safari when the user agent carries the
+        // "Version/x Safari/y" tokens, which WKWebView omits by default, so a plain
+        // WebKit agent makes the media engine report "device not supported". Appending
+        // them keeps the real WebKit and OS version that the handler negotiates against.
+        configuration.applicationNameForUserAgent = safariUserAgentSuffix
+
+        return configuration
+    }
+
     func makeWebView() -> WKWebView {
         if let webView {
             return webView
         }
 
+        let configuration = Self.makeConfiguration()
         let contentController = WKUserContentController()
         contentController.add(self, name: "coveVoice")
-
-        let configuration = WKWebViewConfiguration()
         configuration.userContentController = contentController
-        configuration.mediaTypesRequiringUserActionForPlayback = []
 
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.uiDelegate = self
@@ -103,6 +115,9 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         errorMessage = nil
         errorContext = nil
         status = "connecting"
+        // the sidebar can join before its channel screen is on screen, so the media
+        // engine has to be created here rather than only by VoiceMediaHost
+        _ = makeWebView()
         try await waitUntilReady()
 
         guard session.currentVoiceChannelId == channelId, currentChannelId == channelId else {
@@ -132,6 +147,37 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
             contentWorld: .page
         )
         syncProducers()
+    }
+
+    /// Joins a voice channel end to end: server presence first, then the media engine.
+    /// Shared by the sidebar row and the channel's own join button so a single click
+    /// from either place follows exactly the same sequence.
+    func joinVoiceChannel(_ channelId: Int) async {
+        guard let session, session.channel(for: channelId) != nil else {
+            return
+        }
+
+        do {
+            if session.currentVoiceChannelId != nil {
+                stop()
+                try await session.leaveVoice()
+            }
+
+            let result = try await session.joinVoice(channelId: channelId, micMuted: true)
+
+            try await start(
+                channelId: channelId,
+                routerRtpCapabilities: result["routerRtpCapabilities"] ?? .null,
+                canProduceAudio: session.hasChannelPermission(channelId, .speak),
+                canShareScreen: session.hasPermission(.shareScreen) &&
+                    session.hasChannelPermission(channelId, .shareScreen),
+                screenShareLabels: Self.screenShareLabels,
+                noiseSuppressionMix: noiseSuppressionMix
+            )
+        } catch {
+            try? await session.leaveVoice()
+            presentError(error)
+        }
     }
 
     func setNoiseSuppressionMode(_ mode: String) {
@@ -392,6 +438,21 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
             try await Task.sleep(for: .milliseconds(100))
         }
         throw TRPCClientError(code: "INTERNAL_SERVER_ERROR", message: "The voice media engine did not become ready.")
+    }
+
+    private static var safariUserAgentSuffix: String {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        return "Version/\(version.majorVersion).0 Safari/605.1.15"
+    }
+
+    private static var screenShareLabels: [String: String] {
+        [
+            "share": L10n.t("shareScreen", ns: "macos"),
+            "stop": L10n.t("stopScreenShare", ns: "macos"),
+            "local": L10n.t("mediaLocalUser", ns: "macos"),
+            "screen": L10n.t("mediaScreen", ns: "macos"),
+            "camera": L10n.t("mediaCamera", ns: "macos")
+        ]
     }
 
     private static func loadNoiseSuppressionMix() -> Double {
