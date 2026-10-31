@@ -122,11 +122,23 @@ compared with this audit.
 | Profile, avatar/banner, password settings | `server-screens/user-settings` | PRESENT | PRESENT |
 | Language picker, ten locales | `language-switcher`, `i18n` | PRESENT, locale tests | PRESENT, tests pending Mac |
 | Notification preferences, desktop notifications, shortcuts | `server-screens/user-settings/notifications`, `hotkeys-controller` | PRESENT native paths; runtime acceptance pending | PRESENT native paths; runtime acceptance pending |
-| General, storage, users, roles, emoji, invite administration | `server-screens/server-settings` | PRESENT native forms; detail coverage requires verification | PRESENT native forms |
-| Plugin marketplace/management, commands/logs, server updates | `server-screens/server-settings/plugins`, `plugin-view`, `updates` | PRESENT native management paths | PRESENT native management paths |
+| General, storage, users, roles, emoji, invite administration | `server-screens/server-settings` | PARTIAL, branding, role assignment and structured moderation detail missing | PARTIAL, branding, invite role/custom-code and moderation detail missing |
+| Plugin marketplace/management, commands/logs, server updates | `server-screens/server-settings/plugins`, `plugin-view`, `updates` | PARTIAL, only installed list/toggle and server updates; marketplace/settings/commands/logs/capabilities missing | PRESENT native management paths |
 | Plugin-provided React slots/fullscreen/settings UI | `plugin-slot-renderer`, `plugins-controller` | DEFERRED: plugin API supplies React components and browser globals; native-only UI/media-only WebView constraint prevents hosting them | Same constraint |
 | Disconnect/retry/backoff, state resync | `reconnecting-overlay`, `features/server/actions.ts` | PARTIAL, backoff exists; cached messages are not reloaded after reconnect | PARTIAL, reconnect exists; failed WebSocket upgrade can leave open pending |
 | Virtualized/lazy rows, drafts and phase-1 interactions | `channel-view/text`, `message-compose` | PRESENT, retain ListView/reconciliation and per-channel drafts | PRESENT, retain lazy rows/drafts |
+| Disconnect/logout and welcome profile onboarding | `left-sidebar/server-dropdown.tsx`, `dialogs/welcome-profile-setup` | MISSING reachable controls; Core disconnect/profile methods exist | PRESENT |
+| Text conversation in a voice channel | `voice-chat-sidebar` | MISSING, voice-only selection suppresses history | PRESENT |
+| Interactive reply, mention and channel references | `channel-view/text/overrides`, `message-reply-preview-wrapper.tsx` | MISSING jump/profile controls | PARTIAL, static chips/reply summary |
+| Full emoji catalog, search, recents and skin tones | `emoji-picker` | MISSING beyond quick set | PARTIAL, 32 standard entries plus custom search |
+| Stream fullscreen, pin, picture-in-picture, zoom and statistics | `channel-view/voice` | MISSING | MISSING |
+| Sound events and configurable sound preferences | `dialogs/sound-settings`, `helpers/sounds.ts` | MISSING | MISSING |
+| OpenGraph/YouTube/plugin-command result rendering | `channel-view/text/renderer`, `overrides` | MISSING rich presentation | PARTIAL, external links/audio/video only |
+
+Audit refinement: native invite fields exist on both platforms. macOS channel creation is
+text-only and lacks reachable topic/private/permission forms despite Core methods; its
+initial channel-administration PRESENT classification above is PARTIAL. Native source
+coverage is judged by reachable controls, not generic RPC helpers or README claims.
 
 ### Execution and verification ledger
 
@@ -135,7 +147,7 @@ compared with this audit.
 - [ ] Windows messaging/navigation/session parity, with behavioral regression tests.
 - [ ] Windows attachments/rendering/emoji and voice controls, retaining media isolation.
 - [ ] Conservative macOS gap fixes and authored tests; Mac execution remains pending.
-- [ ] Safe real-server suite using the external credentials file and only owned fixtures.
+- [x] Safe real-server suite using the external credentials file and only owned fixtures.
 - [ ] Windows Computer Use acceptance and saved evidence.
 - [ ] Final build/tests, review, local logical commits, final audit status and remaining gaps.
 
@@ -152,3 +164,38 @@ Computer Use initialized successfully and enumerated Windows apps. This proves t
 availability only; it is not GUI acceptance. Evidence will be outside git under
 `C:\Users\YY\codex-task\evidence\`. Only SDK 10.0.202 is installed. Bun checks will be
 skipped because Bun is absent; no machine-wide toolchains will be installed.
+
+### Real-server checkpoint, 2026-10-31
+
+Created fresh primary and peer test accounts through normal registration. Credentials are
+stored only in the requested external file. The primary account has normal user permissions,
+so all acceptance mutations use the DM between these two owned accounts. Each cleanup loads
+the message and verifies both owner and channel before deleting only IDs created by that run.
+
+Replaced the unsafe integration bodies with origin-checked external credentials and serialized,
+gated tests. Unconfigured runs still return without network access. The deployed server includes
+optional `join.directMessages` snapshots and `dms.onConversationUpdate`; the local repository's
+older API uses `dms.get` and `dms.onConversationOpen`. Windows supports both based on snapshot
+presence, with regression coverage. No server changes were made.
+
+Actual command from `apps/windows` (credentials are read from the external file):
+
+```powershell
+$env:SHARKORD_IT_HOST = 'https://voice.timhuang.net'
+dotnet test tests/Sharkord.Core.Tests/Sharkord.Core.Tests.csproj --no-build --filter FullyQualifiedName~IntegrationTests --logger 'console;verbosity=detailed'
+Remove-Item Env:SHARKORD_IT_HOST
+```
+
+Actual successful output summary: `Test Run Successful. Total tests: 2. Passed: 2.`
+The first test took 2 seconds; the reconnect test took 1 minute 2 seconds. Detailed output is
+saved at `C:\Users\YY\codex-task\evidence\live-integration-fourth.txt`. Verified HTTPS login,
+handshake, join, owned DM open, peer live receipt, persisted send/edit/reaction, inline reply,
+thread fetch/typing, read-state event, Unicode-named raw upload, exact `/public` download bytes,
+delete event and absence, actual socket abort and automatic selected-DM history resync after
+missed new/edit/delete events. All created messages were cleaned up.
+
+Earlier runs exposed the deployed DM schema difference and server login/join rate limits.
+The suite now avoids redundant sessions/joins and passes within those limits. Reconnect
+currently takes roughly a minute after a local socket abort; transport cancellation handling
+is being reviewed. This checkpoint does not establish voice, camera, screen capture or GUI
+acceptance, and the successful suite will be rerun after the final implementation.
