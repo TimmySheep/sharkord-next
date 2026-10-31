@@ -3,17 +3,53 @@ import Testing
 
 @testable import SharkordCore
 
-/// End to end check against a real server. Disabled unless `SHARKORD_IT_HOST` is set, so
-/// the normal `swift test` run stays offline. Point it at a throwaway instance, not a
-/// server anyone is using: the test registers a user and sends a message.
-///
-///   SHARKORD_IT_HOST=127.0.0.1:4992 swift test --filter endToEnd
-@Suite(.enabled(if: ProcessInfo.processInfo.environment["SHARKORD_IT_HOST"] != nil))
-struct IntegrationTests {
-    private var host: String {
-        ProcessInfo.processInfo.environment["SHARKORD_IT_HOST"] ?? ""
+enum LocalIntegrationServer {
+    static var configuredURL: URL? {
+        baseURL(for: ProcessInfo.processInfo.environment["SHARKORD_IT_HOST"])
     }
 
+    static func baseURL(for host: String?) -> URL? {
+        guard let host else { return nil }
+        let authority = host == "::1" ? "[::1]" : host
+        // validate the raw authority so URL parsing cannot reinterpret user info or a path
+        guard authority.range(
+            of: #"\A(?:localhost|127\.0\.0\.1|\[::1\])(?::[0-9]{1,5})?\z"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil, let components = URLComponents(string: "http://\(authority)") else { return nil }
+        if let port = components.port, !(1...65535).contains(port) { return nil }
+        return components.url
+    }
+}
+
+struct LocalIntegrationHostTests {
+    @Test func destructiveSuitesAcceptOnlyExplicitLoopbackHosts() {
+        for host in [
+            "localhost", "LOCALHOST:4992", "localhost:65535", "127.0.0.1", "127.0.0.1:4992",
+            "::1", "[::1]", "[::1]:4992"
+        ] {
+            #expect(LocalIntegrationServer.baseURL(for: host) != nil)
+        }
+        #expect(LocalIntegrationServer.baseURL(for: nil) == nil)
+        for host in [
+            "", "voice.timhuang.net", "voice.timhuang.net:443", "https://voice.timhuang.net",
+            "127.0.0.1.voice.timhuang.net", "localhost@voice.timhuang.net", "voice.timhuang.net@localhost",
+            "http://localhost:4992", "127.0.0.2", "127.1", "[::ffff:127.0.0.1]",
+            "localhost/path", "localhost?host=voice.timhuang.net", "localhost#fragment",
+            "localhost:0", "localhost:65536", "localhost:999999", "localhost:\\4992",
+            " localhost", "localhost\n"
+        ] {
+            #expect(LocalIntegrationServer.baseURL(for: host) == nil)
+        }
+    }
+}
+
+/// end to end checks for a disposable local server only. SHARKORD_IT_HOST must be an
+/// explicit loopback host; both the suite and each connection enforce the same allowlist.
+/// these tests register users and mutate shared state, so never use an active local server.
+///
+///   SHARKORD_IT_HOST=127.0.0.1:4992 swift test --filter IntegrationTests
+@Suite(.enabled(if: LocalIntegrationServer.configuredURL != nil))
+struct IntegrationTests {
     private var identity: String {
         ProcessInfo.processInfo.environment["SHARKORD_IT_IDENTITY"] ?? "native-probe"
     }
@@ -24,7 +60,7 @@ struct IntegrationTests {
 
     @Test
     func loginJoinSendAndReceive() async throws {
-        let baseURL = try #require(URL(string: "http://\(host)"))
+        let baseURL = try #require(LocalIntegrationServer.configuredURL)
         let http = SharkordHTTPClient(baseURL: baseURL)
 
         let info = try await http.serverInfo()
@@ -90,7 +126,7 @@ struct IntegrationTests {
     /// first slice: edit, react, delete, typing, mark read and open a direct message.
     @Test
     func editReactDeleteAndDirectMessage() async throws {
-        let baseURL = try #require(URL(string: "http://\(host)"))
+        let baseURL = try #require(LocalIntegrationServer.configuredURL)
         let http = SharkordHTTPClient(baseURL: baseURL)
 
         _ = try await http.serverInfo()

@@ -3,18 +3,14 @@ import Testing
 
 @testable import SharkordCore
 
-/// End to end check of the routes the native client gained after the first slice: the
+/// end to end check of the routes the native client gained after the first slice: the
 /// category and channel tree, roles, emojis, invites, user administration, server
 /// settings, pins, threads, search and voice join/leave. Same gating as
-/// `IntegrationTests`: it only runs when `SHARKORD_IT_HOST` points at a throwaway server.
+/// `IntegrationTests`: SHARKORD_IT_HOST must name a disposable local loopback server.
 ///
 ///   SHARKORD_IT_HOST=127.0.0.1:4992 swift test --filter AdminSurface
-@Suite(.enabled(if: ProcessInfo.processInfo.environment["SHARKORD_IT_HOST"] != nil))
+@Suite(.enabled(if: LocalIntegrationServer.configuredURL != nil))
 struct AdminSurfaceTests {
-    private var host: String {
-        ProcessInfo.processInfo.environment["SHARKORD_IT_HOST"] ?? ""
-    }
-
     private var identity: String {
         ProcessInfo.processInfo.environment["SHARKORD_IT_IDENTITY"] ?? "native-probe"
     }
@@ -29,7 +25,7 @@ struct AdminSurfaceTests {
     }
 
     private func connect() async throws -> Connected {
-        let baseURL = try #require(URL(string: "http://\(host)"))
+        let baseURL = try #require(LocalIntegrationServer.configuredURL)
         let http = SharkordHTTPClient(baseURL: baseURL)
 
         _ = try await http.serverInfo()
@@ -197,7 +193,7 @@ struct AdminSurfaceTests {
 
         // emoji upload goes through /upload, then the emoji routes
         let payload = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
-        let baseURL = try #require(URL(string: "http://\(host)"))
+        let baseURL = try #require(LocalIntegrationServer.configuredURL)
         let http = SharkordHTTPClient(baseURL: baseURL)
         let login = try await http.login(identity: identity, password: password)
 

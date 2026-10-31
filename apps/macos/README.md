@@ -92,15 +92,19 @@ banner; ArrowUp edits your own last message. Drop, paste or pick files to attach
 swift test
 ```
 
-The offline suite uses local HTTP fixtures and loopback WebSocket listeners. The end-to-end
-suites are gated so a normal run never contacts an external server:
+The offline suite uses local HTTP fixtures and loopback WebSocket listeners. The legacy
+`IntegrationTests` and `AdminSurfaceTests` require `SHARKORD_IT_HOST` and accept only
+`localhost`, `127.0.0.1` or `::1`, with an optional port. Use brackets for an IPv6 port,
+such as `[::1]:4992`. Full URLs, other hosts and public servers are rejected before connection;
+there is no remote opt-in. A normal run keeps these suites disabled:
 
 ```bash
 SHARKORD_IT_HOST=127.0.0.1:4992 swift test
 ```
 
-Point it at a throwaway server. Those tests register a user, send messages, create and
-delete categories, channels, roles, emojis and invites, and change server settings.
+Use a disposable local server only, never an active instance. Those tests register a user,
+send messages, create and delete categories, channels, roles, emojis and invites, and change
+server settings. The loopback allowlist has an offline test, authored but unrun on this host.
 
 ## Desktop workspace changes and verification
 
@@ -171,7 +175,8 @@ failures and reconnects. In-flight uploads cancel when their composer disappears
 request never returns its temporary id, server expiry remains responsible for that upload.
 Server storage quotas remain authoritative; the client cannot infer current usage from join.
 
-Twenty new authored tests cover old/new DM schemas and visibility, thread event/deletion/pin
+Twenty-one new authored tests cover the local integration host allowlist, old/new DM schemas
+and visibility, thread event/deletion/pin
 isolation, stale/cancelled page and navigation responses, cursor order, Unicode emoji nodes,
 the catalog, upload gates and URLSession cancellation,
 late completion of draft operations, rejected/stalled WebSocket upgrades and opening cancellation.
