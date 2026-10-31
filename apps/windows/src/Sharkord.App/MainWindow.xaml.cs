@@ -70,6 +70,7 @@ public sealed partial class MainWindow : Window
 
         MessageList.ItemsSource = _messages;
         InitializeDesktopControls();
+        InitializeNativeVoiceControls();
 
         ApplyLocalisation();
         L10n.LanguageChanged += ApplyLocalisation;
@@ -362,7 +363,7 @@ public sealed partial class MainWindow : Window
         RefreshDesktopControls();
 
         var selected = _session.SelectedChannelId is { } id ? _session.Channel(id) : null;
-        var selectedVoice = selected?.IsVoice == true || (selected?.IsDm == true && _showDmVoice);
+        var selectedVoice = (selected?.IsVoice == true && !_session.IsVoiceTextSelected) || (selected?.IsDm == true && _showDmVoice);
         TextChannelPanel.Visibility = selectedVoice ? Visibility.Collapsed : Visibility.Visible;
         VoiceChannelPanel.Visibility = selectedVoice ? Visibility.Visible : Visibility.Collapsed;
         VoiceChannelTitle.Text = selectedVoice ? $"🔊  {selected!.Name}" : "";
@@ -738,6 +739,7 @@ public sealed partial class MainWindow : Window
             }
 
             var type = message["type"]?.GetValue<string>();
+            if (HandleNativeMediaMessage(message)) { return; }
             if (type == "ready")
             {
                 _voiceWorkerReady = true;
@@ -800,7 +802,7 @@ public sealed partial class MainWindow : Window
 
     private void OnVoiceProducerChanged(VoiceProducerEvent producer, bool added)
     {
-        if (producer.RemoteId == _session.OwnUserId)
+        if (producer.RemoteId == _session.OwnUserId && !producer.Kind.StartsWith("external_", StringComparison.Ordinal))
         {
             return;
         }
@@ -842,6 +844,7 @@ public sealed partial class MainWindow : Window
             }
 
             await WaitForVoiceWorkerAsync();
+            await ApplyMediaOptionsAsync(channelId);
             var result = await _session.JoinVoiceAsync(channelId);
             var capabilities = result?["routerRtpCapabilities"]
                 ?? throw new InvalidOperationException("The server did not return voice capabilities.");
@@ -989,6 +992,7 @@ public sealed partial class MainWindow : Window
         MicrophoneButton.Content = L10n.T(_microphoneMuted ? "unmuteMic" : "muteMic", ns: "windows");
         DeafenButton.Content = L10n.T(_deafened ? "undeafen" : "deafen", ns: "windows");
         RefreshUserVoiceControls();
+        RefreshNativeVoiceControls();
         VoiceChannelTitle.Text = selected?.SupportsVoice == true ? $"🔊  {selected.Name}" : "";
         if (selected?.SupportsVoice != true)
         {

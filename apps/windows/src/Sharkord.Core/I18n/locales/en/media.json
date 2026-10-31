@@ -1,0 +1,15 @@
+{
+  "speaking": "Speaking",
+  "screenAudio": "Screen audio",
+  "quality": "Receive quality",
+  "automatic": "Automatic",
+  "pinStream": "Pin stream",
+  "zoom": "Zoom",
+  "fullscreen": "Fullscreen",
+  "pictureInPicture": "Picture in picture",
+  "statistics": "Statistics",
+  "cameraResolution": "Camera resolution",
+  "cameraFrameRate": "Camera frame rate",
+  "screenResolution": "Screen resolution",
+  "screenFrameRate": "Screen frame rate"
+}

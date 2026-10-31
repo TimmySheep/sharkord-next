@@ -33,7 +33,7 @@ public sealed partial class MainWindow
             () => Task.FromResult<FrameworkElement>(BuildKeyboardShortcutSettings()),
             titleNamespace: "macos"
         );
-        AddLazySettingsItem(navigation, "microphoneLabel", () => Task.FromResult<FrameworkElement>(BuildNoiseSuppressionSettings()));
+        AddLazySettingsItem(navigation, "devicesTab", BuildMediaDeviceSettingsAsync);
 
         if (_session.Phase == SessionPhase.Connected && _session.HasPermission("MANAGE_SETTINGS"))
         {

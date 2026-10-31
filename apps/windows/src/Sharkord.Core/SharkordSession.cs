@@ -356,6 +356,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         _hasDirectMessageSnapshot = join.DirectMessages is not null;
         DirectMessages = join.DirectMessages ?? [];
         ServerName = join.ServerName;
+        ApplyVoiceSnapshot(join);
 
         lock (_gate)
         {
@@ -389,6 +390,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         _subscriptions?.Cancel();
         _subscriptions = new CancellationTokenSource();
         var token = _subscriptions.Token;
+        SubscribeVoiceState(client, token);
 
         Subscribe(client, "messages.onNew", token, value =>
         {
@@ -961,6 +963,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
             "voice.connectConsumerTransport" or
             "voice.consume" or
             "voice.updateState" or
+            "voice.setConsumerQuality" or
             "voice.closeProducer" => await client.MutationAsync(path, input, cancellationToken).ConfigureAwait(false),
             "voice.getProducers" => await client.QueryAsync(path, input, cancellationToken).ConfigureAwait(false),
             _ => throw new TrpcClientError("BAD_REQUEST", "This voice media operation is not available")
@@ -1331,6 +1334,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         SelectedChannelId = null;
         IsVoiceTextSelected = false;
         CurrentVoiceChannelId = null;
+        ApplyVoiceSnapshot(new JoinResult());
 
         lock (_gate)
         {

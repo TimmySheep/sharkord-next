@@ -1,0 +1,15 @@
+{
+  "speaking": "Говорит",
+  "screenAudio": "Звук экрана",
+  "quality": "Качество приёма",
+  "automatic": "Автоматически",
+  "pinStream": "Закрепить трансляцию",
+  "zoom": "Масштаб",
+  "fullscreen": "Полный экран",
+  "pictureInPicture": "Картинка в картинке",
+  "statistics": "Статистика",
+  "cameraResolution": "Разрешение камеры",
+  "cameraFrameRate": "Частота кадров камеры",
+  "screenResolution": "Разрешение экрана",
+  "screenFrameRate": "Частота кадров экрана"
+}
