@@ -84,7 +84,8 @@ upstream web client against an unmodified server.
   uploaders encode filenames for the existing server decoder. Added raw-byte HTTP and real
   loopback WebSocket tests for framing, connectionParams, keepalive, errors and public URLs.
   Reconnect remains `[1, 2, 4, 8, 8]s`. Platform README files document rendering limitations.
-- Latest Windows verification in `apps/windows` after the performance pass:
+- Final Windows verification on 2026-10-31 in `apps/windows` after the desktop changes and
+  review fixes:
   `dotnet build src/Sharkord.App/Sharkord.App.csproj -p:Platform=x64` passed with 0 warnings
   and 0 errors; `dotnet test tests/Sharkord.Core.Tests/Sharkord.Core.Tests.csproj` passed
   all 141 tests. The two live-server test bodies remain gated without `SHARKORD_IT_HOST`.
@@ -92,7 +93,8 @@ upstream web client against an unmodified server.
 - macOS changes are code-complete: the same dark palette, native sidebar/user controls,
   localized hover actions including own-message More, stable lazy message rows, unread/new
   boundaries and scroll anchoring. Composer editing now fills the input, preserves unchanged
-  HTML and supports channel/thread drafts. Media controls use the existing media controller.
+  HTML and supports channel/thread drafts with isolated thread-view identities. Media controls
+  use the existing media controller.
   URL linkification and HTML attribute decoding preserve query fields. New Swift tests cover
   those URL cases, filename headers, grouping/unread boundaries and local draft storage.
   Swift compilation/tests are unverified: no Swift command ran on Windows. A Mac must run
@@ -101,6 +103,10 @@ upstream web client against an unmodified server.
   cannot run because Bun is unavailable. Windows native localization checks pass. Static Mac
   checks parsed 90 locale tables, checked the ten native key sets/placeholders and resolved
   literal localization calls; copied web namespaces are unchanged. This is not a Swift build.
+- Final review corrections preserve untouched HTML entities around Mac links, isolate drafts
+  when switching threads, and retain completed Windows uploads while viewing a voice channel.
+  Whole-branch review found no unresolved blocking defects. The added Mac tests remain
+  authored but unrun; native interaction acceptance is still pending.
 - Remaining acceptance: native visual/accessibility/input checks and real-server uploads,
   reconnect and voice/camera/screen sharing on both platforms. Changes remain in the two
   desktop apps and this taskbook; no server, web, mobile or shared-package changes or pushes.
