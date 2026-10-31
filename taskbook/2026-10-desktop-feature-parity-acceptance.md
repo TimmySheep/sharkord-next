@@ -55,11 +55,15 @@ the parity table as DEFERRED with the reason — do not silently skip.
 
 ## GUI acceptance with Computer Use
 
+- **Hard rule (2026-10-31, machine owner): this machine is in active daily use. Foreground CUA
+  or any desktop driving is forbidden, and no visible app windows may be left open. GUI
+  acceptance is deferred: finish everything headlessly, and write precise MANUAL GUI
+  acceptance steps (how to launch the built app, which account, what to check) into the
+  Progress section. Only run GUI acceptance when the owner explicitly authorizes a takeover
+  window.**
 - Where a feature can only be proven through the UI (visual layout, voice join feedback,
-  attachment preview), use the Codex Computer Use / CUA capability on this Windows machine to
-  drive the built app: launch `cove.exe`, log in with the test account, exercise the flow,
-  and capture what you observe. Screenshot evidence may be saved under
-  `C:\Users\YY\codex-task\evidence\` (outside the repo).
+  attachment preview), use the Codex Computer Use / CUA capability only if the owner has
+  explicitly authorized a foreground window for it; otherwise follow the rule above.
 - If CUA is unavailable or unstable in this environment, say so explicitly and fall back to
   precise manual acceptance steps for the user — do not claim UI acceptance you did not
   perform.
