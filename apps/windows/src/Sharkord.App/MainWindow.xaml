@@ -246,6 +246,7 @@
                 <TextBlock x:Name="VoiceChannelTitle" FontWeight="SemiBold" FontSize="18" CharacterSpacing="10" Margin="0,0,0,10" />
                 <WebView2
                     x:Name="VoiceMediaWebView"
+                    x:Load="False"
                     Grid.Row="1"
                     Loaded="OnVoiceMediaWebViewLoaded" />
                 <TextBlock

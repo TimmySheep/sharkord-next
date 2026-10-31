@@ -36,9 +36,18 @@ internal static class MessagePresentation
 
     internal static void Reconcile<T>(ObservableCollection<T> rows, IReadOnlyList<T> desired, Func<T, int> id)
     {
+        HashSet<int>? desiredIds = null;
         for (var index = 0; index < desired.Count; index++)
         {
             var row = desired[index];
+            if (index < rows.Count && id(rows[index]) != id(row))
+            {
+                desiredIds ??= desired.Select(id).ToHashSet();
+                while (index < rows.Count && !desiredIds.Contains(id(rows[index])))
+                {
+                    rows.RemoveAt(index);
+                }
+            }
             if (index < rows.Count && id(rows[index]) == id(row))
             {
                 if (!EqualityComparer<T>.Default.Equals(rows[index], row))

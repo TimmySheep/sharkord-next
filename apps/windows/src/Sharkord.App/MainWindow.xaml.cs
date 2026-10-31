@@ -28,6 +28,8 @@ public sealed partial class MainWindow : Window
     private CancellationTokenSource? _serverPreviewCancellation;
     private bool _windowIsActive;
     private bool _voiceWebViewInitialized;
+    private bool _voiceWebViewInitializing;
+    private int _refreshQueued;
     private bool _voiceWorkerReady;
     private bool _canPublishAudio;
     private bool _microphoneMuted = true;
@@ -331,8 +333,13 @@ public sealed partial class MainWindow : Window
 
     private void OnSessionChanged()
     {
-        DispatcherQueue.TryEnqueue(() =>
+        if (Interlocked.Exchange(ref _refreshQueued, 1) != 0)
         {
+            return;
+        }
+        if (!DispatcherQueue.TryEnqueue(() =>
+        {
+            Interlocked.Exchange(ref _refreshQueued, 0);
             if (_session.Phase != SessionPhase.Connected && _voiceWebViewInitialized)
             {
                 _ = VoiceMediaWebView.ExecuteScriptAsync("window.coveVoice?.stop()");
@@ -343,7 +350,10 @@ public sealed partial class MainWindow : Window
             }
 
             Refresh();
-        });
+        }))
+        {
+            Interlocked.Exchange(ref _refreshQueued, 0);
+        }
     }
 
     private void Refresh()
@@ -381,6 +391,7 @@ public sealed partial class MainWindow : Window
 
         if (selectedVoice)
         {
+            RootGrid.FindName(nameof(VoiceMediaWebView));
             VoiceStatusText.Text = _voiceMediaStatus == "connecting"
                 ? L10n.T("voiceConnecting", ns: "windows")
                 : "";
@@ -402,13 +413,11 @@ public sealed partial class MainWindow : Window
 
     private void SyncChannels()
     {
-        var signature = ChannelTreeSignature();
-        if (_channelTreeSignature == signature)
+        if (!ChannelTreeChanged())
         {
             ChannelList.SelectedNode = FindSelectedChannelNode(ChannelList.RootNodes);
             return;
         }
-        _channelTreeSignature = signature;
         ChannelList.RootNodes.Clear();
 
         var directMessages = _session.DirectMessageChannels.ToList();
@@ -681,6 +690,11 @@ public sealed partial class MainWindow : Window
 
     private async Task InitializeVoiceWebViewAsync()
     {
+        if (_voiceWebViewInitialized || _voiceWebViewInitializing)
+        {
+            return;
+        }
+        _voiceWebViewInitializing = true;
         try
         {
             await VoiceMediaWebView.EnsureCoreWebView2Async();
@@ -709,6 +723,10 @@ public sealed partial class MainWindow : Window
         {
             ClientLogStore.Shared.RecordError("voice.webview.initialize", exception);
             VoiceErrorText.Text = exception.Message;
+        }
+        finally
+        {
+            _voiceWebViewInitializing = false;
         }
     }
 
@@ -895,6 +913,8 @@ public sealed partial class MainWindow : Window
 
     private async Task WaitForVoiceWorkerAsync()
     {
+        RootGrid.FindName(nameof(VoiceMediaWebView));
+        await InitializeVoiceWebViewAsync();
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
         while (!_voiceWorkerReady && DateTime.UtcNow < deadline)
         {

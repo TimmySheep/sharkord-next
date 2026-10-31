@@ -15,6 +15,11 @@ public sealed partial class MainWindow
     private int? _unreadMessageId;
     private int? _newMessageId;
     private bool _loadingOlder;
+    private long _renderedMessagesRevision = -1;
+    private IReadOnlyList<SharkordUser>? _renderedMessageUsers;
+    private string? _renderedMessageLanguage;
+    private int? _renderedUnreadMarker;
+    private int? _renderedNewMarker;
 
     private void PrepareChannelSelection(int channelId)
     {
@@ -39,14 +44,31 @@ public sealed partial class MainWindow
             RestoreChannelDraft();
         }
 
-        var source = channel is null ? [] : _session.GetMessagesSnapshot(channel.Id);
+        var users = _session.Users;
+        var language = L10n.Language;
+        var revision = channel is null ? 0 : _session.GetMessagesRevision(channel.Id);
+        var usersUnchanged = ReferenceEquals(users, _renderedMessageUsers);
+        LoadOlderButton.Visibility = channel is not null && _session.HasOlderMessages(channel.Id)
+            ? Visibility.Visible : Visibility.Collapsed;
+        if (!channelChanged && _pendingUnreadCount == 0 && revision == _renderedMessagesRevision &&
+            usersUnchanged && language == _renderedMessageLanguage &&
+            _unreadMessageId == _renderedUnreadMarker && _newMessageId == _renderedNewMarker)
+        {
+            return;
+        }
+
+        IReadOnlyList<SharkordMessage> source = [];
+        if (channel is not null)
+        {
+            source = _session.GetMessagesSnapshot(channel.Id, out revision);
+        }
         if (_pendingUnreadCount > 0 && source.Count > 0)
         {
             _unreadMessageId = MessagePresentation.UnreadBoundary(source, _pendingUnreadCount, _session.OwnUserId);
             _pendingUnreadCount = 0;
         }
 
-        var existing = _messages.ToDictionary(row => row.Id);
+        Dictionary<int, MessageItem>? existing = null;
         var desired = new List<MessageItem>(source.Count);
         SharkordMessage? previous = null;
         foreach (var message in source)
@@ -62,12 +84,35 @@ public sealed partial class MainWindow
             }
 
             var continuation = MessagePresentation.IsContinuation(previous, message, divider.Length > 0);
+            MessageItem? row;
+            var index = desired.Count;
+            if (index < _messages.Count && _messages[index].Id == message.Id)
+            {
+                row = _messages[index];
+            }
+            else if (index >= _messages.Count && existing is null)
+            {
+                row = null;
+            }
+            else
+            {
+                existing ??= _messages.ToDictionary(item => item.Id);
+                existing.TryGetValue(message.Id, out row);
+            }
+            if (row is not null && ReferenceEquals(row.Source, message) && usersUnchanged &&
+                row.Language == language && row.Continuation == continuation && row.DividerText == divider)
+            {
+                desired.Add(row);
+                previous = message;
+                continue;
+            }
+
             var user = message.UserId is { } userId ? _session.User(userId) : null;
             var author = user?.Name ?? L10n.T("systemUser", ns: "windows");
             var avatarUrl = user?.Avatar is { } avatar ? _session.PublicFileUrl(avatar) : null;
             var reply = ReplyPreview(message);
-            if (existing.TryGetValue(message.Id, out var row) && ReferenceEquals(row.Source, message) &&
-                row.Language == L10n.Language && row.Continuation == continuation &&
+            if (row is not null && ReferenceEquals(row.Source, message) &&
+                row.Language == language && row.Continuation == continuation &&
                 row.DividerText == divider && row.Author == author && row.AvatarUrl == avatarUrl &&
                 row.ReplyText == reply)
             {
@@ -88,8 +133,11 @@ public sealed partial class MainWindow
 
         var wasAtBottom = IsMessageListAtBottom();
         MessagePresentation.Reconcile(_messages, desired, row => row.Id);
-        LoadOlderButton.Visibility = channel is not null && _session.HasOlderMessages(channel.Id)
-            ? Visibility.Visible : Visibility.Collapsed;
+        _renderedMessagesRevision = revision;
+        _renderedMessageUsers = users;
+        _renderedMessageLanguage = language;
+        _renderedUnreadMarker = _unreadMessageId;
+        _renderedNewMarker = _newMessageId;
         if (_messages.Count > 0 && !_loadingOlder && (channelChanged || wasAtBottom))
         {
             var target = _messages.Last();

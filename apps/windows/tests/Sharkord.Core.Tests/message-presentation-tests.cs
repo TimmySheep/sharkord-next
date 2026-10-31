@@ -7,6 +7,41 @@ namespace Sharkord.Core.Tests;
 public class MessagePresentationTests
 {
     [Fact]
+    public void DeletingOneMessageInLongHistoryDoesNotMoveEveryOtherRow()
+    {
+        var history = Enumerable.Range(1, 5000).Select(id => new SharkordMessage { Id = id }).ToArray();
+        var rows = new System.Collections.ObjectModel.ObservableCollection<SharkordMessage>(history);
+        var changes = new List<System.Collections.Specialized.NotifyCollectionChangedEventArgs>();
+        rows.CollectionChanged += (_, change) => changes.Add(change);
+
+        MessagePresentation.Reconcile(rows, history[1..], message => message.Id);
+
+        var removal = Assert.Single(changes);
+        Assert.Equal(System.Collections.Specialized.NotifyCollectionChangedAction.Remove, removal.Action);
+        Assert.Same(history[0], removal.OldItems![0]);
+        Assert.Same(history[1], rows[0]);
+        Assert.Same(history[^1], rows[^1]);
+    }
+
+    [Fact]
+    public void EditingOneMessageInLongHistoryReplacesOnlyThatRow()
+    {
+        var history = Enumerable.Range(1, 5000).Select(id => new SharkordMessage { Id = id }).ToArray();
+        var rows = new System.Collections.ObjectModel.ObservableCollection<SharkordMessage>(history);
+        var actions = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        rows.CollectionChanged += (_, change) => actions.Add(change.Action);
+        var edited = new SharkordMessage { Id = 2500, Content = "edited" };
+        history[2499] = edited;
+
+        MessagePresentation.Reconcile(rows, history, message => message.Id);
+
+        Assert.Equal(System.Collections.Specialized.NotifyCollectionChangedAction.Replace, Assert.Single(actions));
+        Assert.Same(edited, rows[2499]);
+        Assert.Same(history[0], rows[0]);
+        Assert.Same(history[^1], rows[^1]);
+    }
+
+    [Fact]
     public void UnreadBoundaryCountsIncomingMessagesWithoutCountingOwnMessages()
     {
         SharkordMessage[] messages =

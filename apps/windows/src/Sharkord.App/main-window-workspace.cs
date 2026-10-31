@@ -13,7 +13,14 @@ public sealed partial class MainWindow
 {
     private readonly DispatcherTimer _typingTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly ObservableCollection<MemberItem> _members = [];
-    private string? _channelTreeSignature;
+    private IReadOnlyList<SharkordCategory>? _treeCategories;
+    private IReadOnlyList<SharkordChannel>? _treeChannels;
+    private IReadOnlyList<SharkordUser>? _treeUsers;
+    private IReadOnlyList<DirectMessageConversation>? _treeConversations;
+    private long _treeUnreadRevision = -1;
+    private string? _treeLanguage;
+    private IReadOnlyList<SharkordUser>? _displayedMembers;
+    private string? _membersLanguage;
     private bool _membersVisible;
     private SharkordUser? _displayedOwnUser;
     private bool _workspaceConnected;
@@ -34,7 +41,9 @@ public sealed partial class MainWindow
         _unreadMessageId = null;
         _newMessageId = null;
         _pendingUnreadCount = 0;
-        _channelTreeSignature = null;
+        _treeChannels = null;
+        _displayedMembers = null;
+        _renderedMessageUsers = null;
         _displayedOwnUser = null;
         MessagePresentation.Reconcile(_messages, [], row => row.Id);
     }
@@ -75,13 +84,28 @@ public sealed partial class MainWindow
         ToolTipService.SetToolTip(control, label);
     }
 
-    private string ChannelTreeSignature() => string.Join("|",
-        L10n.Language,
-        string.Join(";", _session.Categories.Select(category => $"{category.Id}:{category.Name}:{category.Position}")),
-        string.Join(";", _session.Channels.Select(channel =>
-            $"{channel.Id}:{channel.Name}:{channel.Type}:{channel.CategoryId}:{channel.Position}:{_session.UnreadCount(channel.Id)}")),
-        string.Join(";", _session.DirectMessages.Select(dm => $"{dm.ChannelId}:{_session.User(dm.UserId)?.Name}"))
-    );
+    private bool ChannelTreeChanged()
+    {
+        var categories = _session.Categories;
+        var channels = _session.Channels;
+        var users = _session.Users;
+        var conversations = _session.DirectMessages;
+        var unreadRevision = _session.UnreadRevision;
+        var language = L10n.Language;
+        if (ReferenceEquals(categories, _treeCategories) && ReferenceEquals(channels, _treeChannels) &&
+            ReferenceEquals(users, _treeUsers) && ReferenceEquals(conversations, _treeConversations) &&
+            unreadRevision == _treeUnreadRevision && language == _treeLanguage)
+        {
+            return false;
+        }
+        _treeCategories = categories;
+        _treeChannels = channels;
+        _treeUsers = users;
+        _treeConversations = conversations;
+        _treeUnreadRevision = unreadRevision;
+        _treeLanguage = language;
+        return true;
+    }
 
     private void RefreshDesktopControls()
     {
@@ -132,9 +156,15 @@ public sealed partial class MainWindow
         {
             return;
         }
+        var users = _session.Users;
+        var language = L10n.Language;
+        if (ReferenceEquals(users, _displayedMembers) && language == _membersLanguage)
+        {
+            return;
+        }
         var existing = _members.ToDictionary(member => member.Id);
         var desired = new List<MemberItem>();
-        foreach (var user in _session.Users.Where(user => !user.Banned)
+        foreach (var user in users.Where(user => !user.Banned)
                      .OrderBy(user => IsOnline(user) ? 0 : 1).ThenBy(user => user.Name, StringComparer.CurrentCultureIgnoreCase))
         {
             if (existing.TryGetValue(user.Id, out var row) && ReferenceEquals(row.Source, user) && row.Language == L10n.Language)
@@ -147,6 +177,8 @@ public sealed partial class MainWindow
             }
         }
         MessagePresentation.Reconcile(_members, desired, member => member.Id);
+        _displayedMembers = users;
+        _membersLanguage = language;
         MembersTitle.Text = L10n.T("membersHeader", ns: "sidebar", ("count", desired.Count));
     }
 

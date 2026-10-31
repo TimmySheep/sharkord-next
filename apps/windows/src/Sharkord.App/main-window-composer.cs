@@ -20,6 +20,8 @@ public sealed partial class MainWindow
     private bool _uploadingAttachments;
     private Flyout? _composerEmojiFlyout;
     private int _composerGeneration;
+    private int? _lastTypingChannelId;
+    private long _lastTypingSignalAt;
 
     private bool CanSendMessage() =>
         _session.SelectedChannelId is { } id && _session.Channel(id) is { IsText: true } &&
@@ -48,8 +50,15 @@ public sealed partial class MainWindow
 
     private void OnComposerTextChanged(object sender, TextChangedEventArgs e)
     {
-        if (_session.SelectedChannelId is { } id && _editingMessage is null && ComposerBox.Text.Length > 0)
+        if (_session.SelectedChannelId is { } id && _editingMessage is null && ComposerBox.Text.Length > 0 && CanSendMessage())
         {
+            var now = Environment.TickCount64;
+            if (_lastTypingChannelId == id && now - _lastTypingSignalAt < 2000)
+            {
+                return;
+            }
+            _lastTypingChannelId = id;
+            _lastTypingSignalAt = now;
             _session.SignalTyping(id);
         }
     }
