@@ -39,6 +39,8 @@ let package = Package(
             sources: ["Sources/SharkordMac"],
             resources: [
                 .copy("Resources/locales"),
+                .copy("Resources/emoji-catalog.json"),
+                .copy("Resources/emoji-catalog-license.txt"),
                 .copy("Resources/cove.icns"),
                 .copy("Resources/cove-icon.png"),
                 .copy("Resources/voice-media"),

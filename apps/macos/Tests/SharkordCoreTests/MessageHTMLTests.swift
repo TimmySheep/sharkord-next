@@ -5,6 +5,14 @@ import Testing
 
 @Suite
 struct MessageHTMLTests {
+    @Test func unicodeEmojiNodesRetainTheirGlyphAndCustomImage() {
+        let unicode = MessageHTML.parse("<p><span data-type=\"emoji\" data-name=\"smile\">😄</span></p>")
+        #expect(unicode.blocks.first?.spans.first?.content == .emoji(name: "😄", src: nil))
+        let custom = MessageHTML.parse("<p><span data-type=\"emoji\" data-name=\"party\"><img class=\"emoji-image\" src=\"/public/party.gif\" alt=\":party:\"></span></p>")
+        #expect(custom.blocks.first?.spans.count == 1)
+        #expect(custom.blocks.first?.spans.first?.content == .emoji(name: "party", src: "/public/party.gif"))
+    }
+
     @Test
     func linkificationPreservesUntouchedNamedEntitiesAndNonbreakingSpaces() {
         let prepared = MessageHTML.prepare(

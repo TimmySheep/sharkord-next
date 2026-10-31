@@ -18,6 +18,9 @@ struct MessageRowView: View {
 
     @State private var hovering = false
     @State private var showsDeleteConfirmation = false
+    @State private var showsReactions = false
+    @State private var showsProfile = false
+    @State private var errorMessage: String?
 
     private var author: SharkordUser? {
         message.userId.flatMap { session.user(for: $0) }
@@ -35,6 +38,7 @@ struct MessageRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
+            if let errorMessage { Text(errorMessage).font(.caption).foregroundStyle(.red).padding(.horizontal, 12) }
             if let preview = message.replyTo {
                 replyPreview(preview)
             }
@@ -43,7 +47,8 @@ struct MessageRowView: View {
                 if grouped {
                     Color.clear.frame(width: 32)
                 } else {
-                    AvatarView(user: author, size: 32)
+                    Button { showsProfile = true } label: { AvatarView(user: author, size: 32) }
+                        .buttonStyle(.plain).disabled(author == nil)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -72,9 +77,7 @@ struct MessageRowView: View {
                     }
 
                     ReactionBar(groups: session.reactionGroups(for: message)) { emoji in
-                        Task {
-                            try? await session.toggleReaction(messageId: message.id, emoji: emoji)
-                        }
+                        react(emoji)
                     }
 
                     footer
@@ -101,6 +104,15 @@ struct MessageRowView: View {
                 contextMenuItems
             }
         }
+        .popover(isPresented: $showsReactions) {
+            EmojiPicker(forReaction: true) { emoji in
+                showsReactions = false
+                react(emoji)
+            }.frame(width: 320, height: 360)
+        }
+        .popover(isPresented: $showsProfile) {
+            if let author { UserProfileCard(user: author).frame(width: 290) }
+        }
         .confirmationDialog(
             L10n.t("deleteMessageTitle", ns: "common"),
             isPresented: $showsDeleteConfirmation,
@@ -126,10 +138,12 @@ struct MessageRowView: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Text(author?.name ?? L10n.t("unknownUser", ns: "common"))
+            Button { showsProfile = true } label: {
+                Text(author?.name ?? L10n.t("unknownUser", ns: "common"))
                 .font(.system(size: 14.5, weight: isOwn ? .bold : .semibold))
                 .foregroundStyle(author.map { Theme.color(for: $0) } ?? .primary)
                 .strikethrough(author?.banned == true)
+            }.buttonStyle(.plain).disabled(author == nil)
 
             if message.pluginId != nil {
                 Text(L10n.t("botBadge", ns: "macos"))
@@ -210,7 +224,14 @@ struct MessageRowView: View {
     private func replyPreview(_ preview: SharkordReplyPreview) -> some View {
         let author = preview.userId.flatMap { session.user(for: $0) }
 
-        return HStack(spacing: 5) {
+        return Button {
+            Task {
+                do {
+                    let target = try await session.getMessage(messageId: preview.id)
+                    await session.jumpTo(messageId: target.parentMessageId ?? target.id, channelId: target.channelId)
+                } catch { errorMessage = SharkordSession.describe(error) }
+            }
+        } label: { HStack(spacing: 5) {
             Image(systemName: "arrowshape.turn.up.left.fill")
                 .font(.system(size: 9))
                 .foregroundStyle(.secondary)
@@ -225,6 +246,9 @@ struct MessageRowView: View {
 
             Spacer()
         }
+        }
+        .buttonStyle(.plain)
+        .help(L10n.t("jumpToMessage", ns: "macos"))
         .padding(.leading, 40)
     }
 
@@ -264,7 +288,7 @@ struct MessageRowView: View {
 
             if session.hasPermission(.pinMessages), message.parentMessageId == nil {
                 Button {
-                    Task { try? await session.togglePin(messageId: message.id) }
+                    togglePin()
                 } label: {
                     Image(systemName: message.pinned == true ? "pin.slash" : "pin")
                 }
@@ -303,16 +327,12 @@ struct MessageRowView: View {
     }
 
     private var quickReactButton: some View {
-        Menu {
-            ForEach(["👍", "❤️", "😂", "🎉", "👀", "🙏"], id: \.self) { emoji in
-                Button(emoji) {
-                    Task { try? await session.toggleReaction(messageId: message.id, emoji: emoji) }
-                }
-            }
+        Button {
+            showsReactions = true
         } label: {
             Image(systemName: "face.smiling")
         }
-        .menuStyle(.borderlessButton)
+        .buttonStyle(.plain)
         .fixedSize()
         .help(L10n.t("addReaction", ns: "common"))
         .accessibilityLabel(L10n.t("addReaction", ns: "common"))
@@ -320,6 +340,9 @@ struct MessageRowView: View {
 
     @ViewBuilder
     private var contextMenuItems: some View {
+        if session.hasPermission(.reactToMessages) {
+            Button(L10n.t("addReaction", ns: "common")) { showsReactions = true }
+        }
         Button(L10n.t("replyToMessage", ns: "common")) { onReply(message) }
 
         if message.parentMessageId == nil {
@@ -332,7 +355,7 @@ struct MessageRowView: View {
 
         if session.hasPermission(.pinMessages), message.parentMessageId == nil {
             Button(L10n.t(message.pinned == true ? "unpinMessage" : "pinMessage", ns: "common")) {
-                Task { try? await session.togglePin(messageId: message.id) }
+                togglePin()
             }
         }
 
@@ -350,12 +373,31 @@ struct MessageRowView: View {
 
     private func deleteMessage() {
         Task {
-            try? await session.deleteMessage(message.id)
+            do { try await session.deleteMessage(message.id); errorMessage = nil }
+            catch { errorMessage = SharkordSession.describe(error) }
         }
     }
 
     private func deleteFile(_ file: SharkordFile) {
-        Task { try? await session.deleteFile(fileId: file.id) }
+        Task {
+            do { try await session.deleteFile(fileId: file.id); errorMessage = nil }
+            catch { errorMessage = SharkordSession.describe(error) }
+        }
+    }
+
+    private func react(_ emoji: String) {
+        guard session.hasPermission(.reactToMessages) else { return }
+        Task {
+            do { try await session.toggleReaction(messageId: message.id, emoji: emoji); errorMessage = nil }
+            catch { errorMessage = SharkordSession.describe(error) }
+        }
+    }
+
+    private func togglePin() {
+        Task {
+            do { try await session.togglePin(messageId: message.id); errorMessage = nil }
+            catch { errorMessage = SharkordSession.describe(error) }
+        }
     }
 }
 

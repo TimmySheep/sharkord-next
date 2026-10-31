@@ -114,6 +114,13 @@ struct UserProfileCard: View {
             ZStack(alignment: .bottomLeading) {
                 Theme.color(for: user)
                     .frame(height: 56)
+                    .overlay {
+                        if let banner = user.banner, let url = session.publicFileURL(for: banner) {
+                            AsyncImage(url: url) { image in image.resizable().scaledToFill() }
+                                placeholder: { Color.clear }
+                        }
+                    }
+                    .clipped()
 
                 AvatarView(user: user, size: 54)
                     .padding(.leading, 12)
@@ -198,7 +205,8 @@ struct UserProfileCard: View {
             if session.settings?.directMessagesEnabled != false, !isOwn, !user.banned {
                 Button {
                     Task {
-                        try? await session.openDirectMessage(userId: user.id)
+                        do { try await session.openDirectMessage(userId: user.id); errorMessage = nil }
+                        catch { errorMessage = SharkordSession.describe(error) }
                     }
                 } label: {
                     Label(L10n.t("openDirectMessages", ns: "sidebar"), systemImage: "bubble.left")

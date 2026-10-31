@@ -220,7 +220,7 @@ struct TextChannelView: View {
 
             Spacer()
 
-            if session.hasPermission(.pinMessages) {
+            if session.hasChannelPermission(channel.id, .viewChannel) {
                 Button {
                     showsPinned.toggle()
                 } label: {

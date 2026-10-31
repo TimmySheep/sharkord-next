@@ -19,46 +19,7 @@ struct EmojiView: View {
             }
             .frame(width: size, height: size)
         } else {
-            Text(emoji).font(.system(size: size))
-        }
-    }
-}
-
-/// "React" submenu used from a message's context menu.
-struct ReactionMenu: View {
-    @EnvironmentObject private var session: SharkordSession
-
-    let message: SharkordMessage
-
-    /// A few always-available reactions, as the server stores them: the GitHub shortcode for
-    /// standard emoji, the emoji name for custom ones.
-    private static let commonEmoji = ["thumbsup", "heart", "joy", "tada", "fire", "eyes", "sob"]
-
-    var body: some View {
-        Menu {
-            ForEach(session.emojis) { emoji in
-                Button(emoji.name) {
-                    react(emoji.name)
-                }
-            }
-
-            if !session.emojis.isEmpty {
-                Divider()
-            }
-
-            ForEach(Self.commonEmoji, id: \.self) { name in
-                Button(name) {
-                    react(name)
-                }
-            }
-        } label: {
-            Label(L10n.t("addReaction", ns: "common"), systemImage: "face.smiling")
-        }
-    }
-
-    private func react(_ emoji: String) {
-        Task {
-            try? await session.toggleReaction(messageId: message.id, emoji: emoji)
+            Text(EmojiCatalog.glyph(for: emoji)).font(.system(size: size))
         }
     }
 }
@@ -92,27 +53,14 @@ struct ReactionChip: View {
     }
 }
 
-/// Picker for the composer: the server's custom emoji first, then a standard set. Custom
-/// emoji insert their `:name:` shortcode, which the composer turns into an emoji element
-/// when it builds the message html.
+/// composer selections use glyphs or custom shortcodes; reactions use the web catalog identity
 struct EmojiPicker: View {
     @EnvironmentObject private var session: SharkordSession
 
+    var forReaction = false
     var onPick: (String) -> Void
 
     @State private var query = ""
-
-    /// A compact standard set, enough for chat without shipping a whole emoji font index.
-    private static let standard: [(name: String, char: String)] = [
-        ("smile", "😄"), ("joy", "😂"), ("heart", "❤️"), ("thumbsup", "👍"),
-        ("thumbsdown", "👎"), ("tada", "🎉"), ("fire", "🔥"), ("eyes", "👀"),
-        ("wave", "👋"), ("thinking", "🤔"), ("sob", "😭"), ("pray", "🙏"),
-        ("rocket", "🚀"), ("star", "⭐"), ("warning", "⚠️"), ("check", "✅"),
-        ("x", "❌"), ("100", "💯"), ("clap", "👏"), ("muscle", "💪"),
-        ("sparkles", "✨"), ("cake", "🎂"), ("coffee", "☕"), ("pizza", "🍕"),
-        ("sun", "☀️"), ("moon", "🌙"), ("rainbow", "🌈"), ("dog", "🐶"),
-        ("cat", "🐱"), ("unicorn", "🦄"), ("shrug", "🤷"), ("sleeping", "😴")
-    ]
 
     var body: some View {
         VStack(spacing: 8) {
@@ -137,20 +85,25 @@ struct EmojiPicker: View {
                                             .foregroundStyle(.secondary)
                                     }
                                 } label: {
-                                    onPick(":\(emoji.name):")
+                                    onPick(forReaction ? emoji.name : ":\(emoji.name):")
                                 }
+                                .help(emoji.name)
+                                .accessibilityLabel(emoji.name)
                             }
                         } header: {
-                            Eyebrow(text: "Server")
+                            Eyebrow(text: L10n.t("serverEmoji", ns: "macos"))
                         }
                     }
 
                     ForEach(filtered, id: \.name) { entry in
                         button {
-                            Text(entry.char).font(.system(size: 20))
+                            Text(entry.emoji).font(.system(size: 20))
                         } label: {
-                            onPick(entry.char)
+                            onPick(forReaction ? entry.reaction : entry.emoji)
                         }
+                        .disabled(forReaction && !entry.canReact)
+                        .help(forReaction && !entry.canReact ? L10n.t("reactionEmojiTooLong", ns: "macos") : entry.name)
+                        .accessibilityLabel(entry.name)
                     }
                 }
             }
@@ -178,11 +131,5 @@ struct EmojiPicker: View {
         return session.emojis.filter { $0.name.localizedCaseInsensitiveContains(query) }
     }
 
-    private var filtered: [(name: String, char: String)] {
-        guard !query.isEmpty else {
-            return Self.standard
-        }
-
-        return Self.standard.filter { $0.name.localizedCaseInsensitiveContains(query) }
-    }
+    private var filtered: [StandardEmoji] { EmojiCatalog.search(query) }
 }
