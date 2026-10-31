@@ -9,7 +9,7 @@ namespace Sharkord.Core.I18n;
 /// assembly. the layout is the one the macOS client uses, so both native clients share one
 /// translation set and one re-sync path from the web client.
 ///
-/// this lives in Core rather than in the WinUI shell on purpose: Core is plain <c>net8.0</c>,
+/// this lives in Core rather than in the WinUI shell on purpose: Core is plain <c>net10.0</c>,
 /// so the lookup and every locale table can be compiled and tested on macOS and Linux. The
 /// WinUI project cannot build there at all.
 /// </summary>
