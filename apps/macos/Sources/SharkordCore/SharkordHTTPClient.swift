@@ -80,7 +80,11 @@ public struct SharkordHTTPClient: Sendable {
         var request = URLRequest(url: baseURL.appendingPathComponent("upload"))
         request.httpMethod = "POST"
         request.setValue(token, forHTTPHeaderField: "x-token")
-        request.setValue(fileName, forHTTPHeaderField: "x-file-name")
+        // the server decodes this header with decodeURIComponent, matching the web uploader
+        let filenameCharacters = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()")
+        let encodedName = fileName.trimmingCharacters(in: .whitespacesAndNewlines)
+            .addingPercentEncoding(withAllowedCharacters: filenameCharacters) ?? ""
+        request.setValue(encodedName, forHTTPHeaderField: "x-file-name")
         request.setValue(mimeType, forHTTPHeaderField: "x-file-type")
         request.setValue(String(data.count), forHTTPHeaderField: "content-length")
         request.setValue("application/octet-stream", forHTTPHeaderField: "content-type")
