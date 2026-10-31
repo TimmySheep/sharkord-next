@@ -67,9 +67,88 @@ the parity table as DEFERRED with the reason — do not silently skip.
 ## Constraints
 
 - Same as before: no server changes, no pushes to origin (local commits only on
-  `feat/desktop-discord-ui`), no machine-wide installs, no Electron.
+  `feat/desktop-parity`), no machine-wide installs, no Electron.
 - macOS work remains code-complete-but-Mac-verify-only; mark it clearly.
 
 ## Progress
 
-- (to be filled in by the implementing agent)
+### Initial parity audit, 2026-10-31 (before implementation)
+
+The current user instruction selects `feat/desktop-parity`, superseding the earlier branch
+name above. Baseline commit: `fa67ffd`. The checkout was clean. Read both taskbooks,
+`AGENTS.md`, `CONTRIBUTING.md`, both native READMEs, and audited the web screens,
+components, features, matching server routes and both native implementations.
+PRESENT means an implemented path found in source, not completed runtime acceptance.
+PARTIAL and MISSING are implementation work, not platform deferrals. All macOS statuses
+are source-only until `swift build && swift test` runs on a Mac.
+
+Web paths below are relative to `apps/client/src/`. Native paths are relative to each
+platform's source directory. The initial findings are retained so later results can be
+compared with this audit.
+
+| Capability | Web reference | Windows initial status | macOS initial status |
+| --- | --- | --- | --- |
+| Server preview, registration/password login, server password | `screens/connect`, `features/server/actions.ts` | PRESENT, HTTP login and handshake/join | PRESENT |
+| Invite registration, automatic login | `screens/connect/index.tsx` | PARTIAL, HTTP supports invite, no invite/remember-login UI | PARTIAL, Keychain automatic login, invite path incomplete |
+| OIDC | `screens/connect/hooks/use-oidc-login.ts` | NOT APPLICABLE to acceptance server: `/info` reports disabled | Same |
+| Categories, collapsible channel tree, topics, last selected channel | `components/left-sidebar`, `channel-view/text/text-top-bar.tsx` | PRESENT | PRESENT |
+| Channel/category create, rename, delete, reorder and access overrides | `context-menus`, `server-screens/channel-settings`, `category-settings` | MISSING native navigation management paths | PRESENT |
+| Existing DMs and starting a DM from member/search | `left-sidebar/direct-messages`, `user-popover` | PARTIAL, list and Core open exist; no new-DM UI; VOICE-typed DM disables text path | PRESENT |
+| Group DMs | `left-sidebar/direct-messages`; server `routers/dms` | NOT AVAILABLE upstream: only `open({ userId })` and two-member conversation model | Same; cannot add without prohibited server changes |
+| Unread counts, mark read, new-message divider | `features/server/messages`, `channels`, `channel-view/text` | PRESENT; reconnect resync needs correction | PRESENT |
+| Jump to channel/message, return to present | `dialogs/search`, `channel-view/text/hooks` | MISSING target-window/jump UI | PRESENT, thread result navigation needs review |
+| Send, edit, delete, edit keyboard shortcuts | `channel-view/text`, `message-compose` | PRESENT for own messages; moderator action missing | PRESENT |
+| Inline replies | `message-compose`, `channel-view/text` | PRESENT | PRESENT |
+| Threads, counts, thread pagination and typing | `thread-sidebar` | MISSING thread UI/send path; channel typing includes thread events | PARTIAL, thread view exists but drops next cursor and typing |
+| Pins browse, pin/unpin | `channel-view/text/pinned-messages-popover.tsx`, `message-actions.tsx` | MISSING | PARTIAL, browse incorrectly gated on pin permission |
+| Reactions and live updates | `channel-view/text/message-actions.tsx`, `message-reactions.tsx` | PARTIAL, quick built-in set only; custom emoji image ignored | PRESENT |
+| Message/file search and result navigation | `dialogs/search` | MISSING | PRESENT, stale response protection missing |
+| Older message pagination | `features/server/messages/hooks.ts` | PRESENT | PRESENT |
+| Typing expiry and channel/thread isolation | `hooks/use-typing-signal.ts`, `features/server/messages` | PARTIAL, channel-only | PARTIAL, thread indicator missing |
+| File picker, upload, remove pending attachment, limits | `hooks/use-upload-files.ts`, `message-compose` | PRESENT picker/limits; temporary-file cleanup missing | PARTIAL, picker/paste, upload settings/count gates incomplete |
+| Upload progress, cancellation, drag/drop, paste | `hooks/use-upload-files.ts` | MISSING byte progress/cancel/drop/paste | PARTIAL, paste; progress/drop/cancel missing |
+| Image attachment preview and native viewer | `channel-view/text/message-files.tsx`, `fullscreen-image` | MISSING, external links only | PRESENT |
+| Audio/video attachments and external file opening | `channel-view/text/message-files.tsx`, `message-renderer.tsx` | PARTIAL, external file links only | PRESENT via AVPlayer/external opener |
+| Rich text, code, links, mentions, channel references | `tiptap-input`, `channel-view/text/message-renderer.tsx` | PARTIAL, plain-text fallback loses semantic navigation/formatting | PARTIAL, rich parser exists; whitespace/long-span handling differs |
+| Built-in emoji catalog, picker, custom server emoji | `emoji-picker`, `emoji`, `tiptap-input/helpers.ts` | PARTIAL, small Unicode set; custom emoji not rendered/pickable | PARTIAL, custom emoji present; built-in spans may lose glyph |
+| Member roster/status, profile, avatar/banner/bio/roles | `right-sidebar`, `user-popover`, `role-badge` | PARTIAL, roster/avatar/status only | PRESENT |
+| Permission-aware actions and live permission changes | `protect`, `features/server/channels/subscriptions.ts` | PARTIAL, permission checks exist; permission-change subscription missing | PRESENT, individual UI gates need review |
+| Voice join/leave, mute/deafen, push to talk | `voice-provider`, `left-sidebar/voice-control` | PRESENT through bundled media worker, untested live | PRESENT, untested on Mac |
+| Voice roster/state, speaking indicators | `channel-view/voice`, `features/server/voice/subscriptions.ts` | PARTIAL, missing roster/state subscriptions and speaking display | PARTIAL, state exists; speaking display absent |
+| Receive quality, per-user audio/share volume | `voice-provider`, `channel-view/voice` | MISSING native controls | PARTIAL, volumes exist; quality route has no UI |
+| Camera and screen publish, remote media | `voice-provider/hooks/use-local-streams.ts` | PRESENT worker paths; runtime acceptance pending | PRESENT worker paths; runtime acceptance pending |
+| Device selection, microphone/camera preview, capture quality | `server-screens/user-settings/devices` | PARTIAL, noise suppression mix only | PARTIAL, noise suppression mix only |
+| Voice reactions, moderator moves, external streams | `features/server/voice`, `channel-view/voice` | MISSING native state/action surfaces | PARTIAL, routes/events exist, reaction display incomplete |
+| Profile, avatar/banner, password settings | `server-screens/user-settings` | PRESENT | PRESENT |
+| Language picker, ten locales | `language-switcher`, `i18n` | PRESENT, locale tests | PRESENT, tests pending Mac |
+| Notification preferences, desktop notifications, shortcuts | `server-screens/user-settings/notifications`, `hotkeys-controller` | PRESENT native paths; runtime acceptance pending | PRESENT native paths; runtime acceptance pending |
+| General, storage, users, roles, emoji, invite administration | `server-screens/server-settings` | PRESENT native forms; detail coverage requires verification | PRESENT native forms |
+| Plugin marketplace/management, commands/logs, server updates | `server-screens/server-settings/plugins`, `plugin-view`, `updates` | PRESENT native management paths | PRESENT native management paths |
+| Plugin-provided React slots/fullscreen/settings UI | `plugin-slot-renderer`, `plugins-controller` | DEFERRED: plugin API supplies React components and browser globals; native-only UI/media-only WebView constraint prevents hosting them | Same constraint |
+| Disconnect/retry/backoff, state resync | `reconnecting-overlay`, `features/server/actions.ts` | PARTIAL, backoff exists; cached messages are not reloaded after reconnect | PARTIAL, reconnect exists; failed WebSocket upgrade can leave open pending |
+| Virtualized/lazy rows, drafts and phase-1 interactions | `channel-view/text`, `message-compose` | PRESENT, retain ListView/reconciliation and per-channel drafts | PRESENT, retain lazy rows/drafts |
+
+### Execution and verification ledger
+
+- [x] Initial audit recorded before implementation. Baseline Windows build: 0 warnings,
+  0 errors. Baseline offline tests: 141 passed, 0 failed (including two gated no-op bodies).
+- [ ] Windows messaging/navigation/session parity, with behavioral regression tests.
+- [ ] Windows attachments/rendering/emoji and voice controls, retaining media isolation.
+- [ ] Conservative macOS gap fixes and authored tests; Mac execution remains pending.
+- [ ] Safe real-server suite using the external credentials file and only owned fixtures.
+- [ ] Windows Computer Use acceptance and saved evidence.
+- [ ] Final build/tests, review, local logical commits, final audit status and remaining gaps.
+
+Implementation follows the existing Core/session and native partial-window/domain view
+patterns, without new dependencies or server changes. Regression tests precede behavioral
+changes; native UI wiring is checked by the build, existing source-contract tests and CUA.
+The initial real-server read of `https://voice.timhuang.net/info` reported
+`allowNewUsers=true`, `oidcEnabled=false`, `oidcDisableLocalLogin=false` on 2026-10-31.
+No production-user mutation has been made. Existing live tests are unsafe for this target
+(first shared channel, arbitrary DM recipient, ownership-token attempt), so they must be
+replaced or explicitly isolated before a live run.
+
+Computer Use initialized successfully and enumerated Windows apps. This proves tool
+availability only; it is not GUI acceptance. Evidence will be outside git under
+`C:\Users\YY\codex-task\evidence\`. Only SDK 10.0.202 is installed. Bun checks will be
+skipped because Bun is absent; no machine-wide toolchains will be installed.
