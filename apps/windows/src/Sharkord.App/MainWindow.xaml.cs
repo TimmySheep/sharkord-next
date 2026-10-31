@@ -441,6 +441,26 @@ public sealed partial class MainWindow : Window
                 .OrderBy(channel => channel.Position)
                 .ToList()
         );
+
+        ChannelList.SelectedNode = FindSelectedChannelNode(ChannelList.RootNodes);
+    }
+
+    private TreeViewNode? FindSelectedChannelNode(IEnumerable<TreeViewNode> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            if (node.Content is ChannelTreeItem { ChannelId: { } id } && id == _session.SelectedChannelId)
+            {
+                return node;
+            }
+
+            if (FindSelectedChannelNode(node.Children) is { } selected)
+            {
+                return selected;
+            }
+        }
+
+        return null;
     }
 
     private void AddChannelSection(string sectionKey, string title, IReadOnlyList<SharkordChannel> channels)
@@ -498,8 +518,7 @@ public sealed partial class MainWindow : Window
 
         return new TreeViewNode
         {
-            Content = new ChannelTreeItem($"{marker}{label}", channel.Id, null),
-            IsSelected = channel.Id == _session.SelectedChannelId
+            Content = new ChannelTreeItem($"{marker}{label}", channel.Id, null)
         };
     }
 

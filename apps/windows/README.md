@@ -5,10 +5,9 @@ shared mediasoup media worker; the rest of the interface remains native. It talk
 server as the web client over tRPC WebSocket and the plain HTTP endpoints.
 
 **Build reality:** WinUI 3 / Windows App SDK is Windows-only and cannot be built on macOS.
-`Sharkord.Core` is a plain `net8.0` library and is compiled and tested on macOS; `Sharkord.App`
-is the WinUI 3 shell and must be built on Windows. A previous Cove x64 Release build and
-self-contained publish succeeded on Windows 11 with 0 warnings and 0 errors. The current voice
-and TreeView changes have not been rebuilt, and the app has not been launched or visually reviewed.
+`Sharkord.Core` is a plain `net10.0` library; `Sharkord.App` is the WinUI 3 shell and must be
+built on Windows. The current x64 Debug build succeeds on Windows with 0 warnings and 0
+errors using SDK 10.0.202. Device-level visual and media acceptance remain pending.
 
 ## Layout
 
@@ -31,7 +30,7 @@ apps/windows/
 
 ## Build
 
-On Windows, with the .NET 8 SDK installed (the Windows App SDK itself comes from NuGet, so
+On Windows, with the .NET 10 SDK installed (the Windows App SDK itself comes from NuGet, so
 no Visual Studio and no separate Windows SDK install are needed):
 
 ```powershell
@@ -39,6 +38,11 @@ cd apps/windows
 dotnet build src/Sharkord.App/Sharkord.App.csproj -p:Platform=x64
 dotnet test tests/Sharkord.Core.Tests/Sharkord.Core.Tests.csproj
 ```
+
+All three Windows projects target .NET 10. The previous .NET 8 test host could not run on
+the installed .NET 10 runtime. Retargeting keeps build and test commands usable without
+installing another machine-wide SDK or requiring runtime roll-forward environment flags.
+The Windows App SDK and Windows SDK BuildTools package versions remain pinned.
 
 The app embeds the light `Assets/cove.ico` in `cove.exe`. The published app includes both
 `cove.ico` and `cove-dark.ico` under `Assets/`; the WinUI window and taskbar icon follow the

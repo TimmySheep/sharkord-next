@@ -64,4 +64,13 @@ upstream web client against an unmodified server.
 
 ## Progress
 
-- (to be filled in by the implementing agent)
+- Windows build health restored: fixed plugin response handling, WinUI color references and
+  TreeView selection. The source-contract test now accepts Windows CRLF checkouts.
+- Retargeted the three Windows projects to .NET 10 for the installed SDK 10.0.202 and runtime
+  10.0.6; no machine-wide toolchains installed and no pinned Windows App SDK packages changed.
+- Baseline verification passed in `apps/windows`: `dotnet build
+  src/Sharkord.App/Sharkord.App.csproj -p:Platform=x64` (0 warnings, 0 errors) and
+  `dotnet test tests/Sharkord.Core.Tests/Sharkord.Core.Tests.csproj` (91 passed; network
+  integration bodies remain gated without `SHARKORD_IT_HOST`).
+- Remaining: desktop UI, Windows performance and compatibility checks, final verification.
+  macOS must be verified on a Mac with `cd apps/macos && swift build && swift test`.

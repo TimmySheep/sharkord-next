@@ -438,8 +438,8 @@ public class L10nTests
         Assert.Contains("invites.add", managementSettings);
         Assert.Contains("invites.delete", managementSettings);
         Assert.Contains("storageImageOptimizationEnabled", serverSettings);
-        Assert.Contains("CallQueryAsync(\n        string path", session);
-        Assert.Contains("CallMutationAsync(\n        string path", session);
+        Assert.Contains("CallQueryAsync(\n        string path", session.ReplaceLineEndings("\n"));
+        Assert.Contains("CallMutationAsync(\n        string path", session.ReplaceLineEndings("\n"));
     }
 
     [Fact]

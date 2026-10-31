@@ -12,7 +12,7 @@ public sealed partial class MainWindow
     private async Task<FrameworkElement> BuildPluginSettingsAsync()
     {
         var result = await _session.CallQueryAsync("plugins.get") as JsonObject;
-        var plugins = result?["plugins"] as JsonArray ?? result as JsonArray ?? [];
+        var plugins = result?["plugins"] as JsonArray ?? [];
         var status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         var list = new StackPanel { Spacing = 8 };
 
@@ -33,7 +33,7 @@ public sealed partial class MainWindow
                 row.Children.Add(new TextBlock
                 {
                     Text = error,
-                    Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.IndianRed),
+                    Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Colors.IndianRed),
                     TextWrapping = TextWrapping.Wrap
                 });
             }
@@ -114,7 +114,7 @@ public sealed partial class MainWindow
             versionPanel.Children.Add(new TextBlock
             {
                 Text = L10n.T("updateAvailableDesc", ns: "settings", ("version", latestVersion)),
-                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.DarkOrange),
+                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Colors.DarkOrange),
                 TextWrapping = TextWrapping.Wrap
             });
             var canUpdate = info["canUpdate"]?.GetValue<bool>() ?? false;
