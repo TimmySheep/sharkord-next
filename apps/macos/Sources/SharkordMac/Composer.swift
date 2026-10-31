@@ -383,7 +383,7 @@ struct Composer: View {
         .onChange(of: editing?.id) { oldId, _ in
             if let editing {
                 if oldId == nil { textBeforeEditing = text }
-                text = MessageHTML.toPlainText(editing.content ?? "")
+                text = MessageHTML.toComposerText(editing.content ?? "")
             } else if let previous = textBeforeEditing {
                 text = previous
                 textBeforeEditing = nil
@@ -459,7 +459,7 @@ struct Composer: View {
             defer { sending = false }
             do {
                 if let editing = messageToEdit {
-                    let originalText = MessageHTML.toPlainText(editing.content ?? "")
+                    let originalText = MessageHTML.toComposerText(editing.content ?? "")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                     if trimmed != originalText {
                         try await session.editMessage(editing.id, text: trimmed)
@@ -472,17 +472,14 @@ struct Composer: View {
                     saveDraft()
                     return
                 } else {
-                    let entities = MessageHTML.withEntities(
-                        MessageHTML.fromPlainText(trimmed),
+                    let html = MessageHTML.fromComposerText(
+                        trimmed,
                         users: session.users.map { (id: $0.id, name: $0.name) },
-                        channels: session.channels.map { (id: $0.id, name: $0.name) }
-                    )
-
-                    let html = MessageHTML.withEmoji(
-                        entities,
+                        channels: session.channels.map { (id: $0.id, name: $0.name) },
                         emojis: session.emojis.compactMap { emoji in
                             emoji.file.map { (name: emoji.name, src: "/public/\($0.name)") }
-                        }
+                        },
+                        emojiGlyph: { EmojiCatalog.glyph(for: $0) }
                     )
 
                     try await session.sendRichMessage(

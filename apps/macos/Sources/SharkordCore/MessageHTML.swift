@@ -145,48 +145,227 @@ public enum MessageHTML {
         "<a href=\"\(escapeAttribute(href))\" target=\"_blank\" rel=\"noopener noreferrer\">\(escape(label))</a>"
     }
 
-    /// Wraps `@Name` and `#Channel` tokens that match a known entity in their semantic spans,
-    /// the way the editor's mention and channel reference nodes do. Longest names win so
-    /// `@Ada Lovelace` is one mention rather than `@Ada` plus loose text.
-    public static func withEntities(
-        _ html: String,
-        users: [(id: Int, name: String)],
-        channels: [(id: Int, name: String)]
-    ) -> String {
-        var output = html
+    // MARK: - composer text
 
-        for user in users.sorted(by: { $0.name.count > $1.name.count }) {
-            let needle = "@\(escape(user.name))"
-            output = output.replacingOccurrences(
-                of: needle,
-                with: mention(userId: user.id, name: user.name)
-            )
+    /// composer text -> message html, mirroring the web editor's markdown input rules. supports
+    /// fenced code blocks, `code`, **bold**, *italic*, [label](url) links,
+    /// `@[label](user:id)` mentions, `#[label](channel:id)` references, `:custom:emoji:`,
+    /// `:unicode_shortcode:` and bare urls. plain `@name`, `#name` and `:emoji:` tokens are also
+    /// resolved against the provided lists, so text typed without the explicit marker keeps
+    /// working. `emojiGlyph` maps a shortcode to its unicode character and returns the input
+    /// unchanged when unknown; it is injected so core does not depend on the emoji catalog the
+    /// app target bundles.
+    public static func fromComposerText(
+        _ text: String,
+        users: [(id: Int, name: String)] = [],
+        channels: [(id: Int, name: String)] = [],
+        emojis: [(name: String, src: String)] = [],
+        emojiGlyph: @escaping (String) -> String = { $0 }
+    ) -> String {
+        let normalized = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let inline = { (segment: String) in
+            formatInline(segment, users: users, channels: channels, emojis: emojis, emojiGlyph: emojiGlyph, depth: 0)
         }
 
-        for channel in channels.sorted(by: { $0.name.count > $1.name.count }) {
-            let needle = "#\(escape(channel.name))"
-            output = output.replacingOccurrences(
-                of: needle,
-                with: channelReference(channelId: channel.id, name: channel.name)
-            )
+        guard let fence = try? NSRegularExpression(
+            pattern: "```[^\\n]*\\n(.*?)\\n```",
+            options: [.dotMatchesLineSeparators]
+        ) else {
+            return "<p>\(inline(normalized))</p>"
+        }
+
+        let full = NSRange(normalized.startIndex..., in: normalized)
+        var output = ""
+        var cursor = 0
+        var sawFence = false
+
+        for match in fence.matches(in: normalized, options: [], range: full) {
+            sawFence = true
+            if let before = slice(NSRange(location: cursor, length: match.range.location - cursor), in: normalized) {
+                output += "<p>\(inline(before))</p>"
+            }
+            if let bodyRange = Range(match.range(at: 1), in: normalized) {
+                output += "<pre><code>\(escape(String(normalized[bodyRange])))</code></pre>"
+            }
+            cursor = match.range.location + match.range.length
+        }
+
+        if cursor < normalized.utf16.count || !sawFence {
+            if let tail = slice(NSRange(location: cursor, length: normalized.utf16.count - cursor), in: normalized) {
+                output += "<p>\(inline(tail))</p>"
+            }
         }
 
         return output
     }
 
-    /// Turns `:name:` shortcodes into custom emoji elements, matching the web editor's
-    /// emoji extension. Longest names win so `:party_parrot:` is not split.
-    public static func withEmoji(_ html: String, emojis: [(name: String, src: String)]) -> String {
-        var output = html
+    private static func formatInline(
+        _ text: String,
+        users: [(id: Int, name: String)],
+        channels: [(id: Int, name: String)],
+        emojis: [(name: String, src: String)],
+        emojiGlyph: (String) -> String,
+        depth: Int
+    ) -> String {
+        // malformed input stays bounded; deeper nesting just renders as plain text
+        guard depth <= 8 else {
+            return substituteEntities(escape(text), users: users, channels: channels, emojis: emojis, emojiGlyph: emojiGlyph)
+        }
 
-        for entry in emojis.sorted(by: { $0.name.count > $1.name.count }) {
-            output = output.replacingOccurrences(
-                of: ":\(escape(entry.name)):",
-                with: emoji(name: entry.name, src: entry.src)
-            )
+        let pattern = "`(?<code>[^`\\n]+)`"
+            + "|\\*\\*(?<bold>[^\\n]+?)\\*\\*"
+            + "|\\*(?<italic>[^*\\n]+)\\*"
+            + "|(?<mark>[@#])\\[(?<label>[^\\]\\n]+)\\]\\((?<kind>user|channel):(?<id>[1-9]\\d*)\\)"
+            + "|\\[(?<linklabel>[^\\]\\n]+)\\]\\((?<url>[^\\s)]+)\\)"
+            + "|(?<bare>https?://[^\\s<>]+)"
+
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return escape(text).replacingOccurrences(of: "\n", with: "<br>")
+        }
+
+        let full = NSRange(text.startIndex..., in: text)
+        var output = ""
+        var cursor = 0
+
+        for match in regex.matches(in: text, options: [], range: full) {
+            if let before = slice(NSRange(location: cursor, length: match.range.location - cursor), in: text) {
+                let run = escape(before).replacingOccurrences(of: "\n", with: "<br>")
+                output += substituteEntities(run, users: users, channels: channels, emojis: emojis, emojiGlyph: emojiGlyph)
+            }
+            output += inlineReplacement(match, in: text, users: users, channels: channels, emojis: emojis, emojiGlyph: emojiGlyph, depth: depth)
+            cursor = match.range.location + match.range.length
+        }
+
+        if let tail = slice(NSRange(location: cursor, length: text.utf16.count - cursor), in: text) {
+            let run = escape(tail).replacingOccurrences(of: "\n", with: "<br>")
+            output += substituteEntities(run, users: users, channels: channels, emojis: emojis, emojiGlyph: emojiGlyph)
         }
 
         return output
+    }
+
+    private static func inlineReplacement(
+        _ match: NSTextCheckingResult,
+        in text: String,
+        users: [(id: Int, name: String)],
+        channels: [(id: Int, name: String)],
+        emojis: [(name: String, src: String)],
+        emojiGlyph: (String) -> String,
+        depth: Int
+    ) -> String {
+        func value(_ name: String) -> String? {
+            let range = match.range(withName: name)
+            guard range.location != NSNotFound, let swift = Range(range, in: text) else { return nil }
+            return String(text[swift])
+        }
+
+        func raw() -> String {
+            guard let swift = Range(match.range, in: text) else { return "" }
+            return String(text[swift])
+        }
+
+        if let code = value("code") {
+            return "<code>\(escape(code))</code>"
+        }
+        if let bold = value("bold") {
+            let inner = formatInline(bold, users: users, channels: channels, emojis: emojis, emojiGlyph: emojiGlyph, depth: depth + 1)
+            return "<strong>\(inner)</strong>"
+        }
+        if let italic = value("italic") {
+            let inner = formatInline(italic, users: users, channels: channels, emojis: emojis, emojiGlyph: emojiGlyph, depth: depth + 1)
+            return "<em>\(inner)</em>"
+        }
+        if let mark = value("mark"), let label = value("label"), let kind = value("kind"), let idValue = value("id"), let id = Int(idValue), id > 0 {
+            return kind == "user"
+                ? mention(userId: id, name: label)
+                : channelReference(channelId: id, name: label)
+        }
+        if let url = value("url") ?? value("bare") {
+            guard isSafeLink(url) else { return escape(raw()) }
+            let label = value("linklabel") ?? url
+            return link(href: url, label: label)
+        }
+        return escape(raw())
+    }
+
+    /// applies mention, channel and emoji substitution to an already escaped text run. it only
+    /// runs on tag-free runs, so an anchor href can never be rewritten by accident.
+    private static func substituteEntities(
+        _ escaped: String,
+        users: [(id: Int, name: String)],
+        channels: [(id: Int, name: String)],
+        emojis: [(name: String, src: String)],
+        emojiGlyph: (String) -> String
+    ) -> String {
+        var output = escaped
+
+        // longest names win so `@Ada Lovelace` is one mention rather than `@Ada` plus loose text
+        for user in users.sorted(by: { $0.name.count > $1.name.count }) {
+            output = output.replacingOccurrences(of: "@\(escape(user.name))", with: mention(userId: user.id, name: user.name))
+        }
+        for channel in channels.sorted(by: { $0.name.count > $1.name.count }) {
+            output = output.replacingOccurrences(of: "#\(escape(channel.name))", with: channelReference(channelId: channel.id, name: channel.name))
+        }
+
+        return substituteEmoji(output, emojis: emojis, emojiGlyph: emojiGlyph)
+    }
+
+    private static func substituteEmoji(
+        _ html: String,
+        emojis: [(name: String, src: String)],
+        emojiGlyph: (String) -> String
+    ) -> String {
+        guard let regex = try? NSRegularExpression(pattern: ":([\\w+.-]+):") else { return html }
+        let full = NSRange(html.startIndex..., in: html)
+        var output = ""
+        var cursor = 0
+
+        for match in regex.matches(in: html, options: [], range: full) {
+            if let before = slice(NSRange(location: cursor, length: match.range.location - cursor), in: html) {
+                output += before
+            }
+
+            if let nameRange = Range(match.range(at: 1), in: html) {
+                let name = String(html[nameRange])
+                if let custom = emojis.first(where: { $0.name == name }) {
+                    output += emoji(name: name, src: custom.src)
+                } else {
+                    let glyph = emojiGlyph(name)
+                    if glyph != name {
+                        output += "<span data-type=\"emoji\" data-name=\"\(escapeAttribute(name))\">\(escape(glyph))</span>"
+                    } else {
+                        output += rawSlice(match.range, in: html)
+                    }
+                }
+            } else {
+                output += rawSlice(match.range, in: html)
+            }
+
+            cursor = match.range.location + match.range.length
+        }
+
+        if let tail = slice(NSRange(location: cursor, length: html.utf16.count - cursor), in: html) {
+            output += tail
+        }
+
+        return output
+    }
+
+    private static func isSafeLink(_ value: String) -> Bool {
+        guard let url = URL(string: value), let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https" || scheme == "mailto"
+    }
+
+    private static func slice(_ range: NSRange, in text: String) -> String? {
+        guard range.length >= 0, let swift = Range(range, in: text) else { return nil }
+        return String(text[swift])
+    }
+
+    private static func rawSlice(_ range: NSRange, in text: String) -> String {
+        guard let swift = Range(range, in: text) else { return "" }
+        return String(text[swift])
     }
 
     // MARK: - incoming
@@ -227,6 +406,87 @@ public enum MessageHTML {
         return lines
             .joined(separator: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// message html -> composer text for editing. emits markdown `fromComposerText` reads back,
+    /// so bold, italic, code, code blocks, links, mentions and channels survive an edit round
+    /// trip. underline, strike and spoiler have no composer input rule, so they flatten to text.
+    public static func toComposerText(_ html: String) -> String {
+        let document = parse(html)
+        var lines: [String] = []
+
+        for block in document.blocks {
+            if block.kind == .code {
+                lines.append("```\n\(plainSpans(block.spans))\n```")
+                continue
+            }
+
+            lines.append(block.spans.map(composerSpan).joined())
+        }
+
+        while lines.count > 1, lines.last?.isEmpty == true {
+            lines.removeLast()
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private static func plainSpans(_ spans: [MessageSpan]) -> String {
+        spans.map { span in
+            switch span.content {
+            case .text(let value): return value
+            case .lineBreak: return "\n"
+            default: return ""
+            }
+        }.joined()
+    }
+
+    private static func composerSpan(_ span: MessageSpan) -> String {
+        var text: String
+
+        switch span.content {
+        case .text(let value):
+            text = value
+        case .lineBreak:
+            return "\n"
+        case .mention(let userId, let label):
+            return mentionMarkup(marker: "@", label: label, kind: "user", id: userId)
+        case .channelReference(let channelId, let label):
+            return mentionMarkup(marker: "#", label: label, kind: "channel", id: channelId)
+        case .emoji(let name, let src):
+            // a custom emoji carries its src; a unicode emoji carries the glyph as its name
+            return src == nil ? name : ":\(name):"
+        case .media(_, let alt):
+            return alt
+        case .pluginCommand(let name):
+            return "/\(name)"
+        }
+
+        // code is literal, so it swallows the other inline styles
+        if span.code {
+            text = "`\(text)`"
+        } else {
+            if span.italic { text = "*\(text)*" }
+            if span.bold { text = "**\(text)**" }
+        }
+
+        if let href = span.href, isSafeLink(href) {
+            text = "[\(text.replacingOccurrences(of: "]", with: ")"))](\(href))"
+        }
+
+        return text
+    }
+
+    private static func mentionMarkup(marker: String, label: String, kind: String, id: Int?) -> String {
+        var clean = label
+        if clean.hasPrefix(marker) { clean = String(clean.dropFirst()) }
+        clean = clean.replacingOccurrences(of: "]", with: ")")
+
+        // an unresolved mention has no id, so keep its visible label as plain text
+        guard let id, id > 0 else { return marker + clean }
+        if clean.isEmpty { clean = String(id) }
+
+        return "\(marker)[\(clean)](\(kind):\(id))"
     }
 
     /// An empty message is one with no text, no media and no channel reference, matching the
