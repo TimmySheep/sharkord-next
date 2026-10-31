@@ -56,7 +56,17 @@ public class L10nTests
         "logsExportSuccessMessage",
         "logsExportFailureTitle",
         "logsExportFailureMessage",
-        "close"
+        "close",
+        "typingUsers",
+        "unreadMessages",
+        "newMessages",
+        "attachFiles",
+        "messageActions",
+        "online",
+        "offline",
+        "attachmentLimit",
+        "attachmentSizeLimit",
+        "removeAttachment"
     ];
 
     private static readonly string[] KeyboardShortcutMacKeys =

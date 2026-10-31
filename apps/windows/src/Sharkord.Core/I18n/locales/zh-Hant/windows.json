@@ -36,5 +36,15 @@
   "logsExportSuccessMessage": "診斷記錄已儲存至所選位置。",
   "logsExportFailureTitle": "無法匯出記錄",
   "logsExportFailureMessage": "Cove 無法儲存診斷記錄。請檢查檔案存取權限後再試一次。",
-  "close": "關閉"
+  "close": "關閉",
+  "typingUsers": "{{names}} 正在輸入…",
+  "unreadMessages": "未讀訊息",
+  "newMessages": "新訊息",
+  "attachFiles": "新增附件",
+  "messageActions": "訊息操作",
+  "online": "線上",
+  "offline": "離線",
+  "attachmentLimit": "最多可新增 {{count}} 個附件。",
+  "attachmentSizeLimit": "此檔案超過 {{size}} MB 的上傳限制。",
+  "removeAttachment": "移除 {{name}}"
 }

@@ -36,5 +36,15 @@
   "logsExportSuccessMessage": "Диагностические журналы сохранены в выбранном месте.",
   "logsExportFailureTitle": "Не удалось экспортировать журналы",
   "logsExportFailureMessage": "Cove не удалось сохранить диагностические журналы. Проверьте доступ к файлу и повторите попытку.",
-  "close": "Закрыть"
+  "close": "Закрыть",
+  "typingUsers": "Набор сообщения: {{names}}…",
+  "unreadMessages": "Непрочитанные сообщения",
+  "newMessages": "Новые сообщения",
+  "attachFiles": "Прикрепить файлы",
+  "messageActions": "Действия с сообщением",
+  "online": "В сети",
+  "offline": "Не в сети",
+  "attachmentLimit": "Можно прикрепить не более {{count}} файлов.",
+  "attachmentSizeLimit": "Файл превышает ограничение загрузки {{size}} МБ.",
+  "removeAttachment": "Убрать {{name}}"
 }

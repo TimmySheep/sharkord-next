@@ -36,5 +36,15 @@
   "logsExportSuccessMessage": "I log diagnostici sono stati salvati nella posizione selezionata.",
   "logsExportFailureTitle": "Impossibile esportare i log",
   "logsExportFailureMessage": "Cove non è riuscito a salvare i log diagnostici. Controlla l’accesso al file e riprova.",
-  "close": "Chiudi"
+  "close": "Chiudi",
+  "typingUsers": "Scrittura in corso: {{names}}…",
+  "unreadMessages": "Messaggi non letti",
+  "newMessages": "Nuovi messaggi",
+  "attachFiles": "Allega file",
+  "messageActions": "Azioni del messaggio",
+  "online": "Online",
+  "offline": "Offline",
+  "attachmentLimit": "Puoi allegare al massimo {{count}} file.",
+  "attachmentSizeLimit": "Questo file supera il limite di caricamento di {{size}} MB.",
+  "removeAttachment": "Rimuovi {{name}}"
 }

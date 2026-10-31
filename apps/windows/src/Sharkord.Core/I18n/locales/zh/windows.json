@@ -36,5 +36,15 @@
   "logsExportSuccessMessage": "诊断日志已保存到所选位置。",
   "logsExportFailureTitle": "无法导出日志",
   "logsExportFailureMessage": "Cove 无法保存诊断日志。请检查文件访问权限后重试。",
-  "close": "关闭"
+  "close": "关闭",
+  "typingUsers": "{{names}} 正在输入…",
+  "unreadMessages": "未读消息",
+  "newMessages": "新消息",
+  "attachFiles": "添加附件",
+  "messageActions": "消息操作",
+  "online": "在线",
+  "offline": "离线",
+  "attachmentLimit": "最多可添加 {{count}} 个附件。",
+  "attachmentSizeLimit": "此文件超过 {{size}} MB 的上传限制。",
+  "removeAttachment": "移除 {{name}}"
 }

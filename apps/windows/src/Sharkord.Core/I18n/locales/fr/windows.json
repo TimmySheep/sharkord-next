@@ -36,5 +36,15 @@
   "logsExportSuccessMessage": "Les journaux de diagnostic ont été enregistrés à l’emplacement choisi.",
   "logsExportFailureTitle": "Impossible d’exporter les journaux",
   "logsExportFailureMessage": "Cove n’a pas pu enregistrer les journaux de diagnostic. Vérifiez l’accès au fichier et réessayez.",
-  "close": "Fermer"
+  "close": "Fermer",
+  "typingUsers": "Saisie en cours : {{names}}…",
+  "unreadMessages": "Messages non lus",
+  "newMessages": "Nouveaux messages",
+  "attachFiles": "Joindre des fichiers",
+  "messageActions": "Actions du message",
+  "online": "En ligne",
+  "offline": "Hors ligne",
+  "attachmentLimit": "Vous pouvez joindre au maximum {{count}} fichiers.",
+  "attachmentSizeLimit": "Ce fichier dépasse la limite de {{size}} Mo.",
+  "removeAttachment": "Retirer {{name}}"
 }

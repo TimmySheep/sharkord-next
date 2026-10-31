@@ -36,5 +36,15 @@
   "logsExportSuccessMessage": "Diagnostické protokoly byly uloženy do vybraného umístění.",
   "logsExportFailureTitle": "Protokoly se nepodařilo exportovat",
   "logsExportFailureMessage": "Cove nemohl uložit diagnostické protokoly. Zkontrolujte přístup k souboru a zkuste to znovu.",
-  "close": "Zavřít"
+  "close": "Zavřít",
+  "typingUsers": "Psaní: {{names}}…",
+  "unreadMessages": "Nepřečtené zprávy",
+  "newMessages": "Nové zprávy",
+  "attachFiles": "Připojit soubory",
+  "messageActions": "Akce zprávy",
+  "online": "Online",
+  "offline": "Offline",
+  "attachmentLimit": "Můžete připojit nejvýše {{count}} souborů.",
+  "attachmentSizeLimit": "Tento soubor překračuje limit nahrávání {{size}} MB.",
+  "removeAttachment": "Odebrat {{name}}"
 }
