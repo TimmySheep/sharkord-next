@@ -128,4 +128,55 @@ public class HttpConformanceTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             handle(request);
     }
+
+    [Fact]
+    public async Task UploadReportsBytesWhilePreservingTheRawBodyAndLength()
+    {
+        var data = new byte[180_000];
+        Random.Shared.NextBytes(data);
+        var reports = new List<long>();
+        using var http = new HttpClient(new RequestHandler(async request =>
+        {
+            Assert.Equal(data.Length, request.Content!.Headers.ContentLength);
+            using var destination = new MemoryStream();
+            await request.Content.CopyToAsync(destination);
+            Assert.Equal(data, destination.ToArray());
+            return JsonResponse("{\"id\":\"temporary-id\"}");
+        }));
+        var client = new SharkordHttpClient(new Uri("https://example.test/"), http);
+        await client.UploadAsync(data, "data.bin", "application/octet-stream", "test-token",
+            progress: new InlineProgress(reports.Add));
+        Assert.Equal(0, reports[0]);
+        Assert.Equal(data.Length, reports[^1]);
+        Assert.Contains(reports, value => value > 0 && value < data.Length);
+        Assert.Equal(reports.Order(), reports);
+    }
+
+    [Fact]
+    public async Task UploadCancellationStopsBeforeReportingCompletion()
+    {
+        using var stop = new CancellationTokenSource();
+        var reports = new List<long>();
+        using var http = new HttpClient(new CancelableRequestHandler(async (request, ct) =>
+        {
+            await request.Content!.CopyToAsync(Stream.Null, ct);
+            return JsonResponse("{\"id\":\"temporary-id\"}");
+        }));
+        var client = new SharkordHttpClient(new Uri("https://example.test/"), http);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.UploadAsync(new byte[180_000],
+            "data.bin", "application/octet-stream", "test-token", stop.Token,
+            new InlineProgress(value => { reports.Add(value); if (value > 0) stop.Cancel(); })));
+        Assert.DoesNotContain(180_000L, reports);
+    }
+
+    private sealed class InlineProgress(Action<long> report) : IProgress<long>
+    {
+        public void Report(long value) => report(value);
+    }
+
+    private sealed class CancelableRequestHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handle) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            handle(request, cancellationToken);
+    }
 }

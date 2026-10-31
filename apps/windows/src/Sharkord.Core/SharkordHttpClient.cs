@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -98,7 +99,8 @@ public sealed class SharkordHttpClient
         string fileName,
         string mimeType,
         string token,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        IProgress<long>? progress = null
     )
     {
         try
@@ -107,7 +109,7 @@ public sealed class SharkordHttpClient
             request.Headers.Add("x-token", token);
             request.Headers.Add("x-file-name", Uri.EscapeDataString(fileName.Trim()));
             request.Headers.Add("x-file-type", mimeType);
-            request.Content = new ByteArrayContent(data);
+            request.Content = progress is null ? new ByteArrayContent(data) : new UploadContent(data, progress);
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
             using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -186,5 +188,30 @@ public sealed class SharkordHttpClient
         }
 
         return null;
+    }
+
+    private sealed class UploadContent(byte[] data, IProgress<long> progress) : HttpContent
+    {
+        protected override bool TryComputeLength(out long length)
+        {
+            length = data.LongLength;
+            return true;
+        }
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            SerializeToStreamAsync(stream, context, CancellationToken.None);
+
+        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken)
+        {
+            progress.Report(0);
+            for (var offset = 0; offset < data.Length;)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var count = Math.Min(64 * 1024, data.Length - offset);
+                await stream.WriteAsync(data.AsMemory(offset, count), cancellationToken).ConfigureAwait(false);
+                offset += count;
+                progress.Report(offset);
+            }
+        }
     }
 }
