@@ -115,3 +115,31 @@ preferences. Work is in `apps/macos` only, except one unavoidable worker change
   screen codec/bitrate/cursor, noise gate + threshold, simulcast. All reuse
   existing `settings`-ns keys when picked up later; no new locale keys were
   needed for this round.
+
+## 2026-10-31 — Phase 3 merge + bundle/TS divergence repair — DONE
+
+Both phase-3 branches merged into `development` and pushed (macOS merge
+`490eeab0`, Windows merge `42405c3d`). One taskbook parity-table row conflicted
+(both sides rewrote the same DEVICE row) and one voice-worker.js conflict; both
+resolved by merging the two descriptions and rebuilding from source.
+
+**Incident worth remembering:** the git-tracked voice-worker bundles had
+accumulated DIRECT hand-edits across phases 1-3 (every dev machine lacked bun,
+so agents edited the built JS instead of the TypeScript source). The first
+rebuild from source therefore silently dropped every bundle-only feature: the
+`window.coveMediaOptions` option channel (Windows C# injects it), external-stream
+consumption, qualityLayers passthrough, the phase-3 noise gate / DTLN / screen
+cursor+bitrate / mirroring work, and more. Detected by grepping the old vs new
+bundles for feature markers before calling it done.
+
+Repair (`90307711`): every bundle-only feature was ported back into
+`apps/client/scripts/voice-worker.ts` with platform-safe fallbacks — the
+Windows-only globals (`coveMediaOptions`, `videoProduceOptions`) are read
+optionally so macOS behaviour is unchanged — then both bundles were rebuilt
+from the single source of truth. Verified: `tsc --noEmit` clean, `node --test
+media-controls` 12/12, feature-marker grep confirms all APIs present in both
+bundles. Runtime device acceptance is still pending (GUI deferred).
+
+**Phase 3 final state:** macOS 6 commits (150 swift tests), Windows 6 commits
+(217 dotnet + 12 node tests), one TS port + rebuild. GUI/device acceptance
+remains deferred; the manual checklist in the taskbook is the acceptance path.
