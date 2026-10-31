@@ -15,6 +15,13 @@ public sealed partial class MainWindow
         RememberLoginBox.Content = L10n.T("rememberLogin", ns: "account");
         RememberLoginBox.IsChecked = false;
         RootGrid.Loaded += OnAccountRootLoaded;
+        _session.Changed += OnAccountSessionChanged;
+        Closed += (_, _) => _session.Changed -= OnAccountSessionChanged;
+    }
+
+    private void OnAccountSessionChanged()
+    {
+        if (_session.Phase != SessionPhase.Connected) { DispatcherQueue.TryEnqueue(CloseSettingsOverlay); }
     }
 
     private void LocaliseAccountControls() => RememberLoginBox.Content = L10n.T("rememberLogin", ns: "account");
@@ -28,7 +35,7 @@ public sealed partial class MainWindow
             var server = FilePreferences.Local.Get("account.lastServer", "");
             if (server.Length == 0) { return; }
             HostBox.Text = server;
-            IdentityBox.Text = FilePreferences.Local.Get("account.lastIdentity", "");
+            FilePreferences.Local.Remove("account.lastIdentity");
             if (!FilePreferences.Local.Get("account.automaticLogin", false)) { return; }
             var saved = WindowsCredentialStore.Read(server);
             if (saved is null) { return; }
@@ -46,15 +53,16 @@ public sealed partial class MainWindow
         try
         {
             FilePreferences.Local.Set("account.lastServer", server);
-            FilePreferences.Local.Set("account.lastIdentity", identity);
+            FilePreferences.Local.Remove("account.lastIdentity");
             if (remember) { WindowsCredentialStore.Save(server, identity, password); }
             else { WindowsCredentialStore.Remove(server); }
             FilePreferences.Local.Set("account.automaticLogin", remember);
         }
         catch (Exception exception)
         {
-            try { FilePreferences.Local.Set("account.automaticLogin", false); } catch (IOException) { }
+            try { FilePreferences.Local.Set("account.automaticLogin", false); FilePreferences.Local.Remove("account.lastIdentity"); } catch (Exception) { }
             ConnectError.Text = L10n.T("credentialFailure", ns: "account");
+            ChatErrorText.Text = ConnectError.Text;
             ClientLogStore.Shared.RecordError("account.remember.failed", exception);
         }
         PasswordBox.Password = "";
@@ -63,6 +71,10 @@ public sealed partial class MainWindow
 
     private void AddAccountActions(MenuFlyout menu)
     {
+        if (_session.Settings?.EnablePlugins != false && _session.HasPermission("USE_PLUGINS"))
+        {
+            AddNavigationAction(menu, L10n.T("commandsTitle", ns: "settings"), ShowJoinedPluginCommandsAsync);
+        }
         AddNavigationAction(menu, L10n.T("logout", ns: "account"), DisconnectAccountAsync);
     }
 
@@ -76,7 +88,8 @@ public sealed partial class MainWindow
             try { WindowsCredentialStore.Remove(server); }
             catch (Exception exception) { ClientLogStore.Shared.RecordError("account.forget.failed", exception); }
         }
-        if (_session.CurrentVoiceChannelId is not null) { await LeaveVoiceAsync(); }
+        try { if (_session.CurrentVoiceChannelId is not null) { await LeaveVoiceAsync(); } }
+        catch (Exception exception) { ClientLogStore.Shared.RecordError("account.voice_leave.failed", exception); }
         await _session.DisconnectAsync();
         PasswordBox.Password = "";
         ServerPasswordBox.Password = "";

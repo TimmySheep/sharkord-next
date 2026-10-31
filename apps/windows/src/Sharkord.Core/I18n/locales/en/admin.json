@@ -1,0 +1,13 @@
+{
+  "banReason": "Ban reason",
+  "wipeUserData": "Delete this user’s messages and files",
+  "uploadLogo": "Upload server logo",
+  "messagesTitle": "Messages and links",
+  "filesTitle": "Files",
+  "loginsTitle": "Recent logins",
+  "loadMore": "Load more",
+  "clearSecret": "Clear stored secret",
+  "invalidField": "Check the value for {{name}}.",
+  "executeCommand": "Execute command",
+  "resetAccess": "Reset to plugin default"
+}

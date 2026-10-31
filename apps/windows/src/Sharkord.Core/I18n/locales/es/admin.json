@@ -1,0 +1,13 @@
+{
+  "banReason": "Motivo del bloqueo",
+  "wipeUserData": "Eliminar los mensajes y archivos de este usuario",
+  "uploadLogo": "Subir logotipo del servidor",
+  "messagesTitle": "Mensajes y enlaces",
+  "filesTitle": "Archivos",
+  "loginsTitle": "Accesos recientes",
+  "loadMore": "Cargar más",
+  "clearSecret": "Borrar secreto guardado",
+  "invalidField": "Revisa el valor de {{name}}.",
+  "executeCommand": "Ejecutar comando",
+  "resetAccess": "Restablecer valor del complemento"
+}

@@ -456,7 +456,8 @@ public class L10nTests
     public void WinUiServerManagementSettingsUsePermissionCheckedProcedures()
     {
         var management = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Management.cs"));
-        var integrations = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Integrations.cs"));
+        var integrations = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.Settings.Integrations.cs")) +
+            File.ReadAllText(SourceFile("Sharkord.App/main-window-admin-plugins.cs"));
 
         Assert.Contains("roles.getAll", management);
         Assert.Contains("roles.update", management);

@@ -1,0 +1,13 @@
+{
+  "banReason": "Motivo do banimento",
+  "wipeUserData": "Excluir mensagens e arquivos deste usuário",
+  "uploadLogo": "Enviar logotipo do servidor",
+  "messagesTitle": "Mensagens e links",
+  "filesTitle": "Arquivos",
+  "loginsTitle": "Acessos recentes",
+  "loadMore": "Carregar mais",
+  "clearSecret": "Limpar segredo salvo",
+  "invalidField": "Verifique o valor de {{name}}.",
+  "executeCommand": "Executar comando",
+  "resetAccess": "Restaurar padrão do plugin"
+}

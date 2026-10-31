@@ -354,6 +354,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         Settings = join.PublicSettings;
         OwnUserId = join.OwnUserId;
         ShouldShowWelcomeProfile = join.ShowWelcomeDialog == true;
+        ApplyPluginSnapshot(join);
         _hasDirectMessageSnapshot = join.DirectMessages is not null;
         DirectMessages = join.DirectMessages ?? [];
         ServerName = join.ServerName;
@@ -392,6 +393,9 @@ public sealed partial class SharkordSession : IAsyncDisposable
         _subscriptions = new CancellationTokenSource();
         var token = _subscriptions.Token;
         SubscribeVoiceState(client, token);
+
+        Subscribe(client, "plugins.onCommandsChange", token, ApplyPluginCommands);
+        Subscribe(client, "plugins.onCapabilityAccessChange", token, ApplyPluginCapabilities);
 
         Subscribe(client, "messages.onNew", token, value =>
         {
@@ -1346,6 +1350,8 @@ public sealed partial class SharkordSession : IAsyncDisposable
         Settings = null;
         OwnUserId = 0;
         ShouldShowWelcomeProfile = false;
+        PluginCommands = [];
+        PluginCapabilityRules = [];
         SelectedChannelId = null;
         IsVoiceTextSelected = false;
         CurrentVoiceChannelId = null;

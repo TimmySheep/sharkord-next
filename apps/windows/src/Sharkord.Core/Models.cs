@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 
 namespace Sharkord.Core;
 
@@ -202,6 +203,8 @@ public sealed class JoinResult
     public Dictionary<int, VoiceChannelState>? VoiceMap { get; init; }
     public Dictionary<int, Dictionary<int, ExternalVoiceStream>>? ExternalStreamsMap { get; init; }
     public bool? ShowWelcomeDialog { get; init; }
+    public JsonObject? Commands { get; init; }
+    public List<PluginCapabilityRule>? PluginCapabilityAccess { get; init; }
 }
 
 public sealed class ChannelPermissionEntry

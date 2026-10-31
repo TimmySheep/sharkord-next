@@ -26,4 +26,13 @@ public sealed class AccountStateTests
         apply.Invoke(session, [new JoinResult { ShowWelcomeDialog = false }]);
         Assert.False(session.ShouldShowWelcomeProfile);
     }
+
+    [Fact]
+    public void CredentialInteropLayoutAndDiagnosticFormattingKeepSecretsOutOfText()
+    {
+        var credential = typeof(WindowsCredentialStore).GetNestedType("Credential", BindingFlags.NonPublic)!;
+        Assert.Equal(IntPtr.Size == 8 ? 80 : 52, System.Runtime.InteropServices.Marshal.SizeOf(credential));
+        var stored = new SavedCredential("test identity", "test-only secret");
+        Assert.DoesNotContain("test-only secret", stored.ToString()!);
+    }
 }

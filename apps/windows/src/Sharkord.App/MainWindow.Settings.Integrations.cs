@@ -9,69 +9,6 @@ namespace Sharkord.App;
 
 public sealed partial class MainWindow
 {
-    private async Task<FrameworkElement> BuildPluginSettingsAsync()
-    {
-        var result = await _session.CallQueryAsync("plugins.get") as JsonObject;
-        var plugins = result?["plugins"] as JsonArray ?? [];
-        var status = new TextBlock { TextWrapping = TextWrapping.Wrap };
-        var list = new StackPanel { Spacing = 8 };
-
-        foreach (var plugin in plugins.OfType<JsonObject>())
-        {
-            var pluginId = plugin["id"]?.GetValue<string>() ?? "";
-            var name = plugin["name"]?.GetValue<string>() ?? pluginId;
-            var enabled = new CheckBox
-            {
-                Content = $"{name}  {plugin["version"]?.GetValue<string>() ?? ""}",
-                IsChecked = plugin["enabled"]?.GetValue<bool>() ?? false
-            };
-            var error = plugin["loadError"]?.GetValue<string>();
-            var row = new StackPanel { Spacing = 4, Margin = new Thickness(0, 0, 0, 8) };
-            row.Children.Add(enabled);
-            if (!string.IsNullOrWhiteSpace(error))
-            {
-                row.Children.Add(new TextBlock
-                {
-                    Text = error,
-                    Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Colors.IndianRed),
-                    TextWrapping = TextWrapping.Wrap
-                });
-            }
-
-            enabled.Checked += async (_, _) =>
-            {
-                if (enabled.Tag is not true)
-                {
-                    await SetPluginEnabledAsync(pluginId, true, enabled, status);
-                }
-            };
-            enabled.Unchecked += async (_, _) =>
-            {
-                if (enabled.Tag is not true)
-                {
-                    await SetPluginEnabledAsync(pluginId, false, enabled, status);
-                }
-            };
-            list.Children.Add(row);
-        }
-
-        if (plugins.Count == 0)
-        {
-            list.Children.Add(new TextBlock { Text = L10n.T("noPluginsTitle", ns: "settings") });
-        }
-
-        var content = new StackPanel { Spacing = 10, Margin = new Thickness(20) };
-        content.Children.Add(new TextBlock
-        {
-            Text = L10n.T("pluginsManageDesc", ns: "settings"),
-            TextWrapping = TextWrapping.Wrap,
-            Opacity = 0.75
-        });
-        content.Children.Add(status);
-        content.Children.Add(list);
-        return new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-    }
-
     private async Task SetPluginEnabledAsync(string pluginId, bool enabled, CheckBox control, TextBlock status)
     {
         control.IsEnabled = false;

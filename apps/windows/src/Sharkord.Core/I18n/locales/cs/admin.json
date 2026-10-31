@@ -1,0 +1,13 @@
+{
+  "banReason": "Důvod zákazu",
+  "wipeUserData": "Smazat zprávy a soubory tohoto uživatele",
+  "uploadLogo": "Nahrát logo serveru",
+  "messagesTitle": "Zprávy a odkazy",
+  "filesTitle": "Soubory",
+  "loginsTitle": "Nedávná přihlášení",
+  "loadMore": "Načíst další",
+  "clearSecret": "Vymazat uložené tajemství",
+  "invalidField": "Zkontrolujte hodnotu pole {{name}}.",
+  "executeCommand": "Spustit příkaz",
+  "resetAccess": "Obnovit výchozí nastavení pluginu"
+}

@@ -1,0 +1,13 @@
+{
+  "banReason": "Motivo del blocco",
+  "wipeUserData": "Elimina messaggi e file di questo utente",
+  "uploadLogo": "Carica logo del server",
+  "messagesTitle": "Messaggi e link",
+  "filesTitle": "File",
+  "loginsTitle": "Accessi recenti",
+  "loadMore": "Carica altro",
+  "clearSecret": "Cancella segreto salvato",
+  "invalidField": "Controlla il valore di {{name}}.",
+  "executeCommand": "Esegui comando",
+  "resetAccess": "Ripristina valore del plugin"
+}
