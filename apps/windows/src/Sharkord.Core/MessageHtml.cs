@@ -5,7 +5,7 @@ namespace Sharkord.Core;
 
 /// <summary>
 /// converts plain composer text to the web editor's block and hard-break vocabulary.
-/// the Windows renderer currently uses a plain-text fallback for incoming rich HTML.
+/// rich parsing and safe composer formatting live in the matching partial file.
 /// </summary>
 public static partial class MessageHtml
 {

@@ -15,13 +15,28 @@ public static class EmojiCatalog
 
     public static IReadOnlyList<StandardEmoji> All => Catalog.Value;
 
-    public static string Glyph(string shortcode) => All.FirstOrDefault(emoji =>
-        emoji.Shortcodes.Contains(shortcode, StringComparer.OrdinalIgnoreCase))?.Emoji ?? shortcode;
+    public static IReadOnlyList<StandardEmoji> Tones { get; } =
+    [
+        new("tone1", "🏻", ["tone1", "tone_light"], "components"),
+        new("tone2", "🏼", ["tone2", "tone_medium_light"], "components"),
+        new("tone3", "🏽", ["tone3", "tone_medium"], "components"),
+        new("tone4", "🏾", ["tone4", "tone_medium_dark"], "components"),
+        new("tone5", "🏿", ["tone5", "tone_dark"], "components")
+    ];
+
+    private static readonly Lazy<IReadOnlyDictionary<string, StandardEmoji>> ByShortcode = new(() =>
+        All.Concat(Tones).SelectMany(emoji => emoji.Shortcodes.Select(code => (Code: code, Emoji: emoji)))
+            .GroupBy(entry => entry.Code, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Emoji, StringComparer.OrdinalIgnoreCase));
+
+    public static string? ReactionShortcode(StandardEmoji emoji) => emoji.Shortcodes.FirstOrDefault(code => code.Length is > 0 and <= 32);
+
+    public static string Glyph(string shortcode) => ByShortcode.Value.TryGetValue(shortcode, out var emoji) ? emoji.Emoji : shortcode;
 
     public static IEnumerable<StandardEmoji> Search(string query)
     {
         var needle = query.Trim();
-        return All.Where(emoji => emoji.Name.Contains(needle, StringComparison.OrdinalIgnoreCase) ||
+        return All.Concat(Tones).Where(emoji => emoji.Name.Contains(needle, StringComparison.OrdinalIgnoreCase) ||
             emoji.Shortcodes.Any(code => code.Contains(needle, StringComparison.OrdinalIgnoreCase)));
     }
 }
