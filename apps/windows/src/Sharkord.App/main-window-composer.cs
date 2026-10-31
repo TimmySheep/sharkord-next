@@ -244,7 +244,7 @@ public sealed partial class MainWindow
                 {
                     return;
                 }
-                if (_session.SelectedChannelId == channelId)
+                if (_displayedChannelId == channelId)
                 {
                     _pendingAttachments.Add(pending);
                 }
