@@ -55,7 +55,10 @@ public sealed class SharkordChannel
     public long? UpdatedAt { get; init; }
 
     [JsonIgnore]
-    public bool IsVoice => !IsDm && string.Equals(Type, "VOICE", StringComparison.OrdinalIgnoreCase);
+    public bool IsVoice => !IsDm && SupportsVoice;
+
+    [JsonIgnore]
+    public bool SupportsVoice => string.Equals(Type, "VOICE", StringComparison.OrdinalIgnoreCase);
 
     [JsonIgnore]
     public bool IsText => !IsVoice;
@@ -193,6 +196,7 @@ public sealed class JoinResult
     public bool? OwnUserPasswordSet { get; init; }
     public SharkordSettings PublicSettings { get; init; } = new();
     public Dictionary<string, long>? ReadStates { get; init; }
+    public List<DirectMessageConversation>? DirectMessages { get; init; }
     public bool? ShowWelcomeDialog { get; init; }
 }
 
@@ -244,6 +248,7 @@ public sealed class DirectMessageConversation
     public int UserId { get; init; }
     public int UnreadCount { get; init; }
     public long LastMessageAt { get; init; }
+    public long? ClosedAt { get; init; }
 }
 
 public sealed class ReadStateUpdate

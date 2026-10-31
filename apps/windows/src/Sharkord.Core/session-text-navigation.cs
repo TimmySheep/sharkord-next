@@ -41,6 +41,8 @@ public sealed partial class SharkordSession
     public bool CanManageMessage(SharkordMessage message) =>
         message.UserId == OwnUserId || HasPermission("MANAGE_MESSAGES");
 
+    public long HistoryGeneration { get { lock (_gate) { return _historyGeneration; } } }
+
     public long ThreadRevision { get { lock (_gate) { return _nextMessageRevision; } } }
 
     public bool HasNewerMessages(int channelId)
@@ -143,5 +145,36 @@ public sealed partial class SharkordSession
             return entries.Where(entry => entry.Key != OwnUserId && DateTime.UtcNow - entry.Value < ProtocolDefaults.TypingWindow)
                 .Select(entry => User(entry.Key)).OfType<SharkordUser>().ToArray();
         }
+    }
+
+    private void ApplyConversationUpdate(JsonNode value)
+    {
+        var conversation = value.DeserializeObject<DirectMessageConversation>();
+        if (conversation is null) { return; }
+        DirectMessages = DirectMessages.Where(existing => existing.ChannelId != conversation.ChannelId).Append(conversation).ToArray();
+        Notify();
+    }
+
+    private void ApplyChannelPermissions(JsonNode value)
+    {
+        ChannelPermissions = value.DeserializeObject<Dictionary<int, ChannelPermissionEntry>>() ?? [];
+        lock (_gate)
+        {
+            _historyGeneration++;
+            foreach (var channel in Channels.Where(channel => !CanViewChannel(channel)))
+            {
+                _messagesByChannel.Remove(channel.Id);
+                _cursors.Remove(channel.Id);
+                _loadedChannels.Remove(channel.Id);
+                _messageRevisions[channel.Id] = ++_nextMessageRevision;
+                foreach (var parentId in _messagesByThread.Where(entry => entry.Value.Any(message => message.ChannelId == channel.Id)).Select(entry => entry.Key).ToArray())
+                {
+                    _messagesByThread.Remove(parentId);
+                    _threadCursors.Remove(parentId);
+                }
+                if (SelectedChannelId == channel.Id) { SelectedChannelId = null; }
+            }
+        }
+        Notify();
     }
 }

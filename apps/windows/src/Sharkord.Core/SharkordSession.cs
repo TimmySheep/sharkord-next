@@ -45,6 +45,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
     private string? _token;
     private int _reconnectAttempt;
     private bool _stopping;
+    private bool _hasDirectMessageSnapshot;
     private CancellationTokenSource? _subscriptions;
     private CancellationTokenSource? _voiceSubscriptions;
 
@@ -116,7 +117,8 @@ public sealed partial class SharkordSession : IAsyncDisposable
     public IEnumerable<SharkordChannel> TextChannels => Channels.Where(c => c.IsText && !c.IsDm);
 
     public IEnumerable<SharkordChannel> DirectMessageChannels =>
-        Channels.Where(c => c.IsDm).OrderBy(c => c.CreatedAt);
+        Channels.Where(c => c.IsDm && (!_hasDirectMessageSnapshot || DirectMessages.Any(conversation => conversation.ChannelId == c.Id && conversation.ClosedAt is null)))
+            .OrderBy(c => c.CreatedAt);
 
     public SharkordChannel? Channel(int id) => Channels.FirstOrDefault(c => c.Id == id);
 
@@ -220,7 +222,9 @@ public sealed partial class SharkordSession : IAsyncDisposable
     }
 
     public int ReplyCount(SharkordMessage message)
-        => _replyCounts.TryGetValue(message.Id, out var count) ? count : message.ReplyCount ?? 0;
+    {
+        lock (_gate) { return _replyCounts.TryGetValue(message.Id, out var count) ? count : message.ReplyCount ?? 0; }
+    }
 
     public DirectMessageConversation? Conversation(int channelId)
         => DirectMessages.FirstOrDefault(c => c.ChannelId == channelId);
@@ -332,7 +336,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         StartSubscriptions(client, cancellationToken);
         _reconnectAttempt = 0;
 
-        await LoadDirectMessagesQuietlyAsync().ConfigureAwait(false);
+        if (!_hasDirectMessageSnapshot) { await LoadDirectMessagesQuietlyAsync().ConfigureAwait(false); }
         if (SelectedChannelId is { } selectedChannelId)
         {
             await SelectChannelAsync(selectedChannelId, cancellationToken).ConfigureAwait(false);
@@ -349,6 +353,8 @@ public sealed partial class SharkordSession : IAsyncDisposable
         Emojis = join.Emojis;
         Settings = join.PublicSettings;
         OwnUserId = join.OwnUserId;
+        _hasDirectMessageSnapshot = join.DirectMessages is not null;
+        DirectMessages = join.DirectMessages ?? [];
         ServerName = join.ServerName;
 
         lock (_gate)
@@ -365,9 +371,9 @@ public sealed partial class SharkordSession : IAsyncDisposable
             }
         }
 
-        if (SelectedChannelId is null || !Channels.Any(channel => channel.Id == SelectedChannelId))
+        if (SelectedChannelId is null || !Channels.Any(channel => channel.Id == SelectedChannelId && CanViewChannel(channel)))
         {
-            var first = TextChannels.FirstOrDefault() ?? DirectMessageChannels.FirstOrDefault();
+            var first = TextChannels.FirstOrDefault(CanViewChannel) ?? DirectMessageChannels.FirstOrDefault(CanViewChannel);
 
             if (first is not null)
             {
@@ -434,7 +440,11 @@ public sealed partial class SharkordSession : IAsyncDisposable
 
             if (update is not null)
             {
-                _replyCounts[update.MessageId] = update.ReplyCount;
+                lock (_gate)
+                {
+                    _replyCounts[update.MessageId] = update.ReplyCount;
+                    _messageRevisions[update.ChannelId] = ++_nextMessageRevision;
+                }
                 Notify();
             }
         });
@@ -484,11 +494,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
             }
         });
 
-        Subscribe(client, "channels.onPermissionsUpdate", token, value =>
-        {
-            ChannelPermissions = value.DeserializeObject<Dictionary<int, ChannelPermissionEntry>>() ?? [];
-            Notify();
-        });
+        Subscribe(client, "channels.onPermissionsUpdate", token, ApplyChannelPermissions);
 
         Subscribe(client, "channels.onCreate", token, value => UpsertChannel(value));
         Subscribe(client, "channels.onUpdate", token, value => UpsertChannel(value));
@@ -566,7 +572,11 @@ public sealed partial class SharkordSession : IAsyncDisposable
             }
         });
 
-        Subscribe(client, "dms.onConversationOpen", token, ignored => _ = LoadDirectMessagesQuietlyAsync());
+        if (_hasDirectMessageSnapshot)
+        {
+            Subscribe(client, "dms.onConversationUpdate", token, ApplyConversationUpdate);
+        }
+        else { Subscribe(client, "dms.onConversationOpen", token, ignored => _ = LoadDirectMessagesQuietlyAsync()); }
     }
 
     private void Subscribe(
@@ -744,6 +754,9 @@ public sealed partial class SharkordSession : IAsyncDisposable
         {
             _messagesByChannel.Remove(channelId);
             _messageRevisions.Remove(channelId);
+            _loadedChannels.Remove(channelId);
+            _cursors.Remove(channelId);
+            _hasNewer.Remove(channelId);
         }
 
         if (SelectedChannelId == channelId)
@@ -1309,6 +1322,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         ChannelPermissions = new Dictionary<int, ChannelPermissionEntry>();
         Emojis = [];
         DirectMessages = [];
+        _hasDirectMessageSnapshot = false;
         Settings = null;
         OwnUserId = 0;
         SelectedChannelId = null;

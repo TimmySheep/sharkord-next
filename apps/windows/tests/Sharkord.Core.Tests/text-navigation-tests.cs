@@ -133,5 +133,101 @@ public class TextNavigationTests
         Apply(session, new JoinResult());
         Assert.False(session.CanOpenDirectMessage(new() { Id = 2 }));
     }
+
+    [Fact]
+    public async Task JoinConversationSnapshotReplacesStateAndHidesClosedConversations()
+    {
+        await using var session = new SharkordSession();
+        Apply(session, JsonNode.Parse("{\"channels\":[{\"id\":7,\"isDm\":true},{\"id\":8,\"isDm\":true}],\"directMessages\":[{\"channelId\":7,\"userId\":2},{\"channelId\":8,\"userId\":3,\"closedAt\":100}]}").DeserializeObject<JoinResult>()!);
+        Assert.Equal(7, Assert.Single(session.DirectMessageChannels).Id);
+        Assert.Equal(2, session.Conversation(7)?.UserId);
+        Apply(session, JsonNode.Parse("{\"directMessages\":[]}").DeserializeObject<JoinResult>()!);
+        Assert.Empty(session.DirectMessages);
+    }
+
+    [Fact]
+    public async Task ThreadSendPreservesParentAndReplyIdentifiers()
+    {
+        await WebSocketConformanceTests.WithConnectionAsync(async (client, server, token) =>
+        {
+            var session = new SharkordSession();
+            typeof(SharkordSession).GetField("_client", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(session, client);
+            var send = session.SendMessageAsync(7, "reply text", 13, cancellationToken: token, parentMessageId: 12);
+            var request = JsonNode.Parse(await WebSocketConformanceTests.ReceiveAsync(server, token))!;
+            Assert.Equal("mutation", request["method"]!.GetValue<string>());
+            Assert.Equal("messages.send", request["params"]!["path"]!.GetValue<string>());
+            var input = request["params"]!["input"]!;
+            Assert.Equal(7, input["channelId"]!.GetValue<int>());
+            Assert.Equal(12, input["parentMessageId"]!.GetValue<int>());
+            Assert.Equal(13, input["replyToMessageId"]!.GetValue<int>());
+            Assert.Equal("<p>reply text</p>", input["content"]!.GetValue<string>());
+            await WebSocketConformanceTests.SendAsync(server, $"{{\"id\":{request["id"]},\"result\":{{\"data\":null}}}}", token);
+            await send;
+        });
+    }
+
+    [Fact]
+    public async Task OlderJumpResponseCannotOverrideReturnToPresent()
+    {
+        await WebSocketConformanceTests.WithConnectionAsync(async (client, server, token) =>
+        {
+            var session = new SharkordSession();
+            typeof(SharkordSession).GetField("_client", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(session, client);
+            var jump = session.JumpToMessageAsync(7, 12, token);
+            var old = JsonNode.Parse(await WebSocketConformanceTests.ReceiveAsync(server, token))!;
+            var present = session.ReturnToPresentAsync(7, token);
+            var current = JsonNode.Parse(await WebSocketConformanceTests.ReceiveAsync(server, token))!;
+            await Respond(current, 99);
+            await present;
+            await Respond(old, 12);
+            await jump;
+            Assert.Equal(99, Assert.Single(session.GetMessagesSnapshot(7)).Id);
+            Task Respond(JsonNode request, int id) => WebSocketConformanceTests.SendAsync(server,
+                $"{{\"id\":{request["id"]},\"result\":{{\"data\":{{\"messages\":[{{\"id\":{id},\"channelId\":7}}]}}}}}}", token);
+        });
+    }
+
+    [Fact]
+    public async Task LegacyConversationQueryRemainsAvailableWithoutJoinSnapshot()
+    {
+        await WebSocketConformanceTests.WithConnectionAsync(async (client, server, token) =>
+        {
+            var session = new SharkordSession();
+            Apply(session, new JoinResult { Channels = [new() { Id = 7, IsDm = true }] });
+            typeof(SharkordSession).GetField("_client", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(session, client);
+            var load = session.LoadDirectMessagesAsync(token);
+            var request = JsonNode.Parse(await WebSocketConformanceTests.ReceiveAsync(server, token))!;
+            Assert.Equal("dms.get", request["params"]!["path"]!.GetValue<string>());
+            await WebSocketConformanceTests.SendAsync(server, $"{{\"id\":{request["id"]},\"result\":{{\"data\":[{{\"channelId\":7,\"userId\":2}}]}}}}", token);
+            await load;
+            Assert.Equal(2, Assert.Single(session.DirectMessages).UserId);
+            Assert.Equal(7, Assert.Single(session.DirectMessageChannels).Id);
+        });
+    }
+
+    [Fact]
+    public async Task ConversationUpdatesCloseAndReopenSnapshotRows()
+    {
+        await using var session = new SharkordSession();
+        Apply(session, JsonNode.Parse("{\"channels\":[{\"id\":7,\"isDm\":true}],\"directMessages\":[{\"channelId\":7,\"userId\":2}]}").DeserializeObject<JoinResult>()!);
+        var update = typeof(SharkordSession).GetMethod("ApplyConversationUpdate", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        update.Invoke(session, [JsonNode.Parse("{\"channelId\":7,\"userId\":2,\"closedAt\":100}")!]);
+        Assert.Empty(session.DirectMessageChannels);
+        update.Invoke(session, [JsonNode.Parse("{\"channelId\":7,\"userId\":2,\"closedAt\":null}")!]);
+        Assert.Equal(7, Assert.Single(session.DirectMessageChannels).Id);
+    }
+
+    [Fact]
+    public async Task PermissionRevocationDropsPrivateHistoryAndSelection()
+    {
+        await using var session = new SharkordSession();
+        Apply(session, new JoinResult { Channels = [new() { Id = 7, IsPrivate = true }], ChannelPermissions = new() { [7] = new() { Permissions = new() { ["VIEW_CHANNEL"] = true } } } });
+        typeof(SharkordSession).GetMethod("Upsert", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(session, [new SharkordMessage { Id = 1, ChannelId = 7 }, false]);
+        typeof(SharkordSession).GetMethod("ApplyChannelPermissions", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(session, [new JsonObject()]);
+        Assert.Empty(session.GetMessagesSnapshot(7));
+        Assert.Null(session.SelectedChannelId);
+        Assert.False(session.CanViewChannel(session.Channel(7)!));
+    }
 }
 
