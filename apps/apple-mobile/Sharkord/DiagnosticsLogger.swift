@@ -5,7 +5,7 @@ final class DiagnosticsLogger {
 
     private let queue = DispatchQueue(label: "cove.diagnostics.log")
     private let maximumFileBytes = 512 * 1024
-    private let maximumPreviewCharacters = 12_000
+    private let maximumRetainedCharacters = 12_000
     private let logDirectory: URL?
 
     private init() {
@@ -40,17 +40,18 @@ final class DiagnosticsLogger {
     func recentText() -> String {
         queue.sync {
             let text = readAllLogs()
-            return String(text.suffix(maximumPreviewCharacters))
+            return String(text.suffix(maximumRetainedCharacters))
         }
     }
 
-    func exportURL() throws -> URL {
+    func exportURL(additionalLogs: String? = nil) throws -> URL {
         try queue.sync {
             guard let logDirectory else {
                 throw CocoaError(.fileNoSuchFile)
             }
             let app = Bundle.main.bundleIdentifier?.components(separatedBy: ".").last ?? "mobile"
             let url = FileManager.default.temporaryDirectory.appendingPathComponent("cove-\(app)-logs.txt")
+            let additionalSection = additionalLogs.map { "\n\nApple Watch logs\n\n\($0)" } ?? ""
             let contents = """
             cove diagnostic log
             app: \(app)
@@ -59,7 +60,7 @@ final class DiagnosticsLogger {
             os: \(ProcessInfo.processInfo.operatingSystemVersionString)
             logs: \(logDirectory.lastPathComponent)
 
-            \(readAllLogs())
+            \(readAllLogs())\(additionalSection)
             """
             try contents.data(using: .utf8)?.write(to: url, options: .atomic)
             return url

@@ -5,7 +5,9 @@ import SharkordCore
 struct WatchChannelListView: View {
     @EnvironmentObject private var session: SharkordSession
     @EnvironmentObject private var model: WatchSessionModel
+    @Binding var isSearchActive: Bool
     @State private var searchText = ""
+    @FocusState private var searchFocused: Bool
 
     private var channels: [SharkordChannel] {
         session.channels.filter { channel in
@@ -17,14 +19,19 @@ struct WatchChannelListView: View {
         ScrollView {
             VStack(spacing: 8) {
                 Text(L10n.t("nav.channels"))
-                    .font(.headline)
+                    .font(.system(size: 27, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                TextField(L10n.t("channel.searchPlaceholder"), text: $searchText)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .padding(8)
-                    .background(WatchTheme.field, in: RoundedRectangle(cornerRadius: WatchTheme.fieldCorner, style: .continuous))
+                if isSearchActive {
+                    TextField(L10n.t("channel.searchPlaceholder"), text: $searchText)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused($searchFocused)
+                        .padding(8)
+                        .background(WatchTheme.field, in: RoundedRectangle(cornerRadius: WatchTheme.fieldCorner, style: .continuous))
+                }
 
                 let regular = channels.filter { !$0.isDm }
                 ForEach(session.categories) { category in
@@ -48,13 +55,6 @@ struct WatchChannelListView: View {
                     section(L10n.t("nav.directMessages"), channels: directMessages)
                 }
 
-                NavigationLink {
-                    WatchDiagnosticsView()
-                } label: {
-                    Label(L10n.t("settings.viewLogs"), systemImage: "doc.text")
-                        .font(.caption.weight(.semibold))
-                }
-
                 Button(role: .destructive) {
                     Task {
                         await model.disconnect()
@@ -65,6 +65,12 @@ struct WatchChannelListView: View {
                 }
             }
             .padding(.horizontal, 6)
+        }
+        .onChange(of: isSearchActive) { _, active in
+            searchFocused = active
+            if !active {
+                searchText = ""
+            }
         }
     }
 
@@ -91,8 +97,12 @@ struct WatchChannelListView: View {
         WatchCard {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Image(systemName: channel.type == .voice ? "dot.radiowaves.left.and.right" : "number")
-                        .foregroundStyle(WatchTheme.accentSoft)
+                    if channel.type == .voice {
+                        WatchBrandMark(size: 17)
+                    } else {
+                        Image(systemName: "number")
+                            .foregroundStyle(WatchTheme.accentSoft)
+                    }
                     Text(channel.name)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(WatchTheme.textPrimary)

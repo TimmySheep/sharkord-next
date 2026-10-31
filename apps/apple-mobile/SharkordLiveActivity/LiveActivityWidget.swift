@@ -2,9 +2,7 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-/// the widget extension's entry point. every view here renders the *shape* of a session rather than
-/// live data: it reads whatever `LiveActivityAttributes.ContentState` it is handed, and nothing in
-/// the app hands it real session state yet.
+/// renders the active voice session in the Dynamic Island and on the lock screen.
 struct SharkordLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: LiveActivityAttributes.self) { context in
@@ -24,15 +22,19 @@ struct SharkordLiveActivityWidget: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    VStack(alignment: .trailing, spacing: 1) {
-                        Image(systemName: "person.2.fill")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.85))
-                        Text("\(context.state.participantCount)")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
+                    HStack(spacing: 10) {
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Image(systemName: "person.2.fill")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.85))
+                            Text("\(context.state.participantCount)")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                        }
+                        .accessibilityElement(children: .combine)
+
+                        MicrophoneToggleLink(isMicrophoneOn: context.state.isSpeaking)
                     }
-                    .accessibilityElement(children: .combine)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
@@ -115,6 +117,8 @@ private struct ChannelLiveActivityView: View {
                         .padding(.horizontal, 7)
                         .padding(.vertical, 4)
                         .background(.white.opacity(0.2), in: Capsule())
+
+                    MicrophoneToggleLink(isMicrophoneOn: context.state.isSpeaking)
                 }
 
                 Text(context.state.topic)
@@ -132,6 +136,25 @@ private struct ChannelLiveActivityView: View {
         }
         .frame(height: 150)
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct MicrophoneToggleLink: View {
+    let isMicrophoneOn: Bool
+
+    var body: some View {
+        Link(destination: URL(string: "cove://voice/toggle-microphone")!) {
+            Image(systemName: isMicrophoneOn ? "mic.fill" : "mic.slash.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 34, height: 34)
+                .background(.white.opacity(0.2), in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            Text(LocalizedStringKey(isMicrophoneOn ? "liveActivity.muteMicrophone" : "liveActivity.unmuteMicrophone"))
+        )
     }
 }
 

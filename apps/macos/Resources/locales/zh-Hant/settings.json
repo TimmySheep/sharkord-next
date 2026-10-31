@@ -70,6 +70,7 @@
   "noiseSuppressionNone": "無",
   "noiseSuppressionInfoTitle": "噪音抑制模式",
   "noiseSuppressionInfoDescription": "下表列出各模式的大致取捨。實際的 CPU、記憶體使用量與語音品質會因瀏覽器、裝置和麥克風而異。",
+  "noiseSuppressionMixDescription": "調整 RNNoise 處理後的聲音混入麥克風音訊的比例。這是混合比例，不是模型內部的降噪強度。",
   "noiseSuppressionTechniqueColumn": "技術",
   "noiseSuppressionMemoryUsageColumn": "記憶體使用量",
   "noiseSuppressionCpuUsageColumn": "CPU 使用量",

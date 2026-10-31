@@ -1,4 +1,9 @@
 {
+  "developerTab": "Développement",
+  "messagePlaceholder": "Saisissez un message ici",
+  "messageNotAllowed": "Vous ne pouvez pas envoyer de messages ici",
+  "noiseModeOff": "Désactivé",
+  "noiseModeStandard": "Standard",
   "selectChannel": "Sélectionnez un salon",
   "moveUp": "Déplacer vers le haut",
   "moveDown": "Déplacer vers le bas",

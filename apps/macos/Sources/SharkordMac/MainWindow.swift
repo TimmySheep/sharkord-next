@@ -97,14 +97,7 @@ struct MainWindow: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
-            Text(session.serverName)
-                .font(.headline)
-        }
-
         ToolbarItemGroup(placement: .primaryAction) {
-            DiagnosticLogExportButton()
-
             if session.settings?.enableSearch != false {
                 Button {
                     showsSearch = true
@@ -121,13 +114,6 @@ struct MainWindow: View {
                 Label(L10n.t("membersButton", ns: "macos"), systemImage: "person.2")
             }
             .help(showsMembers ? "Close members sidebar" : "Open members sidebar")
-
-            Button {
-                settingsSection = .general
-            } label: {
-                Label(L10n.t("settingsButton", ns: "macos"), systemImage: "gearshape")
-            }
-            .help("Settings")
 
             Button {
                 session.disconnect()

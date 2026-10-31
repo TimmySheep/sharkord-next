@@ -1,4 +1,8 @@
 {
+  "pushToTalkTitle": "Pulsar para hablar (mantén F13)",
+  "pushToTalkDescription": "Mantén F13 para activar temporalmente el micrófono mientras estás conectado a voz.",
+  "pushToTalkReady": "Mantén F13 para activar temporalmente el micrófono.",
+  "pushToTalkUnavailable": "No se pudo activar el acceso global al teclado. Reinicia Cove e inténtalo de nuevo.",
   "tagline": "Cliente nativo de Windows",
   "serverAddress": "Dirección del servidor",
   "serverPassword": "Contraseña del servidor (opcional)",

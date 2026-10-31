@@ -1,4 +1,8 @@
 {
+  "pushToTalkTitle": "按鍵通話（按住 F13）",
+  "pushToTalkDescription": "語音連線時按住 F13 可暫時取消麥克風靜音。",
+  "pushToTalkReady": "按住 F13 可暫時取消麥克風靜音。",
+  "pushToTalkUnavailable": "無法啟用全域鍵盤掛鉤。請重新啟動 Cove 後再試。",
   "tagline": "Windows 原生用戶端",
   "serverAddress": "伺服器位址",
   "serverPassword": "伺服器密碼（選填）",

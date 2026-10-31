@@ -22,7 +22,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -53,8 +52,7 @@ fun DirectMessagesDestination(
     splitLayout: Boolean,
     showMemberPicker: Boolean,
     onMemberPickerDismiss: () -> Unit,
-    onOpenConversation: () -> Unit,
-    onCreateConversation: () -> Unit = {}
+    onOpenConversation: () -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val conversations = remember(state.conversations, state.channels, state.users) {
@@ -79,8 +77,7 @@ fun DirectMessagesDestination(
                         model.selectChannel(channelId)
                         if (!splitLayout) onOpenConversation()
                     },
-                    modifier = Modifier.width(340.dp).fillMaxHeight(),
-                    onCreateConversation = onCreateConversation
+                    modifier = Modifier.width(340.dp).fillMaxHeight()
                 )
                 VerticalDivider()
                 if (selectedChannel != null) {
@@ -111,8 +108,7 @@ fun DirectMessagesDestination(
                     model.selectChannel(channelId)
                     if (!splitLayout) onOpenConversation()
                 },
-                modifier = Modifier.fillMaxSize(),
-                onCreateConversation = onCreateConversation
+                modifier = Modifier.fillMaxSize()
             )
         }
     }
@@ -146,8 +142,7 @@ private fun ConversationList(
     query: String,
     onQueryChange: (String) -> Unit,
     onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    onCreateConversation: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     val visibleConversations = remember(conversations, query) {
         conversations.filter { (_, pair) -> pair.second.name.contains(query.trim(), ignoreCase = true) }
@@ -164,12 +159,10 @@ private fun ConversationList(
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp)
         )
         if (visibleConversations.isEmpty()) {
-            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                EmptyContent(title = stringResource(R.string.no_conversations), modifier = Modifier.weight(1f))
-                TextButton(onClick = onCreateConversation) {
-                    Text(stringResource(R.string.new_message))
-                }
-            }
+            EmptyContent(
+                title = stringResource(R.string.no_conversations),
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),

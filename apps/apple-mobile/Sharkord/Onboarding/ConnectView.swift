@@ -55,6 +55,11 @@ struct ConnectView: View {
             }
 
             ScreenTitle(text: L10n.t("connect.title"))
+
+            Text(L10n.t("connect.rememberLogin"))
+                .font(.subheadline)
+                .foregroundStyle(SharkordTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -135,6 +140,17 @@ struct ConnectView: View {
                         serverPassword: serverPassword
                     )
                 }
+            }
+
+            if model.canRetryConnection, case .failed = session.phase {
+                Button {
+                    model.retryConnection()
+                } label: {
+                    Label(L10n.t("connect.retry"), systemImage: "arrow.clockwise")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered)
             }
         }
         .sharkordCard(cornerRadius: 28)

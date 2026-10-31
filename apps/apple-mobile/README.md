@@ -1,8 +1,8 @@
 # cove iOS + Apple Watch
 
-> **主要流程已接入真实协议，仍需逐项做设备端到端验收。** 登录、频道、消息、语音和屏幕流
-> 通过 `POST /login` + tRPC over WebSocket + mediasoup SFU；当前 iOS 屏幕采集只覆盖 Cove 应用，
-> 尚不支持离开 Cove 后继续广播整个设备屏幕。没有示例数据，界面上不再有"离线示例"。
+> **主要流程已接入真实协议，仍需逐项做设备端到端验收。** 登录、频道、消息、资料、语音和屏幕流
+> 通过 `POST /login` + tRPC over WebSocket + mediasoup SFU；iOS 全设备屏幕广播使用 ReplayKit Broadcast Upload Extension，
+> 需要签名设备构建和 App Group 配置。没有示例数据，界面上不再有"离线示例"。
 >
 > **Apple Watch 侧已接入真实会话与消息**：登录、频道、消息、回复、表情回应，以及 Join →
 > 按住说话 → 松手收听 → 明确 Leave 的腕上 PTT。语音由服务端桥接到现有 mediasoup 房间；
@@ -10,8 +10,8 @@
 >
 > **The main flows use the real protocol and still need end-to-end device acceptance.** Sign-in,
 > channels, messages, voice and screen media use `POST /login` + tRPC over WebSocket + the
-> mediasoup SFU. iOS screen capture currently covers the Cove app only; broadcasting the
-> entire device after leaving Cove is not implemented. There is no sample data.
+> mediasoup SFU. iOS full-device screen broadcasting uses a ReplayKit Broadcast Upload Extension
+> and requires a signed device build with App Group provisioning. There is no sample data.
 >
 > **The Apple Watch side now connects to real sessions and messages:** sign-in, channels,
 > messages, replies, reactions, and wrist PTT with an explicit join, hold to talk, release
@@ -26,11 +26,11 @@ iOS/iPadOS 与 Apple Watch 的显示名称为 `cove`，使用 Timmy 提供的海
 
 ## 设计
 
-- 页面主体暂沿用现有实现，主导航改为 iOS 原生 Tab Bar：频道、私信、设置。
+- 主导航使用单一原生 `NavigationStack`：频道/私信列表为根页面，频道详情、私信和设置由同一栈打开；底部固定用户状态栏，通话中显示可挂断的连接栏。
 - 频道页保留左上大标题、分类频道、语音频道和成员列表；点击频道后在频道页内打开详情。
 - 私信页按最近消息时间排列会话，右上角加号从当前服务器成员中选择对象并开始私聊。
 - 屏幕共享入口位于语音频道详情，不再占用单独的底部页面。
-- 语音与文字聊天页先参考 Discord 移动端的频道行、语音成员布局和频道内聊天入口；其余视觉规范待具体参考资料提供后再统一调整。令牌与组件仍集中在 `Sharkord/DesignSystem.swift`，全局保持深色。
+- 语音与文字聊天页使用原生布局；外观跟随系统亮暗模式。令牌与组件集中在 `Sharkord/DesignSystem.swift`。
 
 ## 这一版能做什么
 
@@ -38,17 +38,18 @@ iOS/iPadOS 与 Apple Watch 的显示名称为 `cove`，使用 Timmy 提供的海
 | --- | --- |
 | 登录 | `POST /login` 取 token，`others.handshake` + `others.joinServer` 拉全量状态（频道、成员、角色、未读、语音表、权限） |
 | 频道与私信 | 分类、文字/语音频道、私信列表、未读角标；语音频道可打开同频道文字聊天；支持向上翻更早消息 |
-| 消息 | 发送、编辑、删除、置顶、引用回复、表情回应（长按消息）、正在输入提示；选择并上传附件、预览图片、打开其他文件 |
+| 消息 | 发送、编辑、删除、置顶、引用回复、表情回应（长按消息）、正在输入提示；选择并上传附件、打开图片、打开其他文件 |
+| 用户资料 | 修改服务器用户名/显示名称、简介和资料颜色；选择头像后预览，可更换或移除头像与横幅；真实头像显示在消息、私信成员、成员列表和语音参与者中 |
 | 搜索与子线程 | 搜索可见频道内的消息与附件，跳转到原消息；打开子线程、翻页加载回复并发送回复 |
-| 语音 | 已接入真实 mediasoup 通话：join/leave、send/recv transport、opus 收发、远端参与者实时状态；iOS 声明后台音频模式，真机双向音频仍待验收 |
+| 语音 | 已接入真实 mediasoup 通话：join/leave、send/recv transport、opus 收发、远端参与者实时状态；麦克风权限文案已补齐，加入失败会释放本地传输并尝试离开服务端；真机双向音频仍待验收 |
 | 开关麦 | 静音只停发轨道不拆 producer（与网页端一致），状态经 `voice.updateState` 广播 |
 | **扬声器保护** | **扬声器关闭（`soundMuted`）时麦克风禁止打开**：UI 按钮禁用并给出原因，引擎层 `setMicrophoneEnabled(true)` 同样拒绝，两处同时拦 |
 | 耳聋联动 | 关闭扬声器会自动关麦并记住开麦前状态，恢复时还原（与网页端一致）；同时静音所有远端音轨 |
 | 摄像头 | 语音房内开启/关闭摄像头、切换前后镜头、预览本地画面，并为服务端提供的远端 simulcast 画质层选择质量 |
-| 屏幕共享 | 两端均校验服务器与频道权限并清理失败状态；iOS 当前用 ReplayKit 共享 Cove 应用画面，未实现离开 Cove 后继续广播整机的扩展；Android 用 MediaProjection；真机发布与接收仍待验收 |
+| 屏幕共享 | 两端均校验服务器与频道权限并清理失败状态；iOS 用 ReplayKit Broadcast Upload Extension 共享整机屏幕，Android 用 MediaProjection；真机发布与接收仍待验收 |
 | 语言 | 英语、简体中文、西班牙语、法语、德语，设置内即时切换（不用重启） |
-| 灵动岛 | 通话时显示频道与人数；设置页保留示例预览按钮 |
-| iPad | 频道详情中语音房与同频道文字聊天并排；频道、私信、设置使用原生 Tab Bar |
+| 灵动岛 | 通话时显示频道与人数 |
+| iPad | 频道详情中语音房与同频道文字聊天并排；主导航与 iPhone 共用单一导航栈 |
 
 ## 构建
 
@@ -112,9 +113,18 @@ SharkordWatch/                          Apple Watch（真实会话、消息与 P
 5. 开麦：`createProducer` → `onProduce` → `voice.produce` 回填 producerId → `voice.updateState({micMuted:false})`
 6. 屏幕共享同理，`kind: screen`；结束走 `voice.closeProducer` + `updateState({sharingScreen:false})`
 
-## 这一版还没有（对照网页端）
+## 与网页端的功能差异
 
-消息内 HTML 渲染（当前按纯文本显示）、管理与服务器设置界面、插件、邀请、用户资料编辑、通知与音效、离线重连 UI。协议层（`SharkordCore`）已具备这些接口，属于界面层未接。
+原生端已补上消息 HTML 富文本、服务器与频道管理、邀请、基础插件管理、通知偏好和断线重连状态。服务器管理按权限显示，覆盖常规设置、存储、成员封禁操作、角色、表情、邀请、插件市场及服务器更新。消息渲染复用 `SharkordCore` 的 HTML 解析器。
+
+仍未达到网页端完整 parity 的部分：
+
+- 通知在 App 收到实时消息时创建本地通知；没有 APNs 配置，因此 App 被系统挂起或结束后不保证收到新消息通知。
+- 原生端不能显示插件注入的 React 页面，也未覆盖插件设置、命令、日志和 capability 权限界面。
+- 管理界面尚未覆盖成员详情与角色分配，以及频道级权限覆盖。
+- ReplayKit、语音和摄像头的实际设备链路仍需签名真机和测试账号验收；模拟器构建不代表这些链路已通过。
+
+用户资料编辑已接入设置页，支持名称、简介、资料颜色、头像和横幅；协议层（`SharkordCore`）提供资料更新、图片上传及头像/横幅更新接口。
 
 ## Apple Watch：腕上 PTT 终端
 

@@ -1,4 +1,9 @@
 {
+  "developerTab": "Desarrollo",
+  "messagePlaceholder": "Escribe un mensaje aquí",
+  "messageNotAllowed": "No puedes enviar mensajes aquí",
+  "noiseModeOff": "Desactivado",
+  "noiseModeStandard": "Estándar",
   "selectChannel": "Selecciona un canal",
   "moveUp": "Mover arriba",
   "moveDown": "Mover abajo",

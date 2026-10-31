@@ -12,6 +12,18 @@ const RNNOISE_FRAME_SIZE = 480;
 const PCM_SCALE = 32768;
 
 class RnnoiseProcessor extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [
+      {
+        name: 'mix',
+        defaultValue: 1,
+        minValue: 0,
+        maxValue: 1,
+        automationRate: 'a-rate'
+      }
+    ];
+  }
+
   constructor() {
     super();
 
@@ -57,11 +69,20 @@ class RnnoiseProcessor extends AudioWorkletProcessor {
     }
   }
 
-  process(inputs, outputs) {
+  process(inputs, outputs, parameters) {
     if (!inputs[0]?.[0] || !outputs[0]?.[0]) return true;
 
     const input = inputs[0][0];
     const output = outputs[0][0];
+    const mixValues = parameters.mix;
+
+    if (mixValues.every((mix) => mix === 0)) {
+      output.set(input);
+      if (outputs[0][1]) {
+        outputs[0][1].set(output);
+      }
+      return true;
+    }
 
     if (!this.isModuleReady || sampleRate !== RNNOISE_SAMPLE_RATE) {
       output.set(input);
@@ -78,9 +99,11 @@ class RnnoiseProcessor extends AudioWorkletProcessor {
           this.outputBufIdx = 0;
         }
 
-        output[i] = this.outputAvailable > 0
+        const denoised = this.outputAvailable > 0
           ? (this.outputAvailable--, this.outputBuf[this.outputBufIdx++])
-          : 0;
+          : input[i];
+        const mix = mixValues.length > 1 ? mixValues[i] : mixValues[0];
+        output[i] = input[i] * (1 - mix) + denoised * mix;
       }
     }
 

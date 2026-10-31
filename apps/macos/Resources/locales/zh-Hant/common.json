@@ -122,5 +122,6 @@
   "reconnectingAttempt": "第 {{attempt}} 次嘗試，共 {{total}} 次",
   "reconnectingHint": "工作階段已保留。伺服器恢復後，應用程式會自動繼續。",
   "reconnectingAbort": "停止重新連線",
+  "changeImage": "更改圖片",
   "removeImage": "移除圖片"
 }

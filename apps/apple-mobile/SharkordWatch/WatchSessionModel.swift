@@ -1,10 +1,12 @@
 import Foundation
 import SwiftUI
 import SharkordCore
+import WatchConnectivity
 
 /// owns the shared Sharkord session and the Watch-only radio controller.
 @MainActor
-final class WatchSessionModel: ObservableObject {
+final class WatchSessionModel: NSObject, ObservableObject {
+    @Published private(set) var language = L10n.current
     @Published var server = UserDefaults.standard.string(forKey: "watch.server") ?? ""
     @Published var identity = UserDefaults.standard.string(forKey: "watch.identity") ?? ""
     @Published var password = ""
@@ -23,22 +25,22 @@ final class WatchSessionModel: ObservableObject {
     init(session: SharkordSession) {
         self.session = session
         self.radio = WatchRadioSession()
+        super.init()
 
         do {
             if let saved = try credentialStore.load() {
                 hasSavedLogin = true
                 server = saved.server
                 identity = saved.identity
-                Task { [weak self] in
-                    guard let self else {
-                        return
-                    }
-                    await self.connectSavedLogin()
-                }
             }
         } catch {
             DiagnosticsLogger.shared.error("credentials", "saved login could not be loaded", error: error)
             credentialWarning = L10n.t("connect.credentialStorageFailed")
+        }
+
+        if WCSession.isSupported() {
+            WCSession.default.delegate = self
+            WCSession.default.activate()
         }
     }
 
@@ -200,5 +202,94 @@ final class WatchSessionModel: ObservableObject {
     func disconnect() async {
         await radio.leave()
         session.disconnect()
+    }
+
+    func setLanguage(_ language: String) {
+        self.language = language
+        L10n.current = language
+    }
+
+    private func receiveCredentials(server: String, identity: String, password: String, serverPassword: String) {
+        do {
+            try credentialStore.save(
+                WatchLoginCredentials(
+                    server: server,
+                    identity: identity,
+                    password: password,
+                    serverPassword: serverPassword
+                )
+            )
+            self.server = server
+            self.identity = identity
+            self.password = ""
+            self.serverPassword = ""
+            hasSavedLogin = true
+            UserDefaults.standard.set(server, forKey: "watch.server")
+            UserDefaults.standard.set(identity, forKey: "watch.identity")
+            DiagnosticsLogger.shared.info("credentials", "iPhone Watch account credentials received")
+        } catch {
+            DiagnosticsLogger.shared.error("credentials", "linked Watch account credentials could not be saved", error: error)
+            credentialWarning = L10n.t("connect.credentialStorageFailed")
+        }
+    }
+}
+
+extension WatchSessionModel: WCSessionDelegate {
+    nonisolated func session(
+        _ session: WCSession,
+        activationDidCompleteWith activationState: WCSessionActivationState,
+        error: Error?
+    ) {}
+
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        acceptTransferredCredentials(applicationContext)
+    }
+
+    nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        if userInfo["type"] as? String == "collectLogs",
+           let requestID = userInfo["requestID"] as? String {
+            session.transferUserInfo([
+                "type": "watchLogs",
+                "requestID": requestID,
+                "logs": DiagnosticsLogger.shared.recentText()
+            ])
+            return
+        }
+        acceptTransferredCredentials(userInfo)
+    }
+
+    nonisolated func session(
+        _ session: WCSession,
+        didReceiveMessage message: [String: Any],
+        replyHandler: @escaping ([String: Any]) -> Void
+    ) {
+        guard message["type"] as? String == "collectLogs" else {
+            replyHandler([:])
+            return
+        }
+
+        replyHandler([
+            "requestID": message["requestID"] as? String ?? "",
+            "watchLogs": DiagnosticsLogger.shared.recentText()
+        ])
+    }
+
+    nonisolated private func acceptTransferredCredentials(_ payload: [String: Any]) {
+        guard let server = payload["server"] as? String,
+              let identity = payload["identity"] as? String,
+              let password = payload["password"] as? String,
+              let serverPassword = payload["serverPassword"] as? String
+        else {
+            return
+        }
+
+        Task { @MainActor [weak self] in
+            self?.receiveCredentials(
+                server: server,
+                identity: identity,
+                password: password,
+                serverPassword: serverPassword
+            )
+        }
     }
 }

@@ -6,6 +6,7 @@ private struct WatchVoiceParticipant: Identifiable {
     let id: Int
     let name: String
     let micMuted: Bool
+    let isSpeaking: Bool
 }
 
 /// the radio room has an explicit join, hold-to-talk and leave lifecycle.
@@ -16,16 +17,14 @@ struct WatchRoomView: View {
 
     let channelId: Int
 
-    private var channel: SharkordChannel? {
-        session.channel(for: channelId)
-    }
-
     private var participants: [WatchVoiceParticipant] {
         session.voiceUsers(in: channelId).map { entry in
             WatchVoiceParticipant(
                 id: entry.user.id,
                 name: entry.user.name,
-                micMuted: entry.state.micMuted
+                micMuted: entry.state.micMuted,
+                isSpeaking: radio.speakingUserIds.contains(entry.user.id)
+                    || (entry.user.id == session.ownUserId && radio.state == .transmitting)
             )
         }
     }
@@ -35,10 +34,16 @@ struct WatchRoomView: View {
             VStack(spacing: 10) {
                 header
                 participantList
-                HoldToTalkButton()
                 leaveButton
             }
             .padding(.horizontal, 6)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            HoldToTalkButton()
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+                .background(WatchTheme.background)
         }
         .task {
             await radio.join(channelId: channelId)
@@ -53,9 +58,6 @@ struct WatchRoomView: View {
 
     private var header: some View {
         VStack(spacing: 6) {
-            Text(channel?.name ?? "#\(channelId)")
-                .font(.headline)
-                .lineLimit(1)
             WatchStatePill(color: stateColor, text: stateText)
             HStack(spacing: 4) {
                 Image(systemName: "speaker.wave.2.fill")
@@ -72,6 +74,10 @@ struct WatchRoomView: View {
     private var participantList: some View {
         WatchCard {
             VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.format("voice.memberCount", participants.count))
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(WatchTheme.textPrimary)
+
                 if participants.isEmpty {
                     Text(L10n.t("voice.emptyRoom"))
                         .font(.caption2)
@@ -80,7 +86,7 @@ struct WatchRoomView: View {
                     ForEach(participants) { participant in
                         HStack(spacing: 6) {
                             Circle()
-                                .fill(participant.micMuted ? WatchTheme.textSecondary.opacity(0.4) : WatchTheme.accentSoft)
+                                .fill(participant.isSpeaking ? WatchTheme.accentSoft : WatchTheme.textSecondary.opacity(0.45))
                                 .frame(width: 7, height: 7)
                             Text(participant.name)
                                 .font(.caption)
@@ -156,26 +162,27 @@ private struct HoldToTalkButton: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
-            ZStack {
-                Circle()
-                    .fill(isPressed ? WatchTheme.danger : WatchTheme.accent)
-                    .frame(width: 88, height: 88)
+        ZStack {
+            Capsule()
+                .fill(isPressed ? WatchTheme.danger : WatchTheme.accent)
+            HStack(spacing: 10) {
                 Image(systemName: isPressed ? "waveform" : "mic.fill")
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 22, weight: .semibold))
+                    .frame(width: 28)
+                VStack(spacing: 2) {
+                    Text(isPressed ? L10n.t("watch.transmitting") : L10n.t("watch.holdToTalk"))
+                        .font(.footnote.weight(.bold))
+                    if isPressed {
+                        levelMeter
+                    }
+                }
             }
-
-            if isPressed {
-                levelMeter
-            }
-
-            Text(isPressed ? L10n.t("watch.transmitting") : L10n.t("watch.holdToTalk"))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(isPressed ? WatchTheme.danger : WatchTheme.accentSoft)
+            .foregroundStyle(.white)
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: 62)
         .opacity(isEnabled ? 1 : 0.4)
-        .contentShape(Circle())
+        .contentShape(Capsule())
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in

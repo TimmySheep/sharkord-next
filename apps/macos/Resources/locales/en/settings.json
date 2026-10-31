@@ -70,6 +70,7 @@
   "noiseSuppressionNone": "None",
   "noiseSuppressionInfoTitle": "Noise suppression modes",
   "noiseSuppressionInfoDescription": "Approximate trade-offs for each mode. Actual CPU, memory use and voice quality depend on your browser, device and microphone.",
+  "noiseSuppressionMixDescription": "Adjust how much RNNoise processed audio is mixed into your microphone signal. This changes the blend, not the model's internal strength.",
   "noiseSuppressionTechniqueColumn": "Technique",
   "noiseSuppressionMemoryUsageColumn": "Memory",
   "noiseSuppressionCpuUsageColumn": "CPU",

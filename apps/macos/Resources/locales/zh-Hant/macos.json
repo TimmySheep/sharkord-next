@@ -1,4 +1,9 @@
 {
+  "developerTab": "開發",
+  "messagePlaceholder": "請在這裡輸入文字",
+  "messageNotAllowed": "你無法在此傳送訊息",
+  "noiseModeOff": "關閉",
+  "noiseModeStandard": "標準",
   "selectChannel": "選擇一個頻道",
   "moveUp": "上移",
   "moveDown": "下移",

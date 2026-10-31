@@ -2,8 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>cove</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is used to share your video in voice channels.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access is used to speak in voice channels.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

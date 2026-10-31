@@ -1,4 +1,8 @@
 {
+  "pushToTalkTitle": "Appuyer pour parler (maintenir F13)",
+  "pushToTalkDescription": "Maintenez F13 pour activer temporairement le microphone pendant une connexion vocale.",
+  "pushToTalkReady": "Maintenez F13 pour activer temporairement le microphone.",
+  "pushToTalkUnavailable": "Impossible d'activer le hook clavier global. Redémarrez Cove et réessayez.",
   "tagline": "Client Windows natif",
   "serverAddress": "Adresse du serveur",
   "serverPassword": "Mot de passe du serveur (facultatif)",

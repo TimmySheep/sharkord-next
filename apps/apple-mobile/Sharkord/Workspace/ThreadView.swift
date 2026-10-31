@@ -1,8 +1,8 @@
 import SharkordCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ThreadView: View {
-    @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var session: SharkordSession
     @Environment(\.dismiss) private var dismiss
 
@@ -11,6 +11,11 @@ struct ThreadView: View {
     @State private var draft = ""
     @State private var nextCursor: MessagesCursor?
     @State private var isSending = false
+    @State private var replyTo: SharkordMessage?
+    @State private var pendingAttachments: [PendingMessageAttachment] = []
+    @State private var isUploading = false
+    @State private var isFileImporterPresented = false
+    @State private var threadError: String?
     @FocusState private var composerFocused: Bool
 
     var body: some View {
@@ -19,7 +24,7 @@ struct ThreadView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 3) {
-                            MessageRow(message: parent, onReply: { _ in }, onOpenThread: { _ in })
+                            MessageRow(message: parent, onReply: { _ in composerFocused = true }, onOpenThread: { _ in }, allowsThread: false)
 
                             if let nextCursor {
                                 Button {
@@ -34,7 +39,10 @@ struct ThreadView: View {
                             }
 
                             ForEach(session.threadMessages(for: parent.id)) { message in
-                                MessageRow(message: message, onReply: { _ in }, onOpenThread: { _ in })
+                                MessageRow(message: message, onReply: {
+                                    replyTo = $0
+                                    composerFocused = true
+                                }, onOpenThread: { _ in }, allowsThread: false)
                                     .id(message.id)
                             }
                         }
@@ -46,9 +54,8 @@ struct ThreadView: View {
                         }
                     }
                 }
-
-                composer
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) { composer }
             .background(BrandBackground())
             .navigationTitle(L10n.t("message.thread"))
             .navigationBarTitleDisplayMode(.inline)
@@ -58,44 +65,90 @@ struct ThreadView: View {
                 }
             }
         }
+        .fileImporter(isPresented: $isFileImporterPresented, allowedContentTypes: [.item], allowsMultipleSelection: true, onCompletion: uploadSelectedFiles)
+        .alert(L10n.t("message.actionFailed"), isPresented: Binding(
+            get: { threadError != nil },
+            set: { if !$0 { threadError = nil } }
+        )) {
+            Button(L10n.t("common.done"), role: .cancel) { threadError = nil }
+        } message: { Text(threadError ?? "") }
         .task(id: parent.id) {
             do {
                 nextCursor = try await session.loadThread(parentMessageId: parent.id).nextCursor
             } catch {
-                model.banner = error.localizedDescription
+                threadError = error.localizedDescription
             }
         }
     }
 
     private var composer: some View {
-        HStack(spacing: 10) {
-            TextField(L10n.t("channel.messagePlaceholder"), text: $draft, axis: .vertical)
-                .lineLimit(1...5)
-                .textFieldStyle(.plain)
-                .focused($composerFocused)
-                .onChange(of: draft) { _, _ in
-                    session.signalTyping(channelId: parent.channelId, parentMessageId: parent.id)
+        VStack(alignment: .leading, spacing: 8) {
+            if let replyTo {
+                HStack {
+                    Text(MessageText.plainText(fromHTML: replyTo.content)).font(.caption).lineLimit(1)
+                    Spacer()
+                    Button { self.replyTo = nil } label: { Image(systemName: "xmark") }
+                        .accessibilityLabel(L10n.t("common.cancel"))
                 }
-
-            Button(action: send) {
-                Image(systemName: "arrow.up")
-                    .font(.body.weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-                    .background(canSend ? SharkordTheme.accent : SharkordTheme.pillNeutral, in: Circle())
+                .padding(.horizontal, 18)
             }
-            .buttonStyle(.plain)
-            .disabled(!canSend || isSending)
+            if !pendingAttachments.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack {
+                        ForEach(pendingAttachments) { attachment in
+                            Button {
+                                pendingAttachments.removeAll { $0.id == attachment.id }
+                                Task {
+                                    do { try await session.deleteTemporaryFile(fileId: attachment.id) }
+                                    catch { threadError = error.localizedDescription }
+                                }
+                            } label: {
+                                Label(attachment.name, systemImage: "xmark.circle.fill").font(.caption).lineLimit(1)
+                            }
+                            .disabled(isSending || isUploading)
+                            .accessibilityLabel(L10n.t("message.removeAttachment") + " " + attachment.name)
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                }
+            }
+            MessageTypingIndicator(channelId: parent.channelId, parentMessageId: parent.id)
+            HStack(spacing: 10) {
+                Button { isFileImporterPresented = true } label: {
+                    Image(systemName: "paperclip").frame(width: 36, height: 44)
+                }
+                .disabled(!MessageAttachmentUpload.isAllowed(session: session, channelId: parent.channelId) || isUploading || isSending)
+                .accessibilityLabel(L10n.t("message.attachFile"))
+                TextField(L10n.t("channel.messagePlaceholder"), text: $draft, axis: .vertical)
+                    .lineLimit(1...5)
+                    .textFieldStyle(.plain)
+                    .focused($composerFocused)
+                    .disabled(isSending)
+                    .onChange(of: draft) { _, _ in
+                        session.signalTyping(channelId: parent.channelId, parentMessageId: parent.id)
+                    }
+
+                Button(action: send) {
+                    Image(systemName: "arrow.up")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(canSend ? SharkordTheme.accent : SharkordTheme.pillNeutral, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSend || isSending || isUploading)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(SharkordTheme.card, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(SharkordTheme.card, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .background(SharkordTheme.background)
     }
 
     private var canSend: Bool {
-        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pendingAttachments.isEmpty
     }
 
     private func loadOlder(cursor: MessagesCursor) {
@@ -103,14 +156,16 @@ struct ThreadView: View {
             do {
                 nextCursor = try await session.loadThread(parentMessageId: parent.id, cursor: cursor).nextCursor
             } catch {
-                model.banner = error.localizedDescription
+                threadError = error.localizedDescription
             }
         }
     }
 
     private func send() {
         let text = draft
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !isSending else {
+        let replyId = replyTo?.id
+        let files = pendingAttachments.map(\.id)
+        guard canSend, !isSending, !isUploading else {
             return
         }
 
@@ -118,10 +173,38 @@ struct ThreadView: View {
         Task {
             defer { isSending = false }
             do {
-                try await session.sendMessage(text, channelId: parent.channelId, parentMessageId: parent.id)
+                try await session.sendMessage(text, channelId: parent.channelId, replyToMessageId: replyId, parentMessageId: parent.id, files: files)
                 draft = ""
+                replyTo = nil
+                pendingAttachments = []
             } catch {
-                model.banner = error.localizedDescription
+                threadError = error.localizedDescription
+            }
+        }
+    }
+
+    private func uploadSelectedFiles(_ result: Result<[URL], Error>) {
+        guard MessageAttachmentUpload.isAllowed(session: session, channelId: parent.channelId), !isUploading, !isSending else { return }
+        guard case .success(let urls) = result else {
+            if case .failure(let error) = result { threadError = error.localizedDescription }
+            return
+        }
+        let limit = max(0, (session.settings?.storageMaxFilesPerMessage ?? 10) - pendingAttachments.count)
+        guard limit > 0 else {
+            threadError = L10n.t("message.attachmentLimit")
+            return
+        }
+        isUploading = true
+        Task {
+            defer { isUploading = false }
+            for url in urls.prefix(limit) {
+                do {
+                    let attachment = try await MessageAttachmentUpload.upload(url, session: session)
+                    pendingAttachments.append(attachment)
+                } catch {
+                    threadError = error.localizedDescription
+                    break
+                }
             }
         }
     }

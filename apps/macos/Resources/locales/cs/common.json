@@ -122,5 +122,6 @@
   "reconnectingAttempt": "Pokus {{attempt}} z {{total}}",
   "reconnectingHint": "Tvoje relace zůstává zachována. Aplikace se sama obnoví, jakmile server odpoví.",
   "reconnectingAbort": "Přestat se připojovat",
+  "changeImage": "Změnit obrázek",
   "removeImage": "Odebrat obrázek"
 }

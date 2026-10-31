@@ -1,4 +1,9 @@
 {
+  "developerTab": "Разработка",
+  "messagePlaceholder": "Введите сообщение здесь",
+  "messageNotAllowed": "Вы не можете отправлять сообщения здесь",
+  "noiseModeOff": "Выключено",
+  "noiseModeStandard": "Стандартное",
   "selectChannel": "Выберите канал",
   "moveUp": "Переместить вверх",
   "moveDown": "Переместить вниз",

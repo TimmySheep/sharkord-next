@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -94,17 +95,47 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
         if (granted) model.setMicrophoneEnabled(true)
         else Toast.makeText(context, R.string.microphone_permission_denied, Toast.LENGTH_LONG).show()
     }
+    val toggleMicrophone: () -> Unit = {
+        if (state.microphoneEnabled) {
+            model.setMicrophoneEnabled(false)
+        } else if (state.speakerEnabled && ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            model.setMicrophoneEnabled(true)
+        } else if (state.speakerEnabled) {
+            microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
 
     val openPage: (WorkspacePage) -> Unit = { next -> pageName = next.name }
-    val openChannel: (Int) -> Unit = { channelId ->
-        detailOriginName = WorkspacePage.NAVIGATION.name
+    val openChannel: (Int, Int?) -> Unit = { channelId, targetMessageId ->
         restorationRequestedChannelId = channelId
-        model.selectChannel(channelId)
+        detailOriginName = WorkspacePage.NAVIGATION.name
+        model.selectChannel(channelId, targetMessageId)
         openPage(WorkspacePage.CHANNEL)
     }
     val openVoiceRoom: () -> Unit = {
         voiceRoomOriginName = page.name
         openPage(WorkspacePage.VOICE_ROOM)
+    }
+    val leaveVoice: () -> Unit = {
+        model.leaveVoice()
+        if (page == WorkspacePage.VOICE_ROOM) openPage(WorkspacePage.NAVIGATION)
+    }
+    val voiceConnectionBar: @Composable () -> Unit = {
+        if (state.voiceConnectionStatus != com.timmysheep.cove.data.VoiceConnectionStatus.DISCONNECTED) {
+            VoiceConnectionBar(
+                channelName = voiceChannel?.name ?: stringResource(R.string.voice_call_notification_title),
+                canControl = state.voiceChannelId != null,
+                microphoneEnabled = state.microphoneEnabled,
+                microphoneControlEnabled = state.voiceChannelId != null && (state.speakerEnabled || state.microphoneEnabled),
+                onOpenVoiceRoom = openVoiceRoom,
+                onToggleMicrophone = toggleMicrophone,
+                onLeave = leaveVoice
+            )
+        }
     }
     val navigateBack: () -> Unit = {
         when (page) {
@@ -159,9 +190,13 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
         state.activeChannelId,
         pageName,
         pendingChannelRestoration,
-        restoredServerAddress
+        restoredServerAddress,
+        restorationRequestedChannelId
     ) {
         if (!state.connected || state.serverAddress.isBlank()) return@LaunchedEffect
+        if (restorationRequestedChannelId != null && state.activeChannelId == restorationRequestedChannelId) {
+            restorationRequestedChannelId = null
+        }
         val key = workspacePreferenceKey(state.serverAddress)
         val restoreSavedChannel = {
             val channelId = navigationPreferences.getInt("$key:channel", -1)
@@ -184,7 +219,10 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
         }
         if (restoredServerAddress != state.serverAddress) {
             val savedPage = navigationPreferences.getString("$key:page", WorkspacePage.NAVIGATION.name)
-            if (savedPage == WorkspacePage.CHANNEL.name) {
+            if (restorationRequestedChannelId != null) {
+                pendingChannelRestoration = false
+                restoredServerAddress = state.serverAddress
+            } else if (savedPage == WorkspacePage.CHANNEL.name) {
                 when (restoreSavedChannel()) {
                     true -> {
                         pendingChannelRestoration = false
@@ -208,7 +246,9 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
             pendingChannelRestoration = false
             if (restoreSavedChannel() != true) pageName = WorkspacePage.NAVIGATION.name
             restoredServerAddress = state.serverAddress
-        } else if (pageName == WorkspacePage.CHANNEL.name && state.activeChannelId == null) {
+        } else if (pageName == WorkspacePage.CHANNEL.name &&
+            shouldRestoreSavedChannel(state.activeChannelId, restorationRequestedChannelId)
+        ) {
             if (restoreSavedChannel() == false) pageName = WorkspacePage.NAVIGATION.name
         }
     }
@@ -239,11 +279,24 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
                 }
             }
     }
+    LaunchedEffect(pageName, state.voiceChannelId, state.voiceAttemptChannelId, state.voiceConnectionStatus) {
+        if (shouldReturnHomeAfterVoiceDisconnect(
+                isVoiceRoom = page == WorkspacePage.VOICE_ROOM,
+                voiceChannelId = state.voiceChannelId,
+                voiceAttemptChannelId = state.voiceAttemptChannelId,
+                status = state.voiceConnectionStatus
+            )
+        ) {
+            pageName = WorkspacePage.NAVIGATION.name
+        }
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val wideLayout = maxWidth >= 840.dp
         val directMessagesSplitLayout = maxWidth >= 1080.dp
         val showPersistentBars = page != WorkspacePage.VOICE_ROOM
+        val showVoiceConnectionBar = page == WorkspacePage.NAVIGATION ||
+            (page == WorkspacePage.CHANNEL && selectedChannel != null)
         val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
         val selectNavigationChannel: (Int) -> Unit = { channelId ->
             val channel = state.channels.firstOrNull { it.id == channelId }
@@ -257,7 +310,7 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
                     if (state.voiceChannelId == channelId) openVoiceRoom()
                     else voicePreviewChannelId = channelId
                 }
-                else -> openChannel(channelId)
+                else -> openChannel(channelId, null)
             }
         }
         Scaffold(
@@ -341,36 +394,13 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
             },
             bottomBar = {
                 if (showPersistentBars && !imeVisible) {
-                    if (wideLayout) {
-                        Row(modifier = Modifier.navigationBarsPadding()) {
-                            Column(modifier = Modifier.width(320.dp)) {
-                                if (state.voiceConnectionStatus != com.timmysheep.cove.data.VoiceConnectionStatus.DISCONNECTED) {
-                                    VoiceConnectionBar(
-                                        channelName = voiceChannel?.name ?: stringResource(R.string.voice_call_notification_title),
-                                        status = state.voiceConnectionStatus,
-                                        canControl = state.voiceChannelId != null,
-                                        onOpenVoiceRoom = openVoiceRoom,
-                                        onLeave = model::leaveVoice
-                                    )
-                                }
-                                UserStatusBar(
+                        if (wideLayout) {
+                            Row(modifier = Modifier.navigationBarsPadding()) {
+                                Column(modifier = Modifier.width(320.dp)) {
+                                    if (showVoiceConnectionBar) voiceConnectionBar()
+                                    UserStatusBar(
                                     state = state,
                                     model = model,
-                                    microphoneControlEnabled = state.voiceChannelId != null && (state.speakerEnabled || state.microphoneEnabled),
-                                    onToggleMicrophone = {
-                                        if (state.microphoneEnabled) {
-                                            model.setMicrophoneEnabled(false)
-                                        } else if (state.speakerEnabled && ContextCompat.checkSelfPermission(
-                                                context,
-                                                Manifest.permission.RECORD_AUDIO
-                                            ) == PackageManager.PERMISSION_GRANTED
-                                        ) {
-                                            model.setMicrophoneEnabled(true)
-                                        } else if (state.speakerEnabled) {
-                                            microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
-                                        }
-                                    },
-                                    onToggleHeadphones = { model.setSpeakerEnabled(!state.speakerEnabled) },
                                     onOpenSettings = {
                                         settingsOriginName = page.name
                                         openPage(WorkspacePage.SETTINGS)
@@ -378,35 +408,12 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
                                 )
                             }
                         }
-                    } else {
-                        Column(modifier = Modifier.navigationBarsPadding()) {
-                            if (state.voiceConnectionStatus != com.timmysheep.cove.data.VoiceConnectionStatus.DISCONNECTED) {
-                                VoiceConnectionBar(
-                                    channelName = voiceChannel?.name ?: stringResource(R.string.voice_call_notification_title),
-                                    status = state.voiceConnectionStatus,
-                                    canControl = state.voiceChannelId != null,
-                                    onOpenVoiceRoom = openVoiceRoom,
-                                    onLeave = model::leaveVoice
-                                )
-                            }
-                            UserStatusBar(
+                        } else {
+                            Column(modifier = Modifier.navigationBarsPadding()) {
+                                if (showVoiceConnectionBar) voiceConnectionBar()
+                                UserStatusBar(
                                 state = state,
                                 model = model,
-                                microphoneControlEnabled = state.voiceChannelId != null && (state.speakerEnabled || state.microphoneEnabled),
-                                onToggleMicrophone = {
-                                    if (state.microphoneEnabled) {
-                                        model.setMicrophoneEnabled(false)
-                                    } else if (state.speakerEnabled && ContextCompat.checkSelfPermission(
-                                            context,
-                                            Manifest.permission.RECORD_AUDIO
-                                        ) == PackageManager.PERMISSION_GRANTED
-                                    ) {
-                                        model.setMicrophoneEnabled(true)
-                                    } else if (state.speakerEnabled) {
-                                        microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
-                                    }
-                                },
-                                onToggleHeadphones = { model.setSpeakerEnabled(!state.speakerEnabled) },
                                 onOpenSettings = {
                                     settingsOriginName = page.name
                                     openPage(WorkspacePage.SETTINGS)
@@ -420,23 +427,25 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
         ) { padding ->
             Row(modifier = Modifier.fillMaxSize().padding(padding)) {
                 if (wideLayout) {
-                    MainNavigationDestination(
-                        state = state,
-                        model = model,
-                        listState = listState,
-                        onOpenChannel = selectNavigationChannel,
-                        onOpenDirectMessages = {
-                            showMemberPicker = false
-                            model.closeChannel()
-                            openPage(WorkspacePage.DIRECT_MESSAGES)
-                        },
-                        onNewDirectMessage = {
-                            showMemberPicker = true
-                            model.closeChannel()
-                            openPage(WorkspacePage.DIRECT_MESSAGES)
-                        },
-                        modifier = Modifier.width(320.dp).fillMaxHeight()
-                    )
+                    Column(modifier = Modifier.width(320.dp).fillMaxHeight()) {
+                        MainNavigationDestination(
+                            state = state,
+                            model = model,
+                            listState = listState,
+                            onOpenChannel = selectNavigationChannel,
+                            onOpenDirectMessages = {
+                                showMemberPicker = false
+                                model.closeChannel()
+                                openPage(WorkspacePage.DIRECT_MESSAGES)
+                            },
+                            onNewDirectMessage = {
+                                showMemberPicker = true
+                                model.closeChannel()
+                                openPage(WorkspacePage.DIRECT_MESSAGES)
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                     androidx.compose.material3.VerticalDivider()
                 }
 
@@ -444,22 +453,25 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
                     when (page) {
                         WorkspacePage.NAVIGATION -> {
                             if (!wideLayout) {
-                                MainNavigationDestination(
-                                    state = state,
-                                    model = model,
-                                    listState = listState,
-                                    onOpenChannel = selectNavigationChannel,
-                                    onOpenDirectMessages = {
-                                        showMemberPicker = false
-                                        model.closeChannel()
-                                        openPage(WorkspacePage.DIRECT_MESSAGES)
-                                    },
-                                    onNewDirectMessage = {
-                                        showMemberPicker = true
-                                        model.closeChannel()
-                                        openPage(WorkspacePage.DIRECT_MESSAGES)
-                                    }
-                                )
+                                Column(modifier = Modifier.fillMaxSize()) {
+                                    MainNavigationDestination(
+                                        state = state,
+                                        model = model,
+                                        listState = listState,
+                                        onOpenChannel = selectNavigationChannel,
+                                        onOpenDirectMessages = {
+                                            showMemberPicker = false
+                                            model.closeChannel()
+                                            openPage(WorkspacePage.DIRECT_MESSAGES)
+                                        },
+                                        onNewDirectMessage = {
+                                            showMemberPicker = true
+                                            model.closeChannel()
+                                            openPage(WorkspacePage.DIRECT_MESSAGES)
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
                             } else {
                                 EmptyContent(
                                     title = stringResource(R.string.select_channel_title),
@@ -469,10 +481,20 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
                             }
                         }
                         WorkspacePage.CHANNEL -> {
-                            if (selectedChannel != null) {
-                                ChannelChatScreen(state = state, model = model, channel = selectedChannel)
-                            } else {
-                                EmptyContent(title = stringResource(R.string.select_channel_title), modifier = Modifier.fillMaxSize())
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                if (selectedChannel != null) {
+                                    ChannelChatScreen(
+                                        state = state,
+                                        model = model,
+                                        channel = selectedChannel,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                } else {
+                                    EmptyContent(
+                                        title = stringResource(R.string.select_channel_title),
+                                        modifier = Modifier.weight(1f).fillMaxWidth()
+                                    )
+                                }
                             }
                         }
                         WorkspacePage.DIRECT_MESSAGES -> DirectMessagesDestination(
@@ -485,8 +507,7 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
                             onOpenConversation = {
                                 detailOriginName = WorkspacePage.DIRECT_MESSAGES.name
                                 openPage(WorkspacePage.CHANNEL)
-                            },
-                            onCreateConversation = { showMemberPicker = true }
+                            }
                         )
                         WorkspacePage.SETTINGS -> SettingsDestination(state = state, model = model)
                         WorkspacePage.CHANNEL_SEARCH -> ChannelDestination(
@@ -494,10 +515,9 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
                             model = model,
                             selectedChannel = null,
                             searchMode = true,
-                            onSearchResultSelected = {
+                            onSearchResultSelected = { channelId ->
                                 searchOriginName = WorkspacePage.NAVIGATION.name
-                                detailOriginName = WorkspacePage.NAVIGATION.name
-                                openPage(WorkspacePage.CHANNEL)
+                                openChannel(channelId, null)
                             }
                         )
                         WorkspacePage.MESSAGE_SEARCH -> MessageSearchScreen(
@@ -505,12 +525,11 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
                             model = model,
                             onOpenMessage = { result ->
                                 model.clearSearch()
-                                model.selectChannel(result.channelId, result.id)
-                                detailOriginName = WorkspacePage.NAVIGATION.name
-                                openPage(WorkspacePage.CHANNEL)
+                                openChannel(result.channelId, result.id)
                             },
                             onOpenFile = { result: SearchFile ->
                                 model.clearSearch()
+                                restorationRequestedChannelId = result.channelId
                                 model.openMessage(result.messageId)
                                 detailOriginName = WorkspacePage.NAVIGATION.name
                                 openPage(WorkspacePage.CHANNEL)
@@ -522,7 +541,8 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
                                     state = state,
                                     model = model,
                                     channel = voiceChannel,
-                                    voiceRoomOnly = true
+                                    voiceRoomOnly = true,
+                                    onLeaveVoice = leaveVoice
                                 )
                             } else {
                                 EmptyContent(title = stringResource(R.string.voice_disconnected), modifier = Modifier.fillMaxSize())
@@ -545,9 +565,7 @@ fun UnifiedWorkspaceScreen(state: SessionState, model: CoveViewModel) {
             },
             onOpenChat = {
                 voicePreviewChannelId = null
-                detailOriginName = WorkspacePage.NAVIGATION.name
-                model.selectChannel(channel.id)
-                openPage(WorkspacePage.CHANNEL)
+                openChannel(channel.id, null)
             },
             microphoneEnabledOnJoin = model.microphoneEnabledOnJoin.collectAsStateWithLifecycle().value,
             onToggleMicrophoneOnJoin = {

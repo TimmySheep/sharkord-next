@@ -8,30 +8,112 @@
     mc:Ignorable="d"
     Title="cove">
 
-    <Grid x:Name="RootGrid" Padding="24">
-        <StackPanel
-            x:Name="ConnectPanel"
-            Width="360"
-            Spacing="12"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center">
-            <TextBlock Text="cove" FontSize="28" FontWeight="Bold" />
-            <TextBlock x:Name="TaglineText" Opacity="0.6" />
-            <!-- the placeholder shows a host:port example, so it stays untranslated -->
-            <TextBox x:Name="HostBox" PlaceholderText="localhost:4991" />
-            <TextBox x:Name="IdentityBox" />
-            <PasswordBox x:Name="PasswordBox" />
-            <PasswordBox x:Name="ServerPasswordBox" />
-            <TextBox x:Name="InviteBox" />
-            <Button
-                x:Name="ConnectButton"
-                Style="{StaticResource AccentButtonStyle}"
-                Click="OnConnectClick" />
-            <ProgressRing x:Name="ConnectProgress" IsActive="False" />
-            <TextBlock x:Name="ConnectError" Foreground="Red" TextWrapping="Wrap" />
-        </StackPanel>
+    <Grid x:Name="RootGrid" Padding="0">
+        <Grid x:Name="ConnectScreen" Background="#0B0D12" RequestedTheme="Dark">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-        <Grid x:Name="ChatPanel" Margin="0,56,0,0" Visibility="Collapsed">
+            <Border
+                Grid.Row="0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Width="420"
+                MaxWidth="480"
+                Background="#13161D"
+                BorderBrush="#292E39"
+                BorderThickness="1"
+                CornerRadius="20"
+                Padding="28">
+                <StackPanel x:Name="ConnectPanel" Spacing="18">
+                    <StackPanel Spacing="10" HorizontalAlignment="Center">
+                        <Border
+                            Width="88"
+                            Height="88"
+                            Background="#22283A"
+                            CornerRadius="14">
+                            <Grid>
+                                <Image
+                                    x:Name="ServerLogoImage"
+                                    Stretch="UniformToFill"
+                                    Visibility="Collapsed"
+                                    ImageFailed="OnServerLogoFailed" />
+                                <TextBlock
+                                    x:Name="ServerLogoFallback"
+                                    FontSize="46"
+                                    FontWeight="SemiBold"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <TextBlock
+                            x:Name="ServerTitleText"
+                            FontSize="22"
+                            FontWeight="Bold"
+                            TextAlignment="Center"
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            x:Name="ServerDescriptionText"
+                            MaxWidth="340"
+                            FontSize="13"
+                            Opacity="0.68"
+                            TextAlignment="Center"
+                            TextWrapping="Wrap"
+                            Visibility="Collapsed" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="12">
+                        <TextBox x:Name="HostBox" PlaceholderText="localhost:4991" TextChanged="OnHostTextChanged" />
+                        <TextBox x:Name="IdentityBox" />
+                        <PasswordBox x:Name="PasswordBox" />
+                    </StackPanel>
+
+                    <Expander x:Name="AdvancedOptionsExpander">
+                        <Expander.Header>
+                            <TextBlock x:Name="AdvancedOptionsText" />
+                        </Expander.Header>
+                        <StackPanel Spacing="12" Padding="0,12,0,0">
+                            <PasswordBox x:Name="ServerPasswordBox" />
+                            <TextBox x:Name="InviteBox" />
+                        </StackPanel>
+                    </Expander>
+
+                    <Button
+                        x:Name="ConnectButton"
+                        Style="{StaticResource AccentButtonStyle}"
+                        HorizontalAlignment="Stretch"
+                        Click="OnConnectClick" />
+                    <ProgressRing x:Name="ConnectProgress" IsActive="False" HorizontalAlignment="Center" />
+                    <TextBlock x:Name="ConnectError" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Grid Grid.Row="1" Margin="24,0,24,24">
+                <StackPanel
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Spacing="14">
+                    <HyperlinkButton x:Name="GitHubLink" NavigateUri="https://github.com/sharkord/sharkord" />
+                    <HyperlinkButton x:Name="SharkordLink" NavigateUri="https://sharkord.com" />
+                </StackPanel>
+                <StackPanel
+                    x:Name="LoginActionsPanel"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Spacing="8">
+                    <ComboBox
+                        x:Name="LoginLanguageBox"
+                        Width="180"
+                        SelectionChanged="OnLanguageSelectionChanged" />
+                    <Button x:Name="LoginExportLogsButton" Click="OnExportLogsClick" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <Grid x:Name="ChatPanel" Margin="24,56,24,24" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" />
                 <ColumnDefinition Width="*" />
@@ -126,6 +208,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBox
                         x:Name="ComposerBox"
+                        AcceptsReturn="True"
                         KeyDown="OnComposerKeyDown" />
                     <Button
                         x:Name="SendButton"
@@ -169,14 +252,17 @@
         </Grid>
 
         <StackPanel
+            x:Name="TopActionsPanel"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
             Orientation="Horizontal"
-            Spacing="8">
+            Spacing="8"
+            Margin="24,16,24,0">
             <ComboBox
                 x:Name="LanguageBox"
                 Width="220"
                 SelectionChanged="OnLanguageSelectionChanged" />
+            <Button x:Name="SettingsButton" Click="OnSettingsClick" />
             <Button
                 x:Name="ExportLogsButton"
                 Click="OnExportLogsClick" />

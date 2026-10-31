@@ -1,16 +1,17 @@
+import SharkordCore
 import SwiftUI
 
 /// sign-in screen using the same HTTP login and tRPC handshake as the other clients.
 struct WatchConnectView: View {
     @EnvironmentObject private var model: WatchSessionModel
+    @EnvironmentObject private var session: SharkordSession
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
                 VStack(spacing: 4) {
-                    Image(systemName: "dot.radiowaves.left.and.right")
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(WatchTheme.accentSoft)
+                    WatchBrandMark(size: 30)
                     Text(L10n.t("connect.title"))
                         .font(.headline)
                         .foregroundStyle(WatchTheme.textPrimary)
@@ -89,14 +90,13 @@ struct WatchConnectView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                NavigationLink {
-                    WatchDiagnosticsView()
-                } label: {
-                    Label(L10n.t("settings.viewLogs"), systemImage: "doc.text")
-                        .font(.caption.weight(.semibold))
-                }
             }
             .padding(.horizontal, 6)
+        }
+        .onChange(of: session.phase) { _, phase in
+            if phase == .connected {
+                dismiss()
+            }
         }
     }
 

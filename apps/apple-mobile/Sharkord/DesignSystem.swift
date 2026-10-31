@@ -406,6 +406,7 @@ struct AvatarView: View {
     let name: String
     var diameter: CGFloat = 40
     var isSpeaking = false
+    var imageURL: URL? = nil
 
     private var paletteIndex: Int {
         let sum = name.unicodeScalars.reduce(Int(0)) { $0 + Int($1.value) }
@@ -417,11 +418,21 @@ struct AvatarView: View {
     }
 
     var body: some View {
-        Text(initials)
-            .font(.system(size: diameter * 0.4, weight: .semibold))
-            .foregroundStyle(.white)
+        Group {
+            if let imageURL {
+                AsyncImage(url: imageURL) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    } else {
+                        initialsView
+                    }
+                }
+            } else {
+                initialsView
+            }
+        }
             .frame(width: diameter, height: diameter)
-            .background(avatarPalette[paletteIndex], in: Circle())
+            .clipShape(Circle())
             .overlay {
                 if isSpeaking {
                     Circle()
@@ -430,5 +441,13 @@ struct AvatarView: View {
                 }
             }
             .accessibilityHidden(true)
+    }
+
+    private var initialsView: some View {
+        Text(initials)
+            .font(.system(size: diameter * 0.4, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: diameter, height: diameter)
+            .background(avatarPalette[paletteIndex], in: Circle())
     }
 }

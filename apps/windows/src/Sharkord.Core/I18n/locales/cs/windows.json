@@ -1,4 +1,8 @@
 {
+  "pushToTalkTitle": "Stiskni a mluv (podržet F13)",
+  "pushToTalkDescription": "Podržením F13 dočasně zapnete mikrofon během hlasového spojení.",
+  "pushToTalkReady": "Podržením F13 dočasně zapnete mikrofon.",
+  "pushToTalkUnavailable": "Globální klávesový hook se nepodařilo zapnout. Restartujte Cove a zkuste to znovu.",
   "tagline": "Nativní Windows klient",
   "serverAddress": "Adresa serveru",
   "serverPassword": "Heslo serveru (volitelné)",

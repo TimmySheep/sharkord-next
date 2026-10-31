@@ -1,4 +1,8 @@
 {
+  "pushToTalkTitle": "Push to talk (hold F13)",
+  "pushToTalkDescription": "Hold F13 to temporarily unmute your microphone while connected to voice.",
+  "pushToTalkReady": "Hold F13 to temporarily unmute your microphone.",
+  "pushToTalkUnavailable": "Could not enable the global keyboard hook. Restart Cove and try again.",
   "tagline": "Native Windows client",
   "serverAddress": "Server address",
   "serverPassword": "Server password (optional)",

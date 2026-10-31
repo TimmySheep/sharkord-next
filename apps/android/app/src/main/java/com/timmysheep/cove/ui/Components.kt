@@ -1,6 +1,7 @@
 package com.timmysheep.cove.ui
 
 import android.graphics.BitmapFactory
+import android.graphics.Bitmap
 import android.text.Html
 import android.util.LruCache
 import androidx.compose.foundation.Image
@@ -19,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +40,25 @@ private val avatarBitmapCache = object : LruCache<String, android.graphics.Bitma
 }
 
 @Composable
+internal fun rememberUserAvatarBitmap(avatar: MessageFile?, model: CoveViewModel?): Bitmap? {
+    val avatarUrl = avatar?.let { file -> model?.publicFileUrl(file) }
+    val bitmap by produceState<Bitmap?>(null, avatarUrl) {
+        value = avatarUrl?.let { url -> loadAvatarBitmap(url, model) }
+    }
+    return bitmap
+}
+
+private suspend fun loadAvatarBitmap(url: String, model: CoveViewModel?): Bitmap? = runCatching {
+    avatarBitmapCache.get(url) ?: run {
+        val bytes = model?.downloadPublicFile(url) ?: return@runCatching null
+        val options = BitmapFactory.Options().apply { inSampleSize = 4 }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.also {
+            avatarBitmapCache.put(url, it)
+        }
+    }
+}.getOrNull()
+
+@Composable
 fun UserAvatar(
     name: String,
     modifier: Modifier = Modifier,
@@ -52,23 +73,8 @@ fun UserAvatar(
         MaterialTheme.colorScheme.tertiaryContainer
     )
     val background = colors[name.hashCode().absoluteValue % colors.size]
-    val avatarUrl = avatar?.let { file -> model?.publicFileUrl(file) }
-    val image by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, avatarUrl) {
-        value = null
-        value = avatarUrl?.let { url ->
-            runCatching {
-                val cachedBitmap = avatarBitmapCache.get(url)
-                val bitmap = cachedBitmap ?: run {
-                    val bytes = model?.downloadPublicFile(url) ?: return@runCatching null
-                    val options = BitmapFactory.Options().apply { inSampleSize = 4 }
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.also {
-                        avatarBitmapCache.put(url, it)
-                    }
-                }
-                bitmap?.asImageBitmap()
-            }.getOrNull()
-        }
-    }
+    val bitmap = rememberUserAvatarBitmap(avatar, model)
+    val image = remember(bitmap) { bitmap?.asImageBitmap() }
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         Surface(color = background, shape = CircleShape, modifier = Modifier.size(size)) {
             if (image != null) {

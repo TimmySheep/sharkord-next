@@ -32,6 +32,18 @@ struct WatchCard<Content: View>: View {
     }
 }
 
+struct WatchBrandMark: View {
+    let size: CGFloat
+
+    var body: some View {
+        Image("CoveLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
 /// Small status pill: connected / listening / transmitting. Dot plus label.
 struct WatchStatePill: View {
     let color: Color
