@@ -21,6 +21,7 @@ public sealed partial class MainWindow
     private string? _renderedVoiceState;
     private bool _mediaFullscreen;
     private JsonObject _mediaOptions = new();
+    private int? _reactionChannelId;
 
     private void InitializeNativeVoiceControls()
     {
@@ -37,8 +38,18 @@ public sealed partial class MainWindow
         panel.Children.Add(new ScrollViewer { Content = _voiceRoster, MaxHeight = 340, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
         _session.VoiceReactionReceived += OnVoiceReaction;
         _session.VoiceMoveRequested += OnVoiceMoveRequested;
+        var reactionTimer = DispatcherQueue.CreateTimer();
+        reactionTimer.Interval = TimeSpan.FromSeconds(1);
+        reactionTimer.Tick += (_, _) =>
+        {
+            var expired = _voiceReactions.Where(entry => entry.Value.Until <= Environment.TickCount64).Select(entry => entry.Key).ToArray();
+            foreach (var userId in expired) { _voiceReactions.Remove(userId); }
+            if (expired.Length > 0) { RefreshNativeVoiceControls(); }
+        };
+        reactionTimer.Start();
         Closed += (_, _) =>
         {
+            reactionTimer.Stop();
             _session.VoiceReactionReceived -= OnVoiceReaction;
             _session.VoiceMoveRequested -= OnVoiceMoveRequested;
             foreach (var call in _mediaCalls.Values) { call.TrySetCanceled(); }
@@ -111,6 +122,7 @@ public sealed partial class MainWindow
     {
         RefreshSoundEvents();
         var channelId = _session.SelectedChannelId;
+        if (_reactionChannelId != channelId) { _voiceReactions.Clear(); }
         var connected = channelId is not null && channelId == _session.CurrentVoiceChannelId && _voiceMediaStatus == "connected";
         ((Button)_voiceExtras.Children[0]).Content = L10n.T("devicesTab", ns: "settings");
         ((Button)_voiceExtras.Children[2]).Content = L10n.T("addReaction");
@@ -172,6 +184,7 @@ public sealed partial class MainWindow
     private void OnVoiceReaction(int channelId, int userId, string emoji) => DispatcherQueue.TryEnqueue(() =>
     {
         if (_session.SelectedChannelId != channelId) { return; }
+        _reactionChannelId = channelId;
         _voiceReactions[userId] = (emoji, Environment.TickCount64 + 4000);
         RefreshNativeVoiceControls();
     });
@@ -185,18 +198,13 @@ public sealed partial class MainWindow
 
     private void OnVoiceReactionClick(object sender, RoutedEventArgs args)
     {
-        var menu = new MenuFlyout();
-        foreach (var name in new[] { "thumbsup", "heart", "laughing", "tada", "wave" })
+        if (sender is not FrameworkElement anchor || _session.CurrentVoiceChannelId is not { } channelId) { return; }
+        ShowEmojiPicker(anchor, async emoji =>
         {
-            var item = new MenuFlyoutItem { Text = EmojiCatalog.Glyph(name) };
-            item.Click += async (_, _) =>
-            {
-                try { await _session.CallMutationAsync("voice.sendReaction", new JsonObject { ["emoji"] = name }); }
-                catch (Exception error) { VoiceErrorText.Text = error.Message; }
-            };
-            menu.Items.Add(item);
-        }
-        menu.ShowAt((FrameworkElement)sender);
+            if (_session.CurrentVoiceChannelId != channelId || !_session.HasPermission("SEND_VOICE_REACTION")) { return; }
+            try { await _session.CallMutationAsync("voice.sendReaction", new JsonObject { ["emoji"] = emoji.Shortcode }); }
+            catch (Exception error) { VoiceErrorText.Text = error.Message; }
+        }, reactions: true);
     }
 
     private async Task ShowVoiceParticipantAsync(int userId)

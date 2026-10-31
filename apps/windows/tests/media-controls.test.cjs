@@ -77,3 +77,23 @@ test('simulcast sends matching encoding indexes and a supported VP8 codec', () =
     { spatialLayer: 0, label: '270p' }, { spatialLayer: 1, label: '540p' }, { spatialLayer: 2, label: '1080p' }
   ]);
 });
+
+test('single layer publishing omits the simulcast only quality metadata', () => {
+  const { context } = makeWorker();
+  const result = vm.runInContext('videoProduceOptions({getSettings:()=>({height:720})}, "screen", 2500000)', context);
+  assert.equal(result.encodings.length, 1);
+  assert.equal('qualityLayers' in result.appData, false);
+});
+
+test('closing a pinned stream restores the surviving video tiles', () => {
+  const { api, context } = makeWorker();
+  const first = { style: {} };
+  const second = { style: {} };
+  context.consumers.set('1:video', { element: { closest: () => first } });
+  context.consumers.set('2:video', { element: { closest: () => second } });
+  api.pin('1:video');
+  assert.equal(second.style.display, 'none');
+  context.consumers.delete('1:video');
+  api.consumerClosed('1:video');
+  assert.equal(second.style.display, '');
+});

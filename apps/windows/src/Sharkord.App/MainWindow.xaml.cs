@@ -321,6 +321,7 @@ public sealed partial class MainWindow : Window
             Interlocked.Exchange(ref _refreshQueued, 0);
             if (_session.Phase != SessionPhase.Connected && _voiceWebViewInitialized)
             {
+                InvalidateMediaPreview();
                 _ = VoiceMediaWebView.ExecuteScriptAsync("window.coveVoice?.stop()");
                 _voiceMediaStatus = "idle";
                 _microphoneMuted = true;
@@ -955,6 +956,7 @@ public sealed partial class MainWindow : Window
 
     private async Task LeaveVoiceAsync()
     {
+        InvalidateMediaPreview();
         try
         {
             await VoiceMediaWebView.ExecuteScriptAsync("window.coveVoice?.stop()");

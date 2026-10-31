@@ -8,17 +8,33 @@ namespace Sharkord.App;
 
 public sealed partial class MainWindow
 {
-    private (bool MicrophoneMuted, bool Deafened)? _voiceBeforePreview;
+    private (int ChannelId, string? Server, long Generation, bool MicrophoneMuted, bool Deafened)? _voiceBeforePreview;
+    private object? _activePreviewContext;
+    private int _previewOperation;
+
+    private void InvalidateMediaPreview()
+    {
+        _previewOperation++;
+        _voiceBeforePreview = null;
+        _activePreviewContext = null;
+    }
 
     private async Task StopMediaPreviewAsync()
     {
-        await RunMediaActionAsync("stopPreview");
-        if (_voiceBeforePreview is { } previous && _session.CurrentVoiceChannelId is not null)
-        {
-            await ExecuteVoiceActionAsync("setOutputMuted", previous.Deafened);
-            await ExecuteVoiceActionAsync("setMicrophoneMuted", previous.MicrophoneMuted);
-        }
+        var operation = ++_previewOperation;
+        var previous = _voiceBeforePreview;
         _voiceBeforePreview = null;
+        await RunMediaActionAsync("stopPreview");
+        if (previous is { } voice && operation == _previewOperation &&
+            _session.Phase == SessionPhase.Connected && voice.Generation == _session.HistoryGeneration &&
+            voice.ChannelId == _session.CurrentVoiceChannelId && voice.Server == _session.ServerBaseUrl)
+        {
+            await ExecuteVoiceActionAsync("setOutputMuted", voice.Deafened);
+            if (operation == _previewOperation && _session.Phase == SessionPhase.Connected && voice.Generation == _session.HistoryGeneration && voice.ChannelId == _session.CurrentVoiceChannelId && voice.Server == _session.ServerBaseUrl)
+            {
+                await ExecuteVoiceActionAsync("setMicrophoneMuted", voice.MicrophoneMuted);
+            }
+        }
     }
 
     private async Task ShowMediaDevicesAsync()
@@ -40,9 +56,11 @@ public sealed partial class MainWindow
         await WaitForVoiceWorkerAsync();
         var devices = await CallMediaAsync("devices") as JsonArray ?? [];
         var panel = new StackPanel { Spacing = 10, MinWidth = 360, Margin = new Thickness(16) };
+        var previewContext = new object();
         var mediaHost = new Grid { Height = 180 };
         mediaHost.Loaded += (_, _) =>
         {
+            _activePreviewContext = previewContext;
             if (VoiceMediaWebView.Parent == VoiceChannelPanel)
             {
                 VoiceChannelPanel.Children.Remove(VoiceMediaWebView);
@@ -52,7 +70,11 @@ public sealed partial class MainWindow
         };
         mediaHost.Unloaded += async (_, _) =>
         {
-            await StopMediaPreviewAsync();
+            if (ReferenceEquals(_activePreviewContext, previewContext))
+            {
+                _activePreviewContext = null;
+                await StopMediaPreviewAsync();
+            }
             if (VoiceMediaWebView.Parent == mediaHost)
             {
                 mediaHost.Children.Remove(VoiceMediaWebView);
@@ -89,8 +111,8 @@ public sealed partial class MainWindow
         var microphone = new Button { Content = L10n.T("startTestBtn", ns: "settings") };
         var camera = new Button { Content = L10n.T("startVideoPreviewBtn", ns: "settings") };
         var stop = new Button { Content = L10n.T("stopTestBtn", ns: "settings") };
-        microphone.Click += async (_, _) => await PreviewMediaDeviceAsync("audio", status);
-        camera.Click += async (_, _) => await PreviewMediaDeviceAsync("video", status);
+        microphone.Click += async (_, _) => await PreviewMediaDeviceAsync("audio", status, previewContext);
+        camera.Click += async (_, _) => await PreviewMediaDeviceAsync("video", status, previewContext);
         stop.Click += async (_, _) => await StopMediaPreviewAsync();
         controls.Children.Add(microphone);
         controls.Children.Add(camera);
@@ -114,20 +136,32 @@ public sealed partial class MainWindow
         return new ScrollViewer { Content = panel, MaxHeight = 520, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     }
 
-    private async Task PreviewMediaDeviceAsync(string kind, TextBlock status)
+    private async Task PreviewMediaDeviceAsync(string kind, TextBlock status, object context)
     {
+        var operation = ++_previewOperation;
+        var channelId = _session.CurrentVoiceChannelId;
+        var server = _session.ServerBaseUrl;
+        var generation = _session.HistoryGeneration;
+        bool IsCurrent() => operation == _previewOperation && ReferenceEquals(_activePreviewContext, context) &&
+            _session.Phase == SessionPhase.Connected && generation == _session.HistoryGeneration &&
+            channelId == _session.CurrentVoiceChannelId && server == _session.ServerBaseUrl;
         try
         {
+            if (!IsCurrent()) { return; }
             await ApplyMediaOptionsAsync(_session.CurrentVoiceChannelId);
-            if (_session.CurrentVoiceChannelId is not null)
+            if (!IsCurrent()) { return; }
+            if (channelId is { } id)
             {
-                _voiceBeforePreview ??= (_microphoneMuted, _deafened);
+                _voiceBeforePreview ??= (id, server, generation, _microphoneMuted, _deafened);
                 await ExecuteVoiceActionAsync("setMicrophoneMuted", true);
+                if (!IsCurrent()) { return; }
                 await ExecuteVoiceActionAsync("setOutputMuted", true);
+                if (!IsCurrent()) { return; }
                 _microphoneMuted = true;
                 _deafened = true;
                 status.Text = L10n.T("mutedDuringTest", ns: "settings");
             }
+            if (!IsCurrent()) { return; }
             await CallMediaAsync("preview", kind);
         }
         catch (Exception error) { status.Text = error.Message; }
@@ -146,6 +180,7 @@ public sealed partial class MainWindow
             choice.Items.Add(item);
             if ((string)item.Tag == _mediaOptions.GetString(option)) { choice.SelectedItem = item; }
         }
+        if (choice.SelectedIndex == 0) { _mediaOptions[option] = ""; }
         choice.SelectionChanged += (_, _) => { if (choice.SelectedItem is ComboBoxItem { Tag: string id }) { _mediaOptions[option] = id; } };
         panel.Children.Add(choice);
     }

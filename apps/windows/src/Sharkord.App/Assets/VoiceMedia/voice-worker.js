@@ -11071,6 +11071,8 @@ bridgeWindow.chrome?.webview?.addEventListener("message", (event) => {
 var consume = async (remoteId, kind) => {
   if (!receiveTransport || !device)
     return;
+  const transport = receiveTransport;
+  const generation = mediaGeneration;
   const key = `${remoteId}:${kind}`;
   if (consumers.has(key))
     return;
@@ -11080,21 +11082,29 @@ var consume = async (remoteId, kind) => {
       remoteId,
       rtpCapabilities: device.recvRtpCapabilities
     });
-    if (!receiveTransport || consumers.has(key))
+    if (receiveTransport !== transport || generation !== mediaGeneration || consumers.has(key))
       return;
-    const consumer = await receiveTransport.consume({
+    const consumer = await transport.consume({
       id: parameters.consumerId,
       producerId: parameters.producerId,
       kind: ["audio", "screen_audio", "external_audio"].includes(parameters.consumerKind) ? "audio" : "video",
       rtpParameters: parameters.consumerRtpParameters
     });
+    if (receiveTransport !== transport || generation !== mediaGeneration) { consumer.close(); return; }
     if (consumer.track.kind === "audio") {
       const audio = document.createElement("audio");
       audio.autoplay = true;
       audio.srcObject = new MediaStream([consumer.track]);
       audio.muted = outputMuted;
       audio.volume = remoteAudioVolumes.get(key) ?? 1;
-      if (audio.setSinkId && window.coveMediaOptions?.speakerId) await audio.setSinkId(window.coveMediaOptions.speakerId);
+      if (audio.setSinkId && window.coveMediaOptions?.speakerId) {
+        try { await audio.setSinkId(window.coveMediaOptions.speakerId); }
+        catch {
+          try { await audio.setSinkId(""); }
+          catch (error) { consumer.close(); audio.srcObject = null; throw error; }
+        }
+      }
+      if (receiveTransport !== transport || generation !== mediaGeneration) { consumer.close(); audio.srcObject = null; return; }
       document.body.append(audio);
       consumers.set(key, { consumer, element: audio });
       await audio.play();
@@ -11136,6 +11146,7 @@ var closeConsumer = (remoteId, kind) => {
     setGalleryVisible(remoteVideoCount > 0 || cameraProducer !== undefined);
   }
   consumers.delete(key);
+  window.coveMedia?.consumerClosed(key);
 };
 var setRemoteAudioVolume = (remoteId, kind, volume) => {
   if (kind !== "audio" && kind !== "screen_audio" && kind !== "external_audio")
@@ -11160,6 +11171,7 @@ var updateLocalPreview = () => {
 };
 var closeMedia = () => {
   window.coveMedia?.stopPreview();
+  window.coveMedia?.pin(null);
   mediaGeneration += 1;
   microphoneProducer?.close();
   microphoneProducer = undefined;

@@ -4,6 +4,7 @@ let previewStream;
 let previewAudio;
 let previewGeneration = 0;
 let monitoring = false;
+let pinnedMediaKey;
 const audioDevice = (id) => id ? { exact: id } : undefined;
 const videoEncodings = (bitrate) => window.coveMediaOptions.simulcast
   ? [{ scaleResolutionDownBy: 4, maxBitrate: Math.round(bitrate / 8) }, { scaleResolutionDownBy: 2, maxBitrate: Math.round(bitrate / 3) }, { scaleResolutionDownBy: 1, maxBitrate: bitrate }]
@@ -14,7 +15,7 @@ const videoProduceOptions = (track, kind, bitrate) => {
   const qualityLayers = encodings.map((encoding, spatialLayer) => ({ spatialLayer, label: `${Math.round(height / (encoding.scaleResolutionDownBy ?? 1))}p` }));
   const codec = window.coveMediaOptions.simulcast ? device.rtpCapabilities.codecs.find((candidate) => candidate.mimeType.toLowerCase() === "video/vp8") : undefined;
   if (window.coveMediaOptions.simulcast && !codec) throw new Error("VP8 is unavailable for simulcast.");
-  return { track, encodings, codec, appData: { kind, qualityLayers } };
+  return { track, encodings, codec, appData: { kind, ...(window.coveMediaOptions.simulcast ? { qualityLayers } : {}) } };
 };
 const mediaStats = async (key) => {
   const target = key === "local" ? microphoneProducer : consumers.get(key)?.consumer;
@@ -51,6 +52,7 @@ window.coveMedia = {
     await callNative("voice.setConsumerQuality", { remoteId: Number(remoteId), kind, quality: layer < 0 ? { mode: "auto" } : { mode: "layer", spatialLayer: layer } });
   },
   pin: (key) => {
+    pinnedMediaKey = key;
     for (const [id, { element }] of consumers) {
       const tile = element.closest(".video-tile");
       if (tile) tile.style.display = key && key !== id ? "none" : "";
@@ -58,6 +60,7 @@ window.coveMedia = {
     const local = document.getElementById("local-preview")?.closest(".video-tile");
     if (local) local.style.display = key ? "none" : "";
   },
+  consumerClosed: (key) => { if (pinnedMediaKey === key) window.coveMedia.pin(null); },
   zoom: (key, scale) => { const video = consumers.get(key)?.element; if (video?.tagName === "VIDEO") video.style.transform = `scale(${Math.max(1, Math.min(4, scale))})`; },
   picture: async (key) => { const element = consumers.get(key)?.element; if (element instanceof HTMLVideoElement && document.pictureInPictureEnabled) await element.requestPictureInPicture(); },
   statistics: mediaStats,
