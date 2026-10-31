@@ -22,7 +22,8 @@ extension SharkordSession {
     public func uploadAttachment(
         data: Data,
         fileName: String,
-        mimeType: String
+        mimeType: String,
+        progress: (@Sendable (Int64, Int64) -> Void)? = nil
     ) async throws -> String {
         guard let http, let token else {
             throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
@@ -32,7 +33,8 @@ extension SharkordSession {
             data: data,
             fileName: fileName,
             mimeType: mimeType,
-            token: token
+            token: token,
+            progress: progress
         )
 
         return temp.id

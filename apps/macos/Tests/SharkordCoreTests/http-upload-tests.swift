@@ -3,6 +3,34 @@ import XCTest
 @testable import SharkordCore
 
 final class HTTPUploadTests: XCTestCase {
+    func testCancellingUploadCancelsTheUnderlyingRequest() async throws {
+        let started = expectation(description: "upload started")
+        let stopped = expectation(description: "upload stopped")
+        CancelledUploadProtocol.onStart = { started.fulfill() }
+        CancelledUploadProtocol.onStop = { stopped.fulfill() }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [CancelledUploadProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer {
+            session.invalidateAndCancel()
+            CancelledUploadProtocol.onStart = nil
+            CancelledUploadProtocol.onStop = nil
+        }
+        let client = SharkordHTTPClient(baseURL: URL(string: "https://example.test")!, session: session)
+        let upload = Task {
+            try await client.upload(data: Data([1]), fileName: "test.txt", mimeType: "text/plain", token: "test-token")
+        }
+        await fulfillment(of: [started], timeout: 2)
+        upload.cancel()
+        do {
+            _ = try await upload.value
+            XCTFail("cancelled upload completed")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .cancelled)
+        }
+        await fulfillment(of: [stopped], timeout: 2)
+    }
+
     func testUploadEncodesTrimmedFilenameLikeTheWebClient() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [UploadURLProtocol.self]
@@ -34,6 +62,15 @@ final class HTTPUploadTests: XCTestCase {
             XCTAssertEqual(file.id, "temporary-file")
         }
     }
+}
+
+private final class CancelledUploadProtocol: URLProtocol, @unchecked Sendable {
+    static var onStart: (() -> Void)?
+    static var onStop: (() -> Void)?
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() { Self.onStart?() }
+    override func stopLoading() { Self.onStop?() }
 }
 
 private final class UploadURLProtocol: URLProtocol, @unchecked Sendable {

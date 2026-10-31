@@ -75,7 +75,8 @@ public struct SharkordHTTPClient: Sendable {
         data: Data,
         fileName: String,
         mimeType: String,
-        token: String
+        token: String,
+        progress: (@Sendable (Int64, Int64) -> Void)? = nil
     ) async throws -> SharkordTempFile {
         var request = URLRequest(url: baseURL.appendingPathComponent("upload"))
         request.httpMethod = "POST"
@@ -90,7 +91,8 @@ public struct SharkordHTTPClient: Sendable {
         request.setValue("application/octet-stream", forHTTPHeaderField: "content-type")
 
         do {
-            let (responseData, response) = try await session.upload(for: request, from: data)
+            let delegate = UploadProgressDelegate(progress: progress)
+            let (responseData, response) = try await session.upload(for: request, from: data, delegate: delegate)
             try validate(response, data: responseData)
             return try decoder.decode(SharkordTempFile.self, from: responseData)
         } catch {
@@ -177,5 +179,18 @@ public struct SharkordHTTPClient: Sendable {
         }
 
         return nil
+    }
+}
+
+private final class UploadProgressDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    let progress: (@Sendable (Int64, Int64) -> Void)?
+
+    init(progress: (@Sendable (Int64, Int64) -> Void)?) { self.progress = progress }
+
+    func urlSession(
+        _ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64,
+        totalBytesSent: Int64, totalBytesExpectedToSend: Int64
+    ) {
+        progress?(totalBytesSent, totalBytesExpectedToSend)
     }
 }
