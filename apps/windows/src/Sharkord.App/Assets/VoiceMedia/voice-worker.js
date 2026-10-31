@@ -3,37 +3,21 @@ var __getProtoOf = Object.getPrototypeOf;
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-function __accessProp(key) {
-  return this[key];
-}
-var __toESMCache_node;
-var __toESMCache_esm;
 var __toESM = (mod, isNodeMode, target) => {
-  var canCache = mod != null && typeof mod === "object";
-  if (canCache) {
-    var cache = isNodeMode ? __toESMCache_node ??= new WeakMap : __toESMCache_esm ??= new WeakMap;
-    var cached = cache.get(mod);
-    if (cached)
-      return cached;
-  }
   target = mod != null ? __create(__getProtoOf(mod)) : {};
-  const to = isNodeMode || !mod || !mod.__esModule || !__hasOwnProp.call(mod, "default") ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
-  if (mod && typeof mod === "object" || typeof mod === "function") {
-    for (let key of __getOwnPropNames(mod))
-      if (!__hasOwnProp.call(to, key))
-        __defProp(to, key, {
-          get: __accessProp.bind(mod, key),
-          enumerable: true
-        });
-  }
-  if (canCache)
-    cache.set(mod, to);
+  const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
+  for (let key of __getOwnPropNames(mod))
+    if (!__hasOwnProp.call(to, key))
+      __defProp(to, key, {
+        get: () => mod[key],
+        enumerable: true
+      });
   return to;
 };
 var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
 
-// node_modules/.bun/ms@2.1.3/node_modules/ms/index.js
-var require_ms = __commonJS(function(exports, module) {
+// ../../node_modules/ms/index.js
+var require_ms = __commonJS((exports, module) => {
   var s = 1000;
   var m = s * 60;
   var h = m * 60;
@@ -142,8 +126,8 @@ var require_ms = __commonJS(function(exports, module) {
   }
 });
 
-// node_modules/.bun/debug@4.4.3/node_modules/debug/src/common.js
-var require_common = __commonJS(function(exports, module) {
+// ../../node_modules/debug/src/common.js
+var require_common = __commonJS((exports, module) => {
   function setup(env) {
     createDebug.debug = createDebug;
     createDebug.default = createDebug;
@@ -317,8 +301,8 @@ var require_common = __commonJS(function(exports, module) {
   module.exports = setup;
 });
 
-// node_modules/.bun/debug@4.4.3/node_modules/debug/src/browser.js
-var require_browser = __commonJS(function(exports, module) {
+// ../../node_modules/debug/src/browser.js
+var require_browser = __commonJS((exports, module) => {
   exports.formatArgs = formatArgs;
   exports.save = save;
   exports.load = load;
@@ -477,13 +461,13 @@ var require_browser = __commonJS(function(exports, module) {
   };
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/types.js
-var require_types = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/types.js
+var require_types = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Logger.js
-var require_Logger = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/Logger.js
+var require_Logger = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Logger = undefined;
   var debug_1 = require_browser();
@@ -520,8 +504,8 @@ var require_Logger = __commonJS(function(exports) {
   exports.Logger = Logger;
 });
 
-// node_modules/.bun/events@3.3.0/node_modules/events/events.js
-var require_events = __commonJS(function(exports, module) {
+// ../../node_modules/events-alias/events.js
+var require_events = __commonJS((exports, module) => {
   var R = typeof Reflect === "object" ? Reflect : null;
   var ReflectApply = R && typeof R.apply === "function" ? R.apply : function ReflectApply(target, receiver, args) {
     return Function.prototype.apply.call(target, receiver, args);
@@ -884,8 +868,8 @@ var require_events = __commonJS(function(exports, module) {
   }
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/enhancedEvents.js
-var require_enhancedEvents = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/enhancedEvents.js
+var require_enhancedEvents = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.EnhancedEventEmitter = undefined;
   var events_alias_1 = require_events();
@@ -959,8 +943,8 @@ var require_enhancedEvents = __commonJS(function(exports) {
   exports.EnhancedEventEmitter = EnhancedEventEmitter;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/errors.js
-var require_errors = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/errors.js
+var require_errors = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.InvalidStateError = exports.UnsupportedError = undefined;
 
@@ -991,8 +975,8 @@ var require_errors = __commonJS(function(exports) {
   exports.InvalidStateError = InvalidStateError;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/utils.js
-var require_utils = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/utils.js
+var require_utils = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.clone = clone;
   exports.generateRandomNumber = generateRandomNumber;
@@ -1023,8 +1007,8 @@ var require_utils = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/h264-profile-level-id@2.3.2/node_modules/h264-profile-level-id/lib/Logger.js
-var require_Logger2 = __commonJS(function(exports) {
+// ../../node_modules/h264-profile-level-id/lib/Logger.js
+var require_Logger2 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Logger = undefined;
   var debug_1 = require_browser();
@@ -1061,8 +1045,8 @@ var require_Logger2 = __commonJS(function(exports) {
   exports.Logger = Logger;
 });
 
-// node_modules/.bun/h264-profile-level-id@2.3.2/node_modules/h264-profile-level-id/lib/index.js
-var require_lib = __commonJS(function(exports) {
+// ../../node_modules/h264-profile-level-id/lib/index.js
+var require_lib = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.ProfileLevelId = exports.Level = exports.Profile = undefined;
   exports.parseProfileLevelId = parseProfileLevelId;
@@ -1077,33 +1061,33 @@ var require_lib = __commonJS(function(exports) {
   var Logger_1 = require_Logger2();
   var logger = new Logger_1.Logger;
   var Profile;
-  (function(Profile) {
-    Profile[Profile["ConstrainedBaseline"] = 1] = "ConstrainedBaseline";
-    Profile[Profile["Baseline"] = 2] = "Baseline";
-    Profile[Profile["Main"] = 3] = "Main";
-    Profile[Profile["ConstrainedHigh"] = 4] = "ConstrainedHigh";
-    Profile[Profile["High"] = 5] = "High";
-    Profile[Profile["PredictiveHigh444"] = 6] = "PredictiveHigh444";
+  (function(Profile2) {
+    Profile2[Profile2["ConstrainedBaseline"] = 1] = "ConstrainedBaseline";
+    Profile2[Profile2["Baseline"] = 2] = "Baseline";
+    Profile2[Profile2["Main"] = 3] = "Main";
+    Profile2[Profile2["ConstrainedHigh"] = 4] = "ConstrainedHigh";
+    Profile2[Profile2["High"] = 5] = "High";
+    Profile2[Profile2["PredictiveHigh444"] = 6] = "PredictiveHigh444";
   })(Profile || (exports.Profile = Profile = {}));
   var Level;
-  (function(Level) {
-    Level[Level["L1_b"] = 0] = "L1_b";
-    Level[Level["L1"] = 10] = "L1";
-    Level[Level["L1_1"] = 11] = "L1_1";
-    Level[Level["L1_2"] = 12] = "L1_2";
-    Level[Level["L1_3"] = 13] = "L1_3";
-    Level[Level["L2"] = 20] = "L2";
-    Level[Level["L2_1"] = 21] = "L2_1";
-    Level[Level["L2_2"] = 22] = "L2_2";
-    Level[Level["L3"] = 30] = "L3";
-    Level[Level["L3_1"] = 31] = "L3_1";
-    Level[Level["L3_2"] = 32] = "L3_2";
-    Level[Level["L4"] = 40] = "L4";
-    Level[Level["L4_1"] = 41] = "L4_1";
-    Level[Level["L4_2"] = 42] = "L4_2";
-    Level[Level["L5"] = 50] = "L5";
-    Level[Level["L5_1"] = 51] = "L5_1";
-    Level[Level["L5_2"] = 52] = "L5_2";
+  (function(Level2) {
+    Level2[Level2["L1_b"] = 0] = "L1_b";
+    Level2[Level2["L1"] = 10] = "L1";
+    Level2[Level2["L1_1"] = 11] = "L1_1";
+    Level2[Level2["L1_2"] = 12] = "L1_2";
+    Level2[Level2["L1_3"] = 13] = "L1_3";
+    Level2[Level2["L2"] = 20] = "L2";
+    Level2[Level2["L2_1"] = 21] = "L2_1";
+    Level2[Level2["L2_2"] = 22] = "L2_2";
+    Level2[Level2["L3"] = 30] = "L3";
+    Level2[Level2["L3_1"] = 31] = "L3_1";
+    Level2[Level2["L3_2"] = 32] = "L3_2";
+    Level2[Level2["L4"] = 40] = "L4";
+    Level2[Level2["L4_1"] = 41] = "L4_1";
+    Level2[Level2["L4_2"] = 42] = "L4_2";
+    Level2[Level2["L5"] = 50] = "L5";
+    Level2[Level2["L5_1"] = 51] = "L5_1";
+    Level2[Level2["L5_2"] = 52] = "L5_2";
   })(Level || (exports.Level = Level = {}));
 
   class ProfileLevelId {
@@ -1498,8 +1482,8 @@ var require_lib = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/ortc.js
-var require_ortc = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/ortc.js
+var require_ortc = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.validateAndNormalizeRtpCapabilities = validateAndNormalizeRtpCapabilities;
   exports.validateAndNormalizeRtpParameters = validateAndNormalizeRtpParameters;
@@ -2219,8 +2203,8 @@ var require_ortc = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/Logger.js
-var require_Logger3 = __commonJS(function(exports) {
+// ../../node_modules/awaitqueue/lib/Logger.js
+var require_Logger3 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Logger = undefined;
   var debug = require_browser();
@@ -2257,8 +2241,8 @@ var require_Logger3 = __commonJS(function(exports) {
   exports.Logger = Logger;
 });
 
-// node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/errors.js
-var require_errors2 = __commonJS(function(exports) {
+// ../../node_modules/awaitqueue/lib/errors.js
+var require_errors2 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.AwaitQueueRemovedTaskError = exports.AwaitQueueStoppedError = undefined;
 
@@ -2285,8 +2269,8 @@ var require_errors2 = __commonJS(function(exports) {
   exports.AwaitQueueRemovedTaskError = AwaitQueueRemovedTaskError;
 });
 
-// node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/AwaitQueue.js
-var require_AwaitQueue = __commonJS(function(exports) {
+// ../../node_modules/awaitqueue/lib/AwaitQueue.js
+var require_AwaitQueue = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.AwaitQueue = undefined;
   var Logger_1 = require_Logger3();
@@ -2315,9 +2299,9 @@ var require_AwaitQueue = __commonJS(function(exports) {
       }
       return new Promise((resolve, reject) => {
         if (name && options?.removeOngoingTasksWithSameName) {
-          for (const pendingTask of this.pendingTasks.values()) {
-            if (pendingTask.name === name) {
-              pendingTask.reject(new errors_1.AwaitQueueRemovedTaskError, {
+          for (const pendingTask2 of this.pendingTasks.values()) {
+            if (pendingTask2.name === name) {
+              pendingTask2.reject(new errors_1.AwaitQueueRemovedTaskError, {
                 canExecuteNextTask: false
               });
             }
@@ -2413,8 +2397,8 @@ var require_AwaitQueue = __commonJS(function(exports) {
   exports.AwaitQueue = AwaitQueue;
 });
 
-// node_modules/.bun/awaitqueue@3.3.0/node_modules/awaitqueue/lib/index.js
-var require_lib2 = __commonJS(function(exports) {
+// ../../node_modules/awaitqueue/lib/index.js
+var require_lib2 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.AwaitQueueRemovedTaskError = exports.AwaitQueueStoppedError = exports.AwaitQueue = undefined;
   var AwaitQueue_1 = require_AwaitQueue();
@@ -2430,8 +2414,8 @@ var require_lib2 = __commonJS(function(exports) {
   } });
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Producer.js
-var require_Producer = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/Producer.js
+var require_Producer = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Producer = undefined;
   var Logger_1 = require_Logger();
@@ -2654,8 +2638,8 @@ var require_Producer = __commonJS(function(exports) {
   exports.Producer = Producer;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Consumer.js
-var require_Consumer = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/Consumer.js
+var require_Consumer = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Consumer = undefined;
   var Logger_1 = require_Logger();
@@ -2802,8 +2786,8 @@ var require_Consumer = __commonJS(function(exports) {
   exports.Consumer = Consumer;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/DataProducer.js
-var require_DataProducer = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/DataProducer.js
+var require_DataProducer = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.DataProducer = undefined;
   var Logger_1 = require_Logger();
@@ -2939,8 +2923,8 @@ var require_DataProducer = __commonJS(function(exports) {
   exports.DataProducer = DataProducer;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/DataConsumer.js
-var require_DataConsumer = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/DataConsumer.js
+var require_DataConsumer = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.DataConsumer = undefined;
   var Logger_1 = require_Logger();
@@ -3064,8 +3048,8 @@ var require_DataConsumer = __commonJS(function(exports) {
   exports.DataConsumer = DataConsumer;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Transport.js
-var require_Transport = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/Transport.js
+var require_Transport = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Transport = undefined;
   var awaitqueue_1 = require_lib2();
@@ -3726,8 +3710,8 @@ var require_Transport = __commonJS(function(exports) {
   exports.Transport = Transport;
 });
 
-// node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/grammar.js
-var require_grammar = __commonJS(function(exports, module) {
+// ../../node_modules/sdp-transform/lib/grammar.js
+var require_grammar = __commonJS((exports, module) => {
   var grammar = module.exports = {
     v: [{
       name: "version",
@@ -4101,8 +4085,8 @@ var require_grammar = __commonJS(function(exports, module) {
   });
 });
 
-// node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/parser.js
-var require_parser = __commonJS(function(exports) {
+// ../../node_modules/sdp-transform/lib/parser.js
+var require_parser = __commonJS((exports) => {
   var toIntIfInt = function(v) {
     return String(Number(v)) === v ? Number(v) : v;
   };
@@ -4203,8 +4187,8 @@ var require_parser = __commonJS(function(exports) {
   };
 });
 
-// node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/writer.js
-var require_writer = __commonJS(function(exports, module) {
+// ../../node_modules/sdp-transform/lib/writer.js
+var require_writer = __commonJS((exports, module) => {
   var grammar = require_grammar();
   var formatRegExp = /%[sdv%]/g;
   var format = function(formatStr) {
@@ -4309,8 +4293,8 @@ var require_writer = __commonJS(function(exports, module) {
   };
 });
 
-// node_modules/.bun/sdp-transform@3.0.0/node_modules/sdp-transform/lib/index.js
-var require_lib3 = __commonJS(function(exports) {
+// ../../node_modules/sdp-transform/lib/index.js
+var require_lib3 = __commonJS((exports) => {
   var parser = require_parser();
   var writer = require_writer();
   var grammar = require_grammar();
@@ -4325,8 +4309,8 @@ var require_lib3 = __commonJS(function(exports) {
   exports.parseSimulcastStreamList = parser.parseSimulcastStreamList;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/scalabilityModes.js
-var require_scalabilityModes = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/scalabilityModes.js
+var require_scalabilityModes = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.parse = parse;
   var ScalabilityModeRegex = new RegExp("^[LS]([1-9]\\d{0,1})T([1-9]\\d{0,1})");
@@ -4346,8 +4330,8 @@ var require_scalabilityModes = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/MediaSection.js
-var require_MediaSection = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/sdp/MediaSection.js
+var require_MediaSection = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.OfferMediaSection = exports.AnswerMediaSection = exports.MediaSection = undefined;
   var sdpTransform = require_lib3();
@@ -4773,8 +4757,8 @@ var require_MediaSection = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/RemoteSdp.js
-var require_RemoteSdp = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/sdp/RemoteSdp.js
+var require_RemoteSdp = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.RemoteSdp = undefined;
   var sdpTransform = require_lib3();
@@ -5010,8 +4994,8 @@ var require_RemoteSdp = __commonJS(function(exports) {
   exports.RemoteSdp = RemoteSdp;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/commonUtils.js
-var require_commonUtils = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/sdp/commonUtils.js
+var require_commonUtils = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.extractRtpCapabilities = extractRtpCapabilities;
   exports.extractDtlsParameters = extractDtlsParameters;
@@ -5190,8 +5174,8 @@ var require_commonUtils = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/sdp/unifiedPlanUtils.js
-var require_unifiedPlanUtils = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/sdp/unifiedPlanUtils.js
+var require_unifiedPlanUtils = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.getRtpEncodings = getRtpEncodings;
   exports.addLegacySimulcast = addLegacySimulcast;
@@ -5248,9 +5232,9 @@ var require_unifiedPlanUtils = __commonJS(function(exports) {
       if (line.semantics !== "FID") {
         return false;
       }
-      const ssrcs = line.ssrcs.split(/\s+/);
-      if (Number(ssrcs[0]) === firstSsrc) {
-        firstRtxSsrc = Number(ssrcs[1]);
+      const ssrcs2 = line.ssrcs.split(/\s+/);
+      if (Number(ssrcs2[0]) === firstSsrc) {
+        firstRtxSsrc = Number(ssrcs2[1]);
         return true;
       } else {
         return false;
@@ -5308,8 +5292,8 @@ var require_unifiedPlanUtils = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/ortc/utils.js
-var require_utils2 = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/ortc/utils.js
+var require_utils2 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.addNackSupportForOpus = addNackSupportForOpus;
   exports.addHeaderExtensionSupport = addHeaderExtensionSupport;
@@ -5365,8 +5349,8 @@ var require_utils2 = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Chrome111.js
-var require_Chrome111 = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/Chrome111.js
+var require_Chrome111 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Chrome111 = undefined;
   var sdpTransform = require_lib3();
@@ -5587,9 +5571,9 @@ var require_Chrome111 = __commonJS(function(exports) {
         });
       }
       if (headerExtensionOptions?.absCaptureTime) {
-        const offerMediaObject = localSdpObject.media[mediaSectionIdx.idx];
+        const offerMediaObject2 = localSdpObject.media[mediaSectionIdx.idx];
         sdpCommonUtils.addHeaderExtension({
-          offerMediaObject,
+          offerMediaObject: offerMediaObject2,
           headerExtensionUri: "http://www.webrtc.org/experiments/rtp-hdrext/abs-capture-time",
           headerExtensionId: sendingRemoteRtpParameters.headerExtensions.find((headerExtension) => headerExtension.uri === "http://www.webrtc.org/experiments/rtp-hdrext/abs-capture-time").id
         });
@@ -6088,8 +6072,8 @@ var require_Chrome111 = __commonJS(function(exports) {
   exports.Chrome111 = Chrome111;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Chrome74.js
-var require_Chrome74 = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/Chrome74.js
+var require_Chrome74 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Chrome74 = undefined;
   var sdpTransform = require_lib3();
@@ -6815,8 +6799,8 @@ var require_Chrome74 = __commonJS(function(exports) {
   exports.Chrome74 = Chrome74;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Firefox120.js
-var require_Firefox120 = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/Firefox120.js
+var require_Firefox120 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Firefox120 = undefined;
   var sdpTransform = require_lib3();
@@ -7509,8 +7493,8 @@ var require_Firefox120 = __commonJS(function(exports) {
   exports.Firefox120 = Firefox120;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/Safari12.js
-var require_Safari12 = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/Safari12.js
+var require_Safari12 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Safari12 = undefined;
   var sdpTransform = require_lib3();
@@ -8240,8 +8224,8 @@ var require_Safari12 = __commonJS(function(exports) {
   exports.Safari12 = Safari12;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/ReactNative106.js
-var require_ReactNative106 = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/ReactNative106.js
+var require_ReactNative106 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.ReactNative106 = undefined;
   var sdpTransform = require_lib3();
@@ -8989,8 +8973,8 @@ var require_ReactNative106 = __commonJS(function(exports) {
   exports.ReactNative106 = ReactNative106;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/Device.js
-var require_Device = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/Device.js
+var require_Device = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.Device = undefined;
   exports.detectDevice = detectDevice;
@@ -9416,8 +9400,8 @@ var require_Device = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/@lukeed+uuid@2.0.1/node_modules/@lukeed/uuid/dist/index.js
-var require_dist = __commonJS(function(exports) {
+// ../../node_modules/@lukeed/uuid/dist/index.js
+var require_dist = __commonJS((exports) => {
   var IDX = 256;
   var HEX = [];
   var BUFFER;
@@ -9448,8 +9432,8 @@ var require_dist = __commonJS(function(exports) {
   exports.v4 = v4;
 });
 
-// node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEventTarget.js
-var require_FakeEventTarget = __commonJS(function(exports) {
+// ../../node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEventTarget.js
+var require_FakeEventTarget = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.FakeEventTarget = undefined;
 
@@ -9500,8 +9484,8 @@ var require_FakeEventTarget = __commonJS(function(exports) {
   exports.FakeEventTarget = FakeEventTarget;
 });
 
-// node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEvent.js
-var require_FakeEvent = __commonJS(function(exports) {
+// ../../node_modules/fake-mediastreamtrack/lib/fakeEvents/FakeEvent.js
+var require_FakeEvent = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.FakeEvent = undefined;
 
@@ -9543,8 +9527,8 @@ var require_FakeEvent = __commonJS(function(exports) {
   exports.FakeEvent = FakeEvent;
 });
 
-// node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/utils.js
-var require_utils3 = __commonJS(function(exports) {
+// ../../node_modules/fake-mediastreamtrack/lib/utils.js
+var require_utils3 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.clone = clone;
   function clone(value) {
@@ -9560,8 +9544,8 @@ var require_utils3 = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/fake-mediastreamtrack@2.2.1/node_modules/fake-mediastreamtrack/lib/index.js
-var require_lib4 = __commonJS(function(exports) {
+// ../../node_modules/fake-mediastreamtrack/lib/index.js
+var require_lib4 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.FakeMediaStreamTrack = undefined;
   var uuid_1 = require_dist();
@@ -9764,8 +9748,8 @@ var require_lib4 = __commonJS(function(exports) {
   exports.FakeMediaStreamTrack = FakeMediaStreamTrack;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/fakeEvents/FakeEventTarget.js
-var require_FakeEventTarget2 = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/fakeEvents/FakeEventTarget.js
+var require_FakeEventTarget2 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.FakeEventTarget = undefined;
 
@@ -9816,8 +9800,8 @@ var require_FakeEventTarget2 = __commonJS(function(exports) {
   exports.FakeEventTarget = FakeEventTarget;
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/handlers/FakeHandler.js
-var require_FakeHandler = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/handlers/FakeHandler.js
+var require_FakeHandler = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.FakeHandler = undefined;
   var fake_mediastreamtrack_1 = require_lib4();
@@ -10219,8 +10203,8 @@ var require_FakeHandler = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/test/fakeParameters.js
-var require_fakeParameters = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/test/fakeParameters.js
+var require_fakeParameters = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.generateRouterRtpCapabilities = generateRouterRtpCapabilities;
   exports.generateNativeRtpCapabilities = generateNativeRtpCapabilities;
@@ -10918,8 +10902,8 @@ var require_fakeParameters = __commonJS(function(exports) {
   }
 });
 
-// node_modules/.bun/mediasoup-client@3.18.7/node_modules/mediasoup-client/lib/index.js
-var require_lib5 = __commonJS(function(exports) {
+// ../../node_modules/mediasoup-client/lib/index.js
+var require_lib5 = __commonJS((exports) => {
   Object.defineProperty(exports, "__esModule", { value: true });
   exports.debug = exports.testFakeParameters = exports.FakeHandler = exports.enhancedEvents = exports.ortc = exports.parseScalabilityMode = exports.detectDeviceAsync = exports.detectDevice = exports.Device = exports.version = exports.types = undefined;
   var debug_1 = require_browser();
@@ -10949,7 +10933,7 @@ var require_lib5 = __commonJS(function(exports) {
   exports.testFakeParameters = require_fakeParameters();
 });
 
-// apps/client/scripts/voice-worker.ts
+// scripts/voice-worker.ts
 var import_mediasoup_client = __toESM(require_lib5(), 1);
 var defaultMediaLabels = {
   share: "",
@@ -10991,6 +10975,14 @@ var screenShareEnabled = false;
 var shareScreenLabel = "";
 var stopScreenShareLabel = "";
 var mediaLabels = defaultMediaLabels;
+var deviceMicrophoneId;
+var devicePlaybackId;
+var deviceWebcamId;
+var deviceEchoCancellation = true;
+var deviceAutoGainControl = true;
+var microphoneTestStream;
+var microphoneTestContext;
+var microphoneTestTimer;
 var getNoiseMixParameter = (node) => {
   let parameter;
   node.parameters.forEach((value, name) => {
@@ -11071,8 +11063,6 @@ bridgeWindow.chrome?.webview?.addEventListener("message", (event) => {
 var consume = async (remoteId, kind) => {
   if (!receiveTransport || !device)
     return;
-  const transport = receiveTransport;
-  const generation = mediaGeneration;
   const key = `${remoteId}:${kind}`;
   if (consumers.has(key))
     return;
@@ -11082,29 +11072,21 @@ var consume = async (remoteId, kind) => {
       remoteId,
       rtpCapabilities: device.recvRtpCapabilities
     });
-    if (receiveTransport !== transport || generation !== mediaGeneration || consumers.has(key))
+    if (!receiveTransport || consumers.has(key))
       return;
-    const consumer = await transport.consume({
+    const consumer = await receiveTransport.consume({
       id: parameters.consumerId,
       producerId: parameters.producerId,
-      kind: ["audio", "screen_audio", "external_audio"].includes(parameters.consumerKind) ? "audio" : "video",
+      kind: parameters.consumerKind === "audio" || parameters.consumerKind === "screen_audio" ? "audio" : "video",
       rtpParameters: parameters.consumerRtpParameters
     });
-    if (receiveTransport !== transport || generation !== mediaGeneration) { consumer.close(); return; }
     if (consumer.track.kind === "audio") {
       const audio = document.createElement("audio");
       audio.autoplay = true;
       audio.srcObject = new MediaStream([consumer.track]);
       audio.muted = outputMuted;
       audio.volume = remoteAudioVolumes.get(key) ?? 1;
-      if (audio.setSinkId && window.coveMediaOptions?.speakerId) {
-        try { await audio.setSinkId(window.coveMediaOptions.speakerId); }
-        catch {
-          try { await audio.setSinkId(""); }
-          catch (error) { consumer.close(); audio.srcObject = null; throw error; }
-        }
-      }
-      if (receiveTransport !== transport || generation !== mediaGeneration) { consumer.close(); audio.srcObject = null; return; }
+      applyPlaybackSink(audio);
       document.body.append(audio);
       consumers.set(key, { consumer, element: audio });
       await audio.play();
@@ -11123,7 +11105,7 @@ var consume = async (remoteId, kind) => {
     label.textContent = `${mediaLabel} ${remoteId}`;
     tile.append(video, label);
     document.getElementById("video-grid")?.append(tile);
-    consumers.set(key, { consumer, element: video, qualityLayers: parameters.qualityLayers ?? [] });
+    consumers.set(key, { consumer, element: video });
     remoteVideoCount += 1;
     setGalleryVisible(true);
     await video.play();
@@ -11146,10 +11128,9 @@ var closeConsumer = (remoteId, kind) => {
     setGalleryVisible(remoteVideoCount > 0 || cameraProducer !== undefined);
   }
   consumers.delete(key);
-  window.coveMedia?.consumerClosed(key);
 };
 var setRemoteAudioVolume = (remoteId, kind, volume) => {
-  if (kind !== "audio" && kind !== "screen_audio" && kind !== "external_audio")
+  if (kind !== "audio" && kind !== "screen_audio")
     return;
   const key = `${remoteId}:${kind}`;
   const normalized = Number.isFinite(volume) ? Math.min(Math.max(volume, 0), 1) : 1;
@@ -11170,8 +11151,6 @@ var updateLocalPreview = () => {
   setGalleryVisible(remoteVideoCount > 0 || cameraStream !== undefined);
 };
 var closeMedia = () => {
-  window.coveMedia?.stopPreview();
-  window.coveMedia?.pin(null);
   mediaGeneration += 1;
   microphoneProducer?.close();
   microphoneProducer = undefined;
@@ -11220,6 +11199,7 @@ var closeMedia = () => {
   microphoneMuted = true;
   outputMuted = false;
   pending.clear();
+  stopMicrophoneTest();
   syncScreenShareButton();
 };
 var configureTransport = (transport, isProducer) => {
@@ -11233,7 +11213,6 @@ var configureTransport = (transport, isProducer) => {
       callNative("voice.produce", {
         transportId: transport.id,
         kind: streamKind,
-        qualityLayers: appData.qualityLayers,
         rtpParameters
       }).then((id) => callback({ id })).catch((error) => errback(error));
     });
@@ -11257,10 +11236,10 @@ var openMicrophone = async () => {
   try {
     inputStream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        deviceId: window.coveMediaOptions?.microphoneId ? { exact: window.coveMediaOptions.microphoneId } : undefined,
-        autoGainControl: window.coveMediaOptions?.autoGainControl ?? true,
-        echoCancellation: window.coveMediaOptions?.echoCancellation ?? true,
-        noiseSuppression: microphoneNoiseMode === "standard"
+        autoGainControl: deviceAutoGainControl,
+        echoCancellation: deviceEchoCancellation,
+        noiseSuppression: microphoneNoiseMode === "standard",
+        ...deviceMicrophoneId ? { deviceId: { exact: deviceMicrophoneId } } : {}
       },
       video: false
     });
@@ -11323,7 +11302,7 @@ var openMicrophone = async () => {
     throw error;
   }
 };
-var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, canPublishScreen = false, labels = defaultMediaLabels, initialNoiseMix = 1, initialNoiseMode = window.coveMediaOptions?.noiseMode ?? "rnnoise") => {
+var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, canPublishScreen = false, labels = defaultMediaLabels, initialNoiseMix = 1, initialNoiseMode = "rnnoise") => {
   if (activeChannelId === channelId)
     return;
   closeMedia();
@@ -11387,10 +11366,7 @@ var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, can
       ...(remoteProducers.remoteScreenAudioIds ?? []).map((remoteId) => ({
         remoteId,
         kind: "screen_audio"
-      })),
-      ...(remoteProducers.remoteExternalStreamIds ?? []).flatMap((remoteId) =>
-        ["audio", "video"].filter((kind) => window.coveMediaOptions?.externalStreams?.[remoteId]?.[kind])
-          .map((kind) => ({ remoteId, kind: `external_${kind}` })))
+      }))
     ];
     await Promise.all(remoteStreams.map(({ remoteId, kind }) => consume(remoteId, kind)));
     notify("connected", microphoneError, microphoneError ? "microphone" : undefined);
@@ -11410,10 +11386,11 @@ var setWebcamEnabled = async (enabled) => {
     cameraStream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
-        deviceId: window.coveMediaOptions?.cameraId ? { exact: window.coveMediaOptions.cameraId } : undefined,
         facingMode: "user",
-        height: { ideal: window.coveMediaOptions?.height ?? 720 },
-        frameRate: { ideal: window.coveMediaOptions?.frameRate ?? 30, max: window.coveMediaOptions?.frameRate ?? 30 }
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30, max: 30 },
+        ...deviceWebcamId ? { deviceId: { exact: deviceWebcamId } } : {}
       }
     });
     const track = cameraStream.getVideoTracks()[0];
@@ -11423,7 +11400,11 @@ var setWebcamEnabled = async (enabled) => {
       throw new Error("No camera video track is available.");
     }
     try {
-      cameraProducer = await sendTransport.produce(videoProduceOptions(track, "video", 1500000));
+      cameraProducer = await sendTransport.produce({
+        track,
+        appData: { kind: "video" },
+        encodings: [{ maxBitrate: 1500000 }]
+      });
       updateLocalPreview();
       await callNative("voice.updateState", { webcamEnabled: true });
     } catch (error) {
@@ -11501,8 +11482,7 @@ var setScreenShareEnabled = async (enabled) => {
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        height: { ideal: window.coveMediaOptions?.screenHeight ?? 1080 },
-        frameRate: { ideal: window.coveMediaOptions?.screenFrameRate ?? 30, max: window.coveMediaOptions?.screenFrameRate ?? 30 }
+        frameRate: { ideal: 30, max: 30 }
       },
       audio: true
     });
@@ -11515,7 +11495,11 @@ var setScreenShareEnabled = async (enabled) => {
       throw new Error("No screen video track is available.");
     }
     videoTrack.contentHint = "detail";
-    videoProducer = await sendTransport.produce(videoProduceOptions(videoTrack, "screen", 2500000));
+    videoProducer = await sendTransport.produce({
+      track: videoTrack,
+      appData: { kind: "screen" },
+      encodings: [{ maxBitrate: 2500000 }]
+    });
     const audioTrack = stream.getAudioTracks()[0];
     if (audioTrack) {
       audioProducer = await sendTransport.produce({
@@ -11593,17 +11577,7 @@ var setNoiseSuppressionMode = async (mode) => {
   if (microphoneNoiseMode === mode)
     return;
   const wasMuted = microphoneMuted;
-  if (microphoneProducer) {
-    await callNative("voice.closeProducer", { kind: "audio" });
-    microphoneProducer.close();
-    microphoneProducer = undefined;
-    microphoneTrack = undefined;
-    microphoneStream?.getTracks().forEach((track) => track.stop());
-    microphoneInputStream?.getTracks().forEach((track) => track.stop());
-    await microphoneAudioContext?.close();
-    microphoneAudioContext = undefined;
-    microphoneNoiseNode = undefined;
-  }
+  await releaseMicrophoneProducer();
   microphoneNoiseMode = mode;
   if (!wasMuted)
     await setMicrophoneMuted(false);
@@ -11614,6 +11588,135 @@ var setNoiseSuppressionMix = (mix) => {
   if (parameter && microphoneAudioContext) {
     parameter.setTargetAtTime(microphoneNoiseMix, microphoneAudioContext.currentTime, 0.03);
   }
+};
+var applyPlaybackSink = (element) => {
+  const sinkable = element;
+  if (typeof sinkable.setSinkId !== "function")
+    return;
+  sinkable.setSinkId(devicePlaybackId ?? "").catch(() => {
+    return;
+  });
+};
+var applyPlaybackDevice = () => {
+  consumers.forEach(({ element }) => {
+    if (element instanceof HTMLAudioElement) {
+      applyPlaybackSink(element);
+    }
+  });
+};
+var enumerateDevices = async () => {
+  const entries = await navigator.mediaDevices.enumerateDevices();
+  const list = (kind) => entries.filter((entry) => entry.kind === kind).map((entry) => ({ deviceId: entry.deviceId, label: entry.label }));
+  return {
+    inputs: list("audioinput"),
+    outputs: list("audiooutput"),
+    videos: list("videoinput")
+  };
+};
+var releaseMicrophoneProducer = async () => {
+  if (!microphoneProducer)
+    return;
+  await callNative("voice.closeProducer", { kind: "audio" });
+  microphoneProducer.close();
+  microphoneProducer = undefined;
+  microphoneTrack = undefined;
+  microphoneStream?.getTracks().forEach((track) => track.stop());
+  microphoneInputStream?.getTracks().forEach((track) => track.stop());
+  await microphoneAudioContext?.close();
+  microphoneAudioContext = undefined;
+  microphoneNoiseNode = undefined;
+};
+var reopenMicrophone = async () => {
+  if (!microphoneProducer)
+    return;
+  const wasMuted = microphoneMuted;
+  await releaseMicrophoneProducer();
+  if (!wasMuted)
+    await setMicrophoneMuted(false);
+};
+var reopenWebcam = async () => {
+  if (!cameraProducer)
+    return;
+  await setWebcamEnabled(false);
+  await setWebcamEnabled(true);
+};
+var setDeviceSettings = async (settings) => {
+  const normalize = (value) => {
+    return value ? value : undefined;
+  };
+  const nextMicrophoneId = normalize(settings.microphoneId);
+  const nextPlaybackId = normalize(settings.playbackId);
+  const nextWebcamId = normalize(settings.webcamId);
+  const microphoneChanged = nextMicrophoneId !== undefined && nextMicrophoneId !== deviceMicrophoneId;
+  const echoChanged = settings.echoCancellation !== undefined && settings.echoCancellation !== deviceEchoCancellation;
+  const gainChanged = settings.autoGainControl !== undefined && settings.autoGainControl !== deviceAutoGainControl;
+  const webcamChanged = nextWebcamId !== undefined && nextWebcamId !== deviceWebcamId;
+  if (nextMicrophoneId !== undefined) {
+    deviceMicrophoneId = nextMicrophoneId;
+  }
+  if (nextPlaybackId !== undefined || settings.playbackId !== undefined) {
+    devicePlaybackId = nextPlaybackId;
+    applyPlaybackDevice();
+  }
+  if (nextWebcamId !== undefined) {
+    deviceWebcamId = nextWebcamId;
+  }
+  if (settings.echoCancellation !== undefined) {
+    deviceEchoCancellation = settings.echoCancellation;
+  }
+  if (settings.autoGainControl !== undefined) {
+    deviceAutoGainControl = settings.autoGainControl;
+  }
+  if (microphoneChanged || echoChanged || gainChanged) {
+    await reopenMicrophone();
+  }
+  if (webcamChanged) {
+    await reopenWebcam();
+  }
+};
+var stopMicrophoneTest = () => {
+  if (microphoneTestTimer !== undefined) {
+    clearInterval(microphoneTestTimer);
+    microphoneTestTimer = undefined;
+  }
+  microphoneTestContext?.close().catch(() => {
+    return;
+  });
+  microphoneTestContext = undefined;
+  microphoneTestStream?.getTracks().forEach((track) => track.stop());
+  microphoneTestStream = undefined;
+  postToNative({ type: "microphoneTest", level: 0 });
+};
+var startMicrophoneTest = async (deviceId) => {
+  stopMicrophoneTest();
+  const targetId = deviceId ?? deviceMicrophoneId;
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      autoGainControl: deviceAutoGainControl,
+      echoCancellation: deviceEchoCancellation,
+      noiseSuppression: microphoneNoiseMode === "standard",
+      ...targetId ? { deviceId: { exact: targetId } } : {}
+    },
+    video: false
+  });
+  const context = new AudioContext({ sampleRate: 48000 });
+  const source = context.createMediaStreamSource(stream);
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 1024;
+  source.connect(analyser);
+  if (context.state === "suspended")
+    await context.resume();
+  const buffer = new Float32Array(analyser.fftSize);
+  microphoneTestStream = stream;
+  microphoneTestContext = context;
+  microphoneTestTimer = setInterval(() => {
+    analyser.getFloatTimeDomainData(buffer);
+    let sum = 0;
+    for (const sample of buffer)
+      sum += sample * sample;
+    const level = Math.min(1, Math.sqrt(sum / buffer.length) * 6);
+    postToNative({ type: "microphoneTest", level });
+  }, 100);
 };
 var setOutputMuted = async (muted) => {
   const previousOutputMuted = outputMuted;
@@ -11672,6 +11775,10 @@ window.coveVoice = {
   setRemoteAudioVolume,
   setNoiseSuppressionMix,
   setNoiseSuppressionMode,
+  enumerateDevices,
+  setDeviceSettings,
+  startMicrophoneTest,
+  stopMicrophoneTest,
   setMicrophoneMuted: (muted) => reportActionError(() => setMicrophoneMuted(muted), "microphone"),
   setOutputMuted: (muted) => reportActionError(() => setOutputMuted(muted), "audio"),
   setWebcamEnabled: (enabled) => reportActionError(() => setWebcamEnabled(enabled), "camera"),
@@ -11683,4 +11790,5 @@ document.getElementById("screen-share-button")?.addEventListener("click", () => 
     notify(activeChannelId === undefined ? "failed" : "connected", error instanceof Error ? error.message : String(error), "screenShare");
   });
 });
+postToNative({ type: "ready" });
 notify("ready");
