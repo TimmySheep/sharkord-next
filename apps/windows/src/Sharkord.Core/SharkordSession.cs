@@ -264,6 +264,7 @@ public sealed class SharkordSession : IAsyncDisposable
             return;
         }
 
+        await DisconnectAsync().ConfigureAwait(false);
         ClientLogStore.Shared.RecordInfo("session.connect.started");
         _stopping = false;
         _reconnectAttempt = 0;
@@ -1264,6 +1265,7 @@ public sealed class SharkordSession : IAsyncDisposable
 
     private void Reset()
     {
+        _token = null;
         ServerInfo = null;
         ServerName = "";
         Categories = [];

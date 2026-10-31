@@ -70,6 +70,21 @@ public class SessionMessageTests
     }
 
     [Fact]
+    public async Task StartingANewLoginDropsThePreviousServersHistoryEvenIfLoginFails()
+    {
+        await using var session = new SharkordSession();
+        ApplyJoin(session, new JoinResult { OwnUserId = 1, Users = [new() { Id = 1, Name = "old server" }] });
+        Upsert(session, new SharkordMessage { Id = 1, ChannelId = 7, Content = "old server message" }, false);
+
+        await session.ConnectAsync("http://127.0.0.1:1", "user", "password", cancellationToken: new CancellationToken(true));
+
+        Assert.Equal(SessionPhase.Failed, session.Phase);
+        Assert.Empty(session.GetMessagesSnapshot(7));
+        Assert.Empty(session.Users);
+        Assert.Equal(0, session.OwnUserId);
+    }
+
+    [Fact]
     public async Task SnapshotRemainsStableWhenSubscriptionChangesTheChannel()
     {
         await using var session = new SharkordSession();
