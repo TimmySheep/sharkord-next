@@ -92,8 +92,8 @@ banner; ArrowUp edits your own last message. Drop, paste or pick files to attach
 swift test
 ```
 
-Everything above runs offline. The end-to-end suites are gated so a normal run never
-touches the network:
+The offline suite uses local HTTP fixtures and loopback WebSocket listeners. The end-to-end
+suites are gated so a normal run never contacts an external server:
 
 ```bash
 SHARKORD_IT_HOST=127.0.0.1:4992 swift test
@@ -104,7 +104,7 @@ delete categories, channels, roles, emojis and invites, and change server settin
 
 ## Desktop workspace changes and verification
 
-The Discord-style workspace changes are code-complete but unverified on macOS. This work
+The Discord-style workspace changes are source implementations pending macOS verification. This work
 was edited on Windows, where no Swift command was run. A Mac must run:
 
 ```bash
@@ -146,6 +146,39 @@ decoded in incoming link/image attributes, preserving signed URL fields.
 
 ## Implemented surfaces
 
+The phase-two changes on 2026-10-31 are source implementations, pending Mac compilation and
+runtime acceptance. Threads retain the server's forward cursor, expose load-more replies and
+separate expiring typing indicators, preserve channel/thread drafts and keep reply events out
+of the channel timeline. Request identities reject closed, replaced or deleted thread loads;
+live edits/deletions win over pending page snapshots. The displayed root follows live edits,
+and root deletion closes the thread. Pins are visible to channel viewers while pin mutations retain their
+permission gate. Search discards stale responses, maps thread results to their parent message
+as the web client does, and opens signed file URLs. It does not automatically open a matching
+thread reply. Profiles, mentions, channel references and reply previews have navigation actions;
+uploaded profile banners are rendered. Lookup and history navigation share a request identity
+so an earlier click cannot replace a later click's message window.
+
+The composer and reaction picker load the bundled 1,940-entry Tiptap 3.22.2 emoji catalog and
+its MIT notice. Search matches names and shortcode aliases, and reactions use the same first
+shortcode as the web client. Six catalog identities exceed the server's 32-character reaction
+limit; they remain usable in the composer and are disabled with an explanation in the reaction
+picker. Built-in emoji nodes retain their glyphs and incoming standard reactions render glyphs.
+
+Uploads expose byte progress, cancellation, file drops and settings/permission/count/size/DM
+preflight. File reads run away from the main actor. Removing an attachment deletes its temporary
+server upload; failures remain visible for retry. Completed uploads and draft text survive send
+failures and reconnects. In-flight uploads cancel when their composer disappears. If a cancelled
+request never returns its temporary id, server expiry remains responsible for that upload.
+Server storage quotas remain authoritative; the client cannot infer current usage from join.
+
+Twenty new authored tests cover old/new DM schemas and visibility, thread event/deletion/pin
+isolation, stale/cancelled page and navigation responses, cursor order, Unicode emoji nodes,
+the catalog, upload gates and URLSession cancellation,
+late completion of draft operations, rejected/stalled WebSocket upgrades and opening cancellation.
+All remain unrun here. Windows static checks validate 90 locale tables, 149 native keys in all ten
+languages, literal localization calls and emoji packaging. Twenty-seven new native keys are
+translated in every locale; copied web namespaces are unchanged.
+
 - tRPC WebSocket framing: `connectionParams` first frame, `?connectionParams=1`, one
   envelope per request, batched-array decoding, `PING`/`PONG` keepalive, `reconnect`.
 - `POST /login` (registers a user when the server allows it), `GET /info`, `POST /upload`.
@@ -157,9 +190,14 @@ decoded in incoming link/image attributes, preserving signed URL fields.
   `messages.toggleReaction`, `messages.togglePin`, `messages.getPinned`,
   `messages.getThread`, `messages.search`, `messages.signalTyping`.
 - Read state: `channels.markAsRead`, unread badges, "return to present" on `hasNewer`.
-- Direct messages: `dms.get` / `dms.open` and the conversation list.
-- Category and channel tree: create, rename, delete and reorder categories and channels,
-  plus per-channel permission overrides for roles and users.
+- Direct messages: a selectable user list (with explicit ids) calls `dms.open`, with visible
+  failures. A join payload containing `directMessages`, including an empty array, selects the
+  newer snapshot plus `dms.onConversationUpdate` protocol and filters closed conversations.
+  Older payloads retain `dms.get` and `dms.onConversationOpen`. No endpoint probing is used.
+- Category and channel tree: create, rename, delete and reorder categories and channels.
+  Channel creation selects text/voice and category. Existing channel settings expose topic,
+  privacy and category movement; permission managers can edit/remove role or user overrides.
+  Creation follows the existing server API: create first, then edit topic/privacy in settings.
 - Roles: create, edit name/colour/permissions, per-role storage quota, set default, delete.
 - Custom emoji: upload, rename, delete; `:name:` resolves in the composer and renders as an
   inline image, with long names winning over short ones.
@@ -173,7 +211,7 @@ decoded in incoming link/image attributes, preserving signed URL fields.
   is enabled by default and saves the server, identity, account password and optional server
   password in macOS Keychain after joining; disabling it removes the saved credential item.
   Keychain runtime read/write and the light-mode screen still need GUI acceptance.
-- Server settings: general (identity, branding, feature toggles) and storage (quotas, size
+- Server settings: general (name, description, feature toggles) and storage (quotas, size
   limits, signed URLs, image optimisation) with the live disk and per-plugin usage read
   models.
 - Plugins: browse, search, install and update marketplace plugins; list, enable/disable,
@@ -191,10 +229,14 @@ decoded in incoming link/image attributes, preserving signed URL fields.
   `channels.*`, `categories.*`, `emojis.*`, `roles.*`, `others.onServerSettingsUpdate`,
   `dms.onConversationOpen`, `channels.onReadStateUpdate`/`onReadStateDelta`, `voice.*`,
   `invites.*`, `plugins.*`.
-- Reconnect with the reference client's backoff `[1, 2, 4, 8, 8]s` and a re-join.
+- Reconnect with the reference client's backoff `[1, 2, 4, 8, 8]s` and a re-join. Socket
+  task-completion failures and a 15-second opening deadline settle the connection continuation;
+  cancellation closes an opening socket, and stale callbacks are ignored.
 - Voice control and media paths: join, leave, mute, deafen, audio, webcam and screen capture
   through the bundled mediasoup worker; reactions and moderator moves use the server routes.
   Remote voice and screen-share audio have separate per-user volume controls, persisted locally.
+  Native receive-quality menus use the actual camera/screen consume response's advertised layers
+  and call the existing `voice.setConsumerQuality` route, including automatic selection.
   Runtime media permissions and remote playback still need platform testing.
 - i18n: all 10 languages and 8 web namespaces, with
   `{{placeholder}}` interpolation and `_one`/`_other` plurals. Strings the web client has
@@ -208,18 +250,31 @@ decoded in incoming link/image attributes, preserving signed URL fields.
   keyboard, VoiceOver, scroll anchoring, reconnect draft and real-server upload acceptance
   remain device work for the user.
 - **Exact message HTML rendering.** Empty paragraphs and repeated hard breaks can collapse
-  in the native parser/renderer. Built-in emoji spans can show a generic emoji label instead
-  of their original Unicode glyph; custom emoji images have a separate supported path.
-  These existing renderer differences were documented instead of expanding this change into
-  a parser rewrite. The custom flow layout wraps between spans; long text runs may overflow
-  instead of wrapping within a paragraph and need a native GUI check. When unread history
+  in the native parser/renderer. Long text runs now receive the available width, but mixed
+  styled spans still need a native wrapping/selection check. When unread history
   exceeds the fetched page, the divider starts at the
   first available incoming row, since a count does not identify an unloaded boundary message.
-- **WebSocket upgrade failure acceptance.** Static review found that the socket delegate
-  forwards open/close but does not forward task-completion errors. A pre-open TLS or upgrade
-  failure may leave connection establishment waiting; this has not been reproduced. A Mac
-  should exercise an HTTP-reachable host with a failing WebSocket upgrade before transport
-  failure handling is treated as verified.
+- **Message surface details.** Search retains separate message/file lists with plain previews
+  while the web client combines chronological rich results. Pins also use plain summaries.
+  Reactor-name tooltips, emoji recents/categories/skin-tone controls and a filtered channel jump
+  picker are not present. Threads expose an explicit latest-loaded-reply button; automatic follow
+  and scroll behavior still need acceptance. Uploads show progress but no transfer-rate estimate.
+- **WebSocket upgrade failure acceptance.** Completion/deadline/cancellation handling and
+  loopback regression tests are authored. Run those tests and exercise a TLS or HTTP upgrade
+  failure on a Mac before treating transport recovery as verified.
+- **Remaining feature work.** Rich formatted editing and paste, mention/channel/slash-command
+  suggestion menus, OIDC login, OpenGraph/YouTube
+  cards, configurable sound events, full moderation activity, server logo/banner upload and
+  invite role/custom-code controls are still absent or partial. Group DMs have no upstream
+  protocol. These gaps are not macOS platform prohibitions.
+- **Existing control details.** Profile kick/ban/delete and role actions still lack full
+  confirmation/reason/error flows. Some untouched settings still contain English literals.
+  Local login is not gated by `oidcDisableLocalLogin`, and the notification policy's disabled-DM
+  branch does not fall through to mention/all/reply checks as the web client does.
+- **Remaining media controls.** Input/output/camera device selection, microphone tests and
+  meters, webcam previews, echo/gain/noise-gate and detailed capture preferences, speaking
+  indicators, rendered voice reactions, external streams, fullscreen/pin/PiP/zoom/statistics
+  remain incomplete. Receive-quality UI alone does not establish complete media parity.
 - **Voice media runtime acceptance.** Audio, webcam and screen-share transport code uses the
   bundled `mediasoup-client` worker in a restricted WKWebView. The browser capture permission,
   device selection, ICE connectivity and remote playback have not been exercised end to end.
