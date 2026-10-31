@@ -60,7 +60,14 @@ public sealed partial class MainWindow
     private async void OnReturnToPresentClick(object sender, RoutedEventArgs e)
     {
         if (_session.SelectedChannelId is not { } channelId) { return; }
-        try { await _session.ReturnToPresentAsync(channelId); }
+        try
+        {
+            await _session.ReturnToPresentAsync(channelId);
+            if (_session.SelectedChannelId != channelId) { return; }
+            _jumpTargetId = _session.GetMessagesSnapshot(channelId).LastOrDefault()?.Id;
+            Refresh();
+            RefreshNavigationControls();
+        }
         catch (Exception exception) { ChatErrorText.Text = exception.Message; }
     }
 
