@@ -5,12 +5,12 @@ namespace Sharkord.App;
 
 public sealed partial class MainWindow
 {
-    private async Task RestoreLastSelectedChannelAsync()
+    private async Task<bool> RestoreLastSelectedChannelAsync()
     {
         if (!ReadPreference("app.autoJoinLastChannel", defaultValue: true) ||
             _session.ServerBaseUrl is not { } serverBaseUrl)
         {
-            return;
+            return false;
         }
 
         try
@@ -19,7 +19,7 @@ public sealed partial class MainWindow
             var settingKey = LastChannelPreference.SettingKey(serverBaseUrl);
             if (!values.TryGetValue(settingKey, out var savedValue))
             {
-                return;
+                return false;
             }
 
             int? savedChannelId = savedValue switch
@@ -37,14 +37,17 @@ public sealed partial class MainWindow
                 _session.Channel(channelId) is not { } channel ||
                 !LastChannelPreference.CanRestoreChannel(channel.IsText, channel.IsDm, channel.IsVoice))
             {
-                return;
+                return false;
             }
 
+            PrepareChannelSelection(channel.Id);
             await _session.SelectChannelAsync(channel.Id);
+            return true;
         }
         catch (Exception exception)
         {
             ClientLogStore.Shared.RecordError("preferences.last_channel.restore_failed", exception);
+            return false;
         }
     }
 

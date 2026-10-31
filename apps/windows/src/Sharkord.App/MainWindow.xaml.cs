@@ -88,6 +88,7 @@ public sealed partial class MainWindow : Window
         }
 
         MessageList.ItemsSource = _messages;
+        InitializeDesktopControls();
 
         ApplyLocalisation();
         L10n.LanguageChanged += ApplyLocalisation;
@@ -140,7 +141,7 @@ public sealed partial class MainWindow : Window
         LoginExportLogsButton.Content = L10n.T("exportLogs", ns: "windows");
         GitHubLink.Content = "GitHub";
         SharkordLink.Content = "Sharkord";
-        SettingsButton.Content = L10n.T("settingsButton", ns: "macos");
+        LocaliseDesktopControls();
         AdvancedOptionsText.Text = L10n.T("advancedOptions", ns: "macos");
         RefreshLanguagePicker();
         HostBox.Header = L10n.T("serverAddress", ns: "windows");
@@ -356,20 +357,23 @@ public sealed partial class MainWindow : Window
 
         if (!isConnected)
         {
+            ResetDesktopWorkspace();
             ChatPanel.Visibility = Visibility.Collapsed;
             return;
         }
 
+        _workspaceConnected = true;
         ChatPanel.Visibility = Visibility.Visible;
         ServerNameText.Text = _session.ServerName;
 
         SyncChannels();
+        RefreshDesktopControls();
 
         var selected = _session.SelectedChannelId is { } id ? _session.Channel(id) : null;
         var selectedVoice = selected?.IsVoice == true;
         TextChannelPanel.Visibility = selectedVoice ? Visibility.Collapsed : Visibility.Visible;
         VoiceChannelPanel.Visibility = selectedVoice ? Visibility.Visible : Visibility.Collapsed;
-        VoiceChannelTitle.Text = selectedVoice ? $"◖  {selected!.Name}" : "";
+        VoiceChannelTitle.Text = selectedVoice ? $"🔊  {selected!.Name}" : "";
         ChannelTitle.Text = selected is null || selectedVoice ? "" : $"# {selected.Name}";
 
         if (selectedVoice)
@@ -381,42 +385,27 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        _messages.Clear();
-
-        if (selected is not null && _session.MessagesByChannel.TryGetValue(selected.Id, out var list))
-        {
-            foreach (var message in list)
-            {
-                var author = message.UserId is { } userId ? _session.User(userId)?.Name : null;
-                var text = MessageHtml.ToPlainText(message.Content ?? "");
-                var byline = author ?? L10n.T("systemUser", ns: "windows");
-                var reactions = _session
-                    .ReactionGroups(message)
-                    .Select(group =>
-                    {
-                        var display = ReactionGlyphs.TryGetValue(group.Emoji, out var glyph)
-                            ? glyph
-                            : $":{group.Emoji}:";
-
-                        return new ReactionItem(message.Id, group.Emoji, $"{display} {group.Count}", group.Mine);
-                    })
-                    .ToList();
-
-                _messages.Add(
-                    new MessageItem(
-                        message.Id,
-                        $"{byline}: {text}",
-                        reactions,
-                        L10n.T("addReaction", ns: "windows"),
-                        "+"
-                    )
-                );
-            }
-        }
+        SyncMessageRows(selected);
     }
+
+    private IReadOnlyList<ReactionItem> BuildReactionItems(SharkordMessage message) => _session
+        .ReactionGroups(message)
+        .Select(group =>
+        {
+            var display = ReactionGlyphs.TryGetValue(group.Emoji, out var glyph) ? glyph : $":{group.Emoji}:";
+            return new ReactionItem(message.Id, group.Emoji, $"{display} {group.Count}", group.Mine);
+        })
+        .ToArray();
 
     private void SyncChannels()
     {
+        var signature = ChannelTreeSignature();
+        if (_channelTreeSignature == signature)
+        {
+            ChannelList.SelectedNode = FindSelectedChannelNode(ChannelList.RootNodes);
+            return;
+        }
+        _channelTreeSignature = signature;
         ChannelList.RootNodes.Clear();
 
         var directMessages = _session.DirectMessageChannels.ToList();
@@ -514,7 +503,20 @@ public sealed partial class MainWindow : Window
 
     private TreeViewNode CreateChannelNode(SharkordChannel channel, string label)
     {
-        var marker = channel.IsVoice ? "◖  " : channel.IsDm ? "●  " : "#  ";
+        var marker = "#  ";
+        if (channel.IsVoice)
+        {
+            marker = "🔊  ";
+        }
+        else if (channel.IsDm)
+        {
+            marker = "●  ";
+        }
+        var unread = _session.UnreadCount(channel.Id);
+        if (unread > 0)
+        {
+            label = $"{label}  ({unread})";
+        }
 
         return new TreeViewNode
         {
@@ -534,7 +536,12 @@ public sealed partial class MainWindow : Window
 
         if (_session.Phase == SessionPhase.Connected)
         {
-            await RestoreLastSelectedChannelAsync();
+            var restored = await RestoreLastSelectedChannelAsync();
+            if (!restored && _session.SelectedChannelId is { } channelId)
+            {
+                PrepareChannelSelection(channelId);
+                await _session.SelectChannelAsync(channelId);
+            }
         }
 
         Refresh();
@@ -636,6 +643,7 @@ public sealed partial class MainWindow : Window
     {
         if (e.InvokedItem is TreeViewNode { Content: ChannelTreeItem { ChannelId: { } channelId } })
         {
+            PrepareChannelSelection(channelId);
             RememberLastSelectedChannel(channelId);
             await _session.SelectChannelAsync(channelId);
         }
@@ -981,7 +989,8 @@ public sealed partial class MainWindow : Window
         LeaveVoiceButton.Visibility = inSelectedVoice ? Visibility.Visible : Visibility.Collapsed;
         MicrophoneButton.Content = L10n.T(_microphoneMuted ? "unmuteMic" : "muteMic", ns: "windows");
         DeafenButton.Content = L10n.T(_deafened ? "undeafen" : "deafen", ns: "windows");
-        VoiceChannelTitle.Text = selected?.IsVoice == true ? $"◖  {selected.Name}" : "";
+        RefreshUserVoiceControls();
+        VoiceChannelTitle.Text = selected?.IsVoice == true ? $"🔊  {selected.Name}" : "";
         if (selected?.IsVoice != true)
         {
             return;
@@ -1054,30 +1063,7 @@ public sealed partial class MainWindow : Window
 
     private async Task SendComposer()
     {
-        if (_session.SelectedChannelId is not { } channelId)
-        {
-            return;
-        }
-
-        var text = ComposerBox.Text;
-
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return;
-        }
-
-        ComposerBox.Text = string.Empty;
-        ChatErrorText.Text = "";
-
-        try
-        {
-            await _session.SendMessageAsync(channelId, text);
-        }
-        catch (Exception exception)
-        {
-            ClientLogStore.Shared.RecordError("chat.message_send.failed", exception);
-            ChatErrorText.Text = exception.Message;
-        }
+        await SendDesktopComposerAsync();
     }
 
     private static string LanguagePreferencePath => Path.Combine(
@@ -1086,14 +1072,8 @@ public sealed partial class MainWindow : Window
         "language"
     );
 
-    private sealed record MessageItem(
-        int Id,
-        string Text,
-        IReadOnlyList<ReactionItem> Reactions,
-        string AddReactionLabel,
-        string AddReactionGlyph
-    );
-
-    private sealed record ReactionItem(int MessageId, string Emoji, string Label, bool Mine);
-    private sealed record ChannelTreeItem(string Name, int? ChannelId, string? GroupKey);
+    [Microsoft.UI.Xaml.Data.Bindable]
+    public sealed record ReactionItem(int MessageId, string Emoji, string Label, bool Mine);
+    [Microsoft.UI.Xaml.Data.Bindable]
+    public sealed record ChannelTreeItem(string Name, int? ChannelId, string? GroupKey);
 }

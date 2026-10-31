@@ -8,8 +8,20 @@
     mc:Ignorable="d"
     Title="cove">
 
-    <Grid x:Name="RootGrid" Padding="0">
-        <Grid x:Name="ConnectScreen" Background="#0B0D12" RequestedTheme="Dark">
+    <Grid x:Name="RootGrid" Padding="0" Background="#313338">
+        <Grid.Resources>
+            <Color x:Key="SystemAccentColor">#5865F2</Color>
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#5865F2" />
+            <SolidColorBrush x:Key="SystemControlHighlightAccentBrush" Color="#5865F2" />
+            <Style x:Key="IconButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="8" />
+                <Setter Property="MinWidth" Value="32" />
+                <Setter Property="MinHeight" Value="32" />
+            </Style>
+        </Grid.Resources>
+        <Grid x:Name="ConnectScreen" Background="#1E1F22" RequestedTheme="Dark">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
@@ -21,8 +33,8 @@
                 VerticalAlignment="Center"
                 Width="420"
                 MaxWidth="480"
-                Background="#13161D"
-                BorderBrush="#292E39"
+                Background="#2B2D31"
+                BorderBrush="#3F4147"
                 BorderThickness="1"
                 CornerRadius="20"
                 Padding="28">
@@ -113,112 +125,117 @@
             </Grid>
         </Grid>
 
-        <Grid x:Name="ChatPanel" Margin="24,56,24,24" Visibility="Collapsed">
+        <Grid x:Name="ChatPanel" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="260" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="MemberColumn" Width="0" />
             </Grid.ColumnDefinitions>
 
-            <Grid Grid.Column="0">
+            <Grid Background="#2B2D31">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="48" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock
-                    x:Name="ServerNameText"
-                    FontWeight="SemiBold"
-                    FontSize="16"
-                    Margin="0,0,0,8" />
-                <TreeView
-                    x:Name="ChannelList"
-                    Grid.Row="1"
-                    SelectionMode="Single"
-                    Expanding="OnChannelTreeExpanding"
-                    Collapsed="OnChannelTreeCollapsed"
-                    ItemInvoked="OnChannelInvoked">
+                <Border BorderBrush="#1E1F22" BorderThickness="0,0,0,1" Padding="16,0">
+                    <TextBlock x:Name="ServerNameText" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </Border>
+                <TreeView x:Name="ChannelList" Grid.Row="1" Margin="4,8" SelectionMode="Single"
+                          Expanding="OnChannelTreeExpanding" Collapsed="OnChannelTreeCollapsed" ItemInvoked="OnChannelInvoked">
                     <TreeView.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock
-                                Text="{Binding Content.Name}"
-                                FontSize="14"
-                                CharacterSpacing="12"
-                                TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Content.Name}" FontSize="14" TextTrimming="CharacterEllipsis" />
                         </DataTemplate>
                     </TreeView.ItemTemplate>
                 </TreeView>
-            </Grid>
-
-            <Grid x:Name="TextChannelPanel" Grid.Column="1" Margin="16,0,0,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <TextBlock x:Name="ChannelTitle" FontWeight="SemiBold" FontSize="16" Margin="0,0,0,8" />
-
-                <ListView x:Name="MessageList" Grid.Row="1">
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Spacing="4" Padding="8,6">
-                                <TextBlock
-                                    Text="{Binding Text}"
-                                    FontSize="15"
-                                    CharacterSpacing="12"
-                                    LineHeight="23"
-                                    TextWrapping="Wrap" />
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <ItemsControl ItemsSource="{Binding Reactions}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <StackPanel Orientation="Horizontal" Spacing="4" />
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <ToggleButton
-                                                    AutomationProperties.Name="{Binding Label}"
-                                                    Content="{Binding Label}"
-                                                    IsChecked="{Binding Mine, Mode=OneWay}"
-                                                    Click="OnReactionClick" />
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <Button
-                                        AutomationProperties.Name="{Binding AddReactionLabel}"
-                                        Content="{Binding AddReactionGlyph}"
-                                        Click="OnAddReactionClick" />
-                                </StackPanel>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-
-                <TextBlock
-                    x:Name="ChatErrorText"
-                    Grid.Row="2"
-                    Foreground="Red"
-                    TextWrapping="Wrap" />
-
-                <Grid Grid.Row="3" ColumnSpacing="8" Margin="0,8,0,0">
+                <Grid x:Name="UserPanel" Grid.Row="2" Background="#232428" Padding="8" ColumnSpacing="4">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="36" /><ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBox
-                        x:Name="ComposerBox"
-                        AcceptsReturn="True"
-                        KeyDown="OnComposerKeyDown" />
-                    <Button
-                        x:Name="SendButton"
-                        Grid.Column="1"
-                        Style="{StaticResource AccentButtonStyle}"
-                        Click="OnSendClick" />
+                    <PersonPicture x:Name="OwnAvatar" Width="32" Height="32" />
+                    <TextBlock x:Name="OwnNameText" Grid.Column="1" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="13" FontWeight="SemiBold" />
+                    <Button x:Name="UserMicrophoneButton" Grid.Column="2" Style="{StaticResource IconButtonStyle}" Click="OnMicrophoneClick"><FontIcon x:Name="UserMicrophoneIcon" Glyph="&#xE720;" FontSize="16" /></Button>
+                    <Button x:Name="UserDeafenButton" Grid.Column="3" Style="{StaticResource IconButtonStyle}" Click="OnDeafenClick"><FontIcon x:Name="UserDeafenIcon" Glyph="&#xE7F6;" FontSize="16" /></Button>
+                    <Button x:Name="SettingsButton" Click="OnSettingsClick" Grid.Column="4" Style="{StaticResource IconButtonStyle}" />
                 </Grid>
             </Grid>
 
-            <Grid x:Name="VoiceChannelPanel" Grid.Column="1" Margin="16,0,0,0" Visibility="Collapsed">
+            <Grid x:Name="TextChannelPanel" Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="48" /><RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Border BorderBrush="#1E1F22" BorderThickness="0,0,0,1" Padding="20,0">
+                    <TextBlock x:Name="ChannelTitle" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" MaxWidth="260" TextTrimming="CharacterEllipsis" />
+                </Border>
+                <Grid Grid.Row="1">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <Button x:Name="LoadOlderButton" Click="OnLoadOlderClick" HorizontalAlignment="Center" Margin="0,8" />
+                    <ListView x:Name="MessageList" Grid.Row="1" SelectionMode="None" IsItemClickEnabled="False" Padding="0,4,0,12" ScrollViewer.HorizontalScrollMode="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel ItemsUpdatingScrollMode="KeepItemsInView" /></ItemsPanelTemplate></ListView.ItemsPanel>
+                        <ListView.ItemContainerStyle><Style TargetType="ListViewItem"><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0" /><Setter Property="MinHeight" Value="0" /></Style></ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="16,2" PointerEntered="OnMessagePointerEntered" PointerExited="OnMessagePointerExited" GotFocus="OnMessageGotFocus" LostFocus="OnMessageLostFocus" Background="Transparent">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                    <Grid Visibility="{Binding DividerVisibility}" Margin="0,12,0,8">
+                                        <Border Height="1" Background="#F23F43" VerticalAlignment="Center" />
+                                        <Border Background="#313338" Padding="8,0" HorizontalAlignment="Center"><TextBlock Text="{Binding DividerText}" Foreground="#F23F43" FontSize="12" FontWeight="SemiBold" /></Border>
+                                    </Grid>
+                                    <Grid Grid.Row="1" Margin="{Binding RowMargin}" ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="40" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <PersonPicture Width="40" Height="40" DisplayName="{Binding Author}" ProfilePicture="{Binding Avatar}" Visibility="{Binding GroupHeaderVisibility}" VerticalAlignment="Top" />
+                                        <TextBlock Text="{Binding ShortTimestamp}" Visibility="{Binding ContinuationTimestampVisibility}" Foreground="#949BA4" FontSize="10" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                        <StackPanel Grid.Column="1" Spacing="3">
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{Binding GroupHeaderVisibility}">
+                                                <TextBlock Text="{Binding Author}" FontWeight="SemiBold" FontSize="15" />
+                                                <TextBlock Text="{Binding Timestamp}" Foreground="#949BA4" FontSize="11" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding ReplyText}" Visibility="{Binding ReplyVisibility}" Foreground="#B5BAC1" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Text}" FontSize="15" LineHeight="22" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                                            <TextBlock Text="{Binding EditedLabel}" Visibility="{Binding EditedVisibility}" Foreground="#949BA4" FontSize="11" />
+                                            <ItemsControl ItemsSource="{Binding Attachments}"><ItemsControl.ItemTemplate><DataTemplate><HyperlinkButton Content="{Binding Name}" Tag="{Binding Url}" Click="OnAttachmentOpenClick" HorizontalAlignment="Left" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                            <ItemsControl ItemsSource="{Binding Reactions}">
+                                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate><DataTemplate><ToggleButton AutomationProperties.Name="{Binding Label}" Content="{Binding Label}" IsChecked="{Binding Mine, Mode=OneWay}" Click="OnReactionClick" Padding="6,2" MinHeight="24" /></DataTemplate></ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                        <Border x:Name="MessageToolbar" Grid.ColumnSpan="2" Opacity="0" IsHitTestVisible="False" HorizontalAlignment="Right" VerticalAlignment="Top" Background="#2B2D31" BorderBrush="#1E1F22" BorderThickness="1" CornerRadius="6" Margin="0,-12,0,0">
+                                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                                <Button Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding AddReactionLabel}" ToolTipService.ToolTip="{Binding AddReactionLabel}" Click="OnAddReactionClick"><FontIcon Glyph="&#xE76E;" FontSize="16" /></Button>
+                                                <Button Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding ReplyLabel}" ToolTipService.ToolTip="{Binding ReplyLabel}" Click="OnReplyMessageClick"><FontIcon Glyph="&#xE97A;" FontSize="16" /></Button>
+                                                <Button Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding EditLabel}" ToolTipService.ToolTip="{Binding EditLabel}" Visibility="{Binding EditVisibility}" Click="OnEditMessageClick"><FontIcon Glyph="&#xE70F;" FontSize="16" /></Button>
+                                                <Button Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding MoreLabel}" ToolTipService.ToolTip="{Binding MoreLabel}" Visibility="{Binding OwnVisibility}" Click="OnMessageMoreClick"><FontIcon Glyph="&#xE712;" FontSize="16" /></Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+                <TextBlock x:Name="ChatErrorText" Grid.Row="2" Margin="20,0" Foreground="#F23F43" TextWrapping="Wrap" />
+                <StackPanel Grid.Row="3" Margin="16,8,16,0" Spacing="4">
+                    <Grid x:Name="ComposerContext" Visibility="Collapsed" Background="#2B2D31" Padding="12,6" CornerRadius="8">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ComposerContextText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Button x:Name="CancelComposerButton" Grid.Column="1" Click="OnCancelComposerClick" Style="{StaticResource IconButtonStyle}"><FontIcon Glyph="&#xE711;" FontSize="12" /></Button>
+                    </Grid>
+                    <ItemsControl x:Name="PendingAttachmentList"><ItemsControl.ItemTemplate><DataTemplate><Button Content="{Binding Name}" AutomationProperties.Name="{Binding RemoveLabel}" Click="OnRemoveAttachmentClick" Margin="0,0,0,4" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                    <Grid Background="#383A40" CornerRadius="8" Padding="4" ColumnSpacing="4">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <Button x:Name="AttachButton" Style="{StaticResource IconButtonStyle}" Click="OnAttachClick" VerticalAlignment="Bottom"><FontIcon Glyph="&#xE898;" FontSize="20" /></Button>
+                        <TextBox x:Name="ComposerBox" Grid.Column="1" Background="Transparent" BorderThickness="0" AcceptsReturn="True" MaxHeight="180" TextWrapping="Wrap" KeyDown="OnComposerKeyDown" TextChanged="OnComposerTextChanged" />
+                        <Button x:Name="ComposerEmojiButton" Grid.Column="2" Style="{StaticResource IconButtonStyle}" Click="OnComposerEmojiClick" VerticalAlignment="Bottom"><FontIcon Glyph="&#xE76E;" FontSize="20" /></Button>
+                        <Button x:Name="SendButton" Grid.Column="3" Style="{StaticResource AccentButtonStyle}" Click="OnSendClick" VerticalAlignment="Bottom" />
+                    </Grid>
+                    <TextBlock x:Name="TypingText" MinHeight="24" Foreground="#B5BAC1" FontSize="12" Margin="8,0" />
+                </StackPanel>
+            </Grid>
+
+            <Grid x:Name="VoiceChannelPanel" Grid.Column="1" Margin="20,56,20,16" Visibility="Collapsed">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="240" />
@@ -249,6 +266,19 @@
                     </StackPanel>
                 </StackPanel>
             </Grid>
+
+            <Grid x:Name="MemberPanel" Grid.Column="2" Background="#2B2D31" Margin="0,48,0,0" Visibility="Collapsed">
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <TextBlock x:Name="MembersTitle" Margin="16,20,12,8" FontSize="12" Foreground="#B5BAC1" FontWeight="SemiBold" />
+                <ListView x:Name="MemberList" Grid.Row="1" SelectionMode="None">
+                    <ListView.ItemTemplate><DataTemplate>
+                        <Grid Padding="4,6" ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="32" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <PersonPicture DisplayName="{Binding Name}" ProfilePicture="{Binding Avatar}" Width="32" Height="32" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding Status}" FontSize="11" Foreground="#949BA4" /></StackPanel>
+                        </Grid>
+                    </DataTemplate></ListView.ItemTemplate>
+                </ListView>
+            </Grid>
         </Grid>
 
         <StackPanel
@@ -257,12 +287,12 @@
             VerticalAlignment="Top"
             Orientation="Horizontal"
             Spacing="8"
-            Margin="24,16,24,0">
+            Margin="12,8,12,0">
             <ComboBox
                 x:Name="LanguageBox"
-                Width="220"
+                Width="150"
                 SelectionChanged="OnLanguageSelectionChanged" />
-            <Button x:Name="SettingsButton" Click="OnSettingsClick" />
+            <Button x:Name="MembersButton" Click="OnMembersClick" />
             <Button
                 x:Name="ExportLogsButton"
                 Click="OnExportLogsClick" />
