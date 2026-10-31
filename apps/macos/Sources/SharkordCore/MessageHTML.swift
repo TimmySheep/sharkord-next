@@ -412,30 +412,30 @@ public enum MessageHTML {
             return text
         }
 
-        let decodedText = decodeEntities(text)
-        let range = NSRange(decodedText.startIndex..., in: decodedText)
+        let range = NSRange(text.startIndex..., in: text)
         var output = ""
-        var cursor = decodedText.startIndex
+        var cursor = text.startIndex
 
-        for match in regex.matches(in: decodedText, range: range) {
-            guard let matchRange = Range(match.range, in: decodedText), matchRange.lowerBound >= cursor else {
+        for match in regex.matches(in: text, range: range) {
+            guard let matchRange = Range(match.range, in: text), matchRange.lowerBound >= cursor else {
                 continue
             }
 
-            let candidate = String(decodedText[matchRange])
+            let candidate = String(text[matchRange])
             let trimmed = trailingPunctuationTrimmed(candidate)
+            let decoded = decodeEntities(trimmed)
 
-            guard let url = URL(string: trimmed), url.host != nil else {
+            guard let url = URL(string: decoded), url.host != nil else {
                 continue
             }
 
-            output += escape(String(decodedText[cursor..<matchRange.lowerBound]))
-            output += link(href: trimmed, label: trimmed)
+            output += text[cursor..<matchRange.lowerBound]
+            output += link(href: decoded, label: decoded)
 
-            cursor = decodedText.index(matchRange.lowerBound, offsetBy: trimmed.count)
+            cursor = text.index(matchRange.lowerBound, offsetBy: trimmed.count)
         }
 
-        output += escape(String(decodedText[cursor...]))
+        output += text[cursor...]
 
         return output
     }
@@ -446,7 +446,8 @@ public enum MessageHTML {
         while let last = result.last, ".,;:!?)]}'\"".contains(last) {
             if last == ";" {
                 let entitySuffix = "&(?:[a-zA-Z]+|#[xX]?[0-9a-fA-F]+);$"
-                if result.range(of: entitySuffix, options: .regularExpression) != nil {
+                if result.range(of: entitySuffix, options: .regularExpression) != nil
+                    || decodeEntities(result).range(of: entitySuffix, options: .regularExpression) != nil {
                     break
                 }
             }

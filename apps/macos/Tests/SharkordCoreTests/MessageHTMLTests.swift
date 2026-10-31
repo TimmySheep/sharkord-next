@@ -6,6 +6,17 @@ import Testing
 @Suite
 struct MessageHTMLTests {
     @Test
+    func linkificationPreservesUntouchedNamedEntitiesAndNonbreakingSpaces() {
+        let prepared = MessageHTML.prepare(
+            "<p>&copy;&nbsp; https://example.test/?a=1&amp;b=2 &trade;</p>"
+        )
+        #expect(prepared.hasPrefix("<p>&copy;&nbsp; "))
+        #expect(prepared.hasSuffix(" &trade;</p>"))
+        #expect(prepared.contains("href=\"https://example.test/?a=1&amp;b=2\""))
+        #expect(MessageHTML.prepare("<p>&copy;&nbsp;</p>") == "<p>&copy;&nbsp;</p>")
+    }
+
+    @Test
     func literalEntityTextIsDecodedOnlyOnceInTextAndURLs() {
         #expect(MessageHTML.decodeEntities("&amp;#65;") == "&#65;")
         #expect(MessageHTML.decodeEntities("&#38;lt;") == "&lt;")
