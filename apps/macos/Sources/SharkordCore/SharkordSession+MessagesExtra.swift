@@ -34,6 +34,14 @@ extension SharkordSession {
 
     @discardableResult
     public func loadThread(parentMessageId: Int, cursor: MessagesCursor? = nil) async throws -> ThreadPage {
+        try Task.checkCancellation()
+        let request = ThreadRequest()
+        threadRequests[parentMessageId] = request
+        defer {
+            if threadRequests[parentMessageId]?.id == request.id {
+                threadRequests[parentMessageId] = nil
+            }
+        }
         var input: [String: JSONValue] = [
             "parentMessageId": .int(parentMessageId),
             "limit": .int(ProtocolDefaults.messagesLimit)
@@ -49,14 +57,23 @@ extension SharkordSession {
         let page = try await call("messages.getThread", method: .query, input: .object(input))
             .decode(ThreadPage.self)
 
-        applyThreadPage(page, parentMessageId: parentMessageId)
+        try applyThreadPage(page, parentMessageId: parentMessageId, requestId: request.id)
 
         return page
     }
 
-    func applyThreadPage(_ page: ThreadPage, parentMessageId: Int) {
+    public func cancelThreadLoad(parentMessageId: Int) {
+        threadRequests[parentMessageId] = nil
+    }
+
+    func applyThreadPage(_ page: ThreadPage, parentMessageId: Int, requestId: UUID) throws {
+        try Task.checkCancellation()
+        guard let request = threadRequests[parentMessageId], request.id == requestId else {
+            throw CancellationError()
+        }
         var byId = Dictionary(uniqueKeysWithValues: (threadMessages[parentMessageId] ?? []).map { ($0.id, $0) })
-        for message in page.messages where message.parentMessageId == parentMessageId {
+        // subscription changes received during this request are newer than its snapshot
+        for message in page.messages where message.parentMessageId == parentMessageId && !request.changedMessageIds.contains(message.id) {
             byId[message.id] = message
         }
         threadMessages[parentMessageId] = byId.values.sorted(by: MessageTimeline.precedes)

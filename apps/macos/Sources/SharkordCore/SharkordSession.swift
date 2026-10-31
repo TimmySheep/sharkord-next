@@ -49,6 +49,7 @@ public final class SharkordSession: ObservableObject {
 
     @Published public internal(set) var selectedChannelId: Int?
     @Published public internal(set) var incomingMessage: SharkordMessage?
+    @Published public internal(set) var deletedMessage: MessageDeleteEvent?
     @Published public internal(set) var messagesByChannel: [Int: [SharkordMessage]] = [:]
     @Published public internal(set) var hasMoreOlderByChannel: [Int: Bool] = [:]
     @Published public internal(set) var hasNewerByChannel: [Int: Bool] = [:]
@@ -85,6 +86,11 @@ public final class SharkordSession: ObservableObject {
     var subscriptionTasks: [Task<Void, Never>] = []
     private var cursors: [Int: MessagesCursor] = [:]
     private var loadedChannels: Set<Int> = []
+    struct ThreadRequest {
+        let id = UUID()
+        var changedMessageIds: Set<Int> = []
+    }
+    var threadRequests: [Int: ThreadRequest] = [:]
     private let keychain = KeychainTokenStore()
     private let loginCredentialStore = KeychainLoginCredentialsStore()
 
@@ -532,6 +538,7 @@ public final class SharkordSession: ObservableObject {
         pluginLogs = []
         selectedChannelId = nil
         incomingMessage = nil
+        deletedMessage = nil
         messagesByChannel = [:]
         hasMoreOlderByChannel = [:]
         hasNewerByChannel = [:]
@@ -546,6 +553,7 @@ public final class SharkordSession: ObservableObject {
         pinnedByChannel = [:]
         threadMessages = [:]
         threadNextCursor = [:]
+        threadRequests = [:]
         cursors = [:]
         loadedChannels = []
         phase = .disconnected
@@ -631,6 +639,8 @@ public final class SharkordSession: ObservableObject {
         // replies can have been edited or deleted while the socket was offline
         threadMessages = [:]
         threadNextCursor = [:]
+        threadRequests = [:]
+        deletedMessage = nil
 
         if let readStates = join.readStates {
             unreadByChannel = readStates.reduce(into: [:]) { result, entry in
@@ -943,6 +953,7 @@ public final class SharkordSession: ObservableObject {
 
     func upsert(_ message: SharkordMessage, markUnread: Bool) {
         if let parentMessageId = message.parentMessageId {
+            threadRequests[parentMessageId]?.changedMessageIds.insert(message.id)
             var thread = threadMessages[parentMessageId] ?? []
 
             if let index = thread.firstIndex(where: { $0.id == message.id }) {
@@ -998,8 +1009,12 @@ public final class SharkordSession: ObservableObject {
 
     func removeMessage(id: Int, channelId: Int) {
         messagesByChannel[channelId]?.removeAll { $0.id == id }
+        cancelThreadLoad(parentMessageId: id)
         threadMessages[id] = nil
         threadNextCursor[id] = nil
+        for parentId in Array(threadRequests.keys) {
+            threadRequests[parentId]?.changedMessageIds.insert(id)
+        }
         for parentId in Array(threadMessages.keys) {
             threadMessages[parentId]?.removeAll { $0.id == id && $0.channelId == channelId }
         }
@@ -1008,6 +1023,7 @@ public final class SharkordSession: ObservableObject {
             pinned.removeAll { $0.id == id }
             pinnedByChannel[channelId] = pinned
         }
+        deletedMessage = MessageDeleteEvent(messageId: id, channelId: channelId)
     }
 
     private func upsert(user: SharkordUser, online: Bool?) {
@@ -1307,6 +1323,7 @@ public final class SharkordSession: ObservableObject {
 
         loadedChannels.removeAll()
         isLoadingInitialMessagesByChannel.removeAll()
+        threadRequests.removeAll()
 
         if let error {
             ClientLogStore.shared.recordError("session.disconnected", error: error)

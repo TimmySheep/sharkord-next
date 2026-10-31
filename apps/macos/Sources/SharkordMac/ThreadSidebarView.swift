@@ -14,13 +14,21 @@ struct ThreadSidebarView: View {
     @State private var loading = false
     @State private var errorMessage: String?
     @State private var visibleMessageId: Int?
+    @State private var loadTask: Task<Void, Never>?
+    @State private var rootDeleted = false
 
     private var replies: [SharkordMessage] {
         session.threadMessages(for: messageId)
     }
 
+    private var currentParent: SharkordMessage? {
+        guard !rootDeleted else { return nil }
+        let channelId = parent?.channelId ?? session.selectedChannelId ?? 0
+        return session.messagesByChannel[channelId]?.first { $0.id == messageId } ?? parent
+    }
+
     private var channel: SharkordChannel? {
-        session.channel(for: parent?.channelId ?? session.selectedChannelId ?? 0)
+        currentParent.flatMap { session.channel(for: $0.channelId) }
     }
 
     var body: some View {
@@ -41,7 +49,7 @@ struct ThreadSidebarView: View {
                     .font(.caption)
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
-                            if let parent {
+                            if let parent = currentParent {
                                 MessageRowView(
                                     message: parent,
                                     grouped: false,
@@ -69,7 +77,8 @@ struct ThreadSidebarView: View {
                             }
                             if let cursor = session.threadNextCursor[messageId] {
                                 Button(L10n.t("loadMoreReplies", ns: "macos")) {
-                                    Task { await load(cursor: cursor) }
+                                    loadTask?.cancel()
+                                    loadTask = Task { await load(cursor: cursor) }
                                 }
                                 .disabled(loading)
                                 .buttonStyle(.borderless)
@@ -108,8 +117,16 @@ struct ThreadSidebarView: View {
         .background(Theme.panel)
         .task(id: messageId) {
             await load()
-            do { parent = try await session.getMessage(messageId: messageId) }
-            catch { errorMessage = SharkordSession.describe(error) }
+        }
+        .onReceive(session.$deletedMessage) { event in
+            guard event?.messageId == messageId else { return }
+            rootDeleted = true
+            loadTask?.cancel()
+            onClose()
+        }
+        .onDisappear {
+            loadTask?.cancel()
+            session.cancelThreadLoad(parentMessageId: messageId)
         }
     }
 
@@ -119,10 +136,26 @@ struct ThreadSidebarView: View {
         defer { loading = false }
         let anchor = visibleMessageId
         do {
+            if cursor == nil {
+                let fetchedParent = try await session.getMessage(messageId: messageId)
+                try Task.checkCancellation()
+                guard !rootDeleted else { return }
+                parent = fetchedParent
+            }
             _ = try await session.loadThread(parentMessageId: messageId, cursor: cursor)
+            try Task.checkCancellation()
+            guard !rootDeleted else { return }
             if cursor != nil { visibleMessageId = anchor }
             errorMessage = nil
-        } catch { errorMessage = SharkordSession.describe(error) }
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled, !rootDeleted else { return }
+            if (error as? TRPCClientError)?.code == "NOT_FOUND" {
+                rootDeleted = true
+                onClose()
+            } else { errorMessage = SharkordSession.describe(error) }
+        }
     }
 
     private var header: some View {

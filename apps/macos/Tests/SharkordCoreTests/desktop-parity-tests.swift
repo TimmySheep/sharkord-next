@@ -28,6 +28,8 @@ struct DesktopParityTests {
         #expect(session.pinnedMessages(in: 7).isEmpty)
         session.removeMessage(id: 1, channelId: 7)
         #expect(session.threadMessages(for: 1).isEmpty)
+        #expect(session.deletedMessage?.messageId == 1)
+        #expect(session.deletedMessage?.channelId == 7)
     }
 
     @Test func threadPagesKeepCursorAndDoNotEnterChannelTimeline() throws {
@@ -36,18 +38,116 @@ struct DesktopParityTests {
         {"messages":[{"id":11,"channelId":7,"parentMessageId":1,"createdAt":100}],
          "nextCursor":{"id":11,"createdAt":100}}
         """).decode(ThreadPage.self)
-        session.applyThreadPage(first, parentMessageId: 1)
+        let firstRequest = SharkordSession.ThreadRequest()
+        session.threadRequests[1] = firstRequest
+        try session.applyThreadPage(first, parentMessageId: 1, requestId: firstRequest.id)
         #expect(session.threadNextCursor[1]?.id == 11)
         let next = try parse("""
         {"messages":[{"id":11,"channelId":7,"parentMessageId":1,"createdAt":100},
                      {"id":12,"channelId":7,"parentMessageId":1,"createdAt":100}],"nextCursor":null}
         """).decode(ThreadPage.self)
-        session.applyThreadPage(next, parentMessageId: 1)
+        let nextRequest = SharkordSession.ThreadRequest()
+        session.threadRequests[1] = nextRequest
+        try session.applyThreadPage(next, parentMessageId: 1, requestId: nextRequest.id)
         #expect(session.threadMessages(for: 1).map(\.id) == [11, 12])
         #expect(session.threadNextCursor[1] == nil)
         #expect(session.messagesByChannel[7] == nil)
         session.removeMessage(id: 12, channelId: 7)
         #expect(session.threadMessages(for: 1).map(\.id) == [11])
+    }
+
+    @Test func staleThreadPageCannotOverwriteReopenedThread() throws {
+        let session = SharkordSession()
+        let oldRequest = SharkordSession.ThreadRequest()
+        session.threadRequests[1] = oldRequest
+        session.cancelThreadLoad(parentMessageId: 1)
+        let newRequest = SharkordSession.ThreadRequest()
+        session.threadRequests[1] = newRequest
+        let fresh = try parse("""
+        {"messages":[{"id":11,"channelId":7,"parentMessageId":1,"createdAt":100,"content":"new"}],
+         "nextCursor":{"id":11,"createdAt":100}}
+        """).decode(ThreadPage.self)
+        try session.applyThreadPage(fresh, parentMessageId: 1, requestId: newRequest.id)
+        let stale = try parse("""
+        {"messages":[{"id":11,"channelId":7,"parentMessageId":1,"createdAt":100,"content":"old"}],"nextCursor":null}
+        """).decode(ThreadPage.self)
+        #expect(throws: CancellationError.self) {
+            try session.applyThreadPage(stale, parentMessageId: 1, requestId: oldRequest.id)
+        }
+        #expect(session.threadMessages(for: 1).first?.content == "new")
+        #expect(session.threadNextCursor[1]?.id == 11)
+    }
+
+    @Test func rootDeletionRejectsPendingThreadPage() throws {
+        let session = SharkordSession()
+        let request = SharkordSession.ThreadRequest()
+        session.threadRequests[1] = request
+        let page = try parse("""
+        {"messages":[{"id":11,"channelId":7,"parentMessageId":1,"createdAt":100}],
+         "nextCursor":{"id":11,"createdAt":100}}
+        """).decode(ThreadPage.self)
+        session.removeMessage(id: 1, channelId: 7)
+        #expect(throws: CancellationError.self) {
+            try session.applyThreadPage(page, parentMessageId: 1, requestId: request.id)
+        }
+        #expect(session.threadMessages(for: 1).isEmpty)
+        #expect(session.threadNextCursor[1] == nil)
+    }
+
+    @Test func liveReplyChangesWinOverPendingThreadSnapshot() throws {
+        let session = SharkordSession()
+        let request = SharkordSession.ThreadRequest()
+        session.threadRequests[1] = request
+        session.upsert(try parse("""
+        {"id":11,"channelId":7,"parentMessageId":1,"createdAt":100,"content":"edited"}
+        """).decode(SharkordMessage.self), markUnread: false)
+        session.removeMessage(id: 12, channelId: 7)
+        let page = try parse("""
+        {"messages":[{"id":11,"channelId":7,"parentMessageId":1,"createdAt":100,"content":"old"},
+                     {"id":12,"channelId":7,"parentMessageId":1,"createdAt":101}],"nextCursor":null}
+        """).decode(ThreadPage.self)
+        try session.applyThreadPage(page, parentMessageId: 1, requestId: request.id)
+        #expect(session.threadMessages(for: 1).map(\.id) == [11])
+        #expect(session.threadMessages(for: 1).first?.content == "edited")
+    }
+
+    @Test func closingOrDisconnectingThreadInvalidatesItsRequest() throws {
+        let session = SharkordSession()
+        let page = try parse("""
+        {"messages":[],"nextCursor":{"id":11,"createdAt":100}}
+        """).decode(ThreadPage.self)
+        let closedRequest = SharkordSession.ThreadRequest()
+        session.threadRequests[1] = closedRequest
+        session.cancelThreadLoad(parentMessageId: 1)
+        #expect(throws: CancellationError.self) {
+            try session.applyThreadPage(page, parentMessageId: 1, requestId: closedRequest.id)
+        }
+        let disconnectedRequest = SharkordSession.ThreadRequest()
+        session.threadRequests[1] = disconnectedRequest
+        session.disconnect()
+        #expect(throws: CancellationError.self) {
+            try session.applyThreadPage(page, parentMessageId: 1, requestId: disconnectedRequest.id)
+        }
+        #expect(session.threadNextCursor.isEmpty)
+    }
+
+    @Test func cancelledThreadTaskCannotApplyPage() async throws {
+        let session = SharkordSession()
+        let request = SharkordSession.ThreadRequest()
+        session.threadRequests[1] = request
+        let page = try parse("""
+        {"messages":[{"id":11,"channelId":7,"parentMessageId":1,"createdAt":100}],"nextCursor":null}
+        """).decode(ThreadPage.self)
+        let task = Task { @MainActor in
+            try session.applyThreadPage(page, parentMessageId: 1, requestId: request.id)
+        }
+        task.cancel()
+        do {
+            try await task.value
+            Issue.record("cancelled thread page was applied")
+        } catch is CancellationError {
+            #expect(session.threadMessages(for: 1).isEmpty)
+        }
     }
 
     @Test func dmProtocolUsesJoinPresenceIncludingEmptyList() throws {
@@ -61,10 +161,13 @@ struct DesktopParityTests {
         session.apply(legacy)
         #expect(!session.usesJoinedDirectMessages)
         session.threadMessages[7] = []
+        let request = SharkordSession.ThreadRequest()
+        session.threadRequests[7] = request
         session.apply(modern)
         #expect(session.usesJoinedDirectMessages)
         #expect(session.directMessages.isEmpty)
         #expect(session.threadMessages.isEmpty)
+        #expect(session.threadRequests.isEmpty)
     }
 
     @Test func dmEntriesDecodeOldUnreadCountAndNewClosedState() throws {
