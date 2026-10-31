@@ -13,27 +13,79 @@ final class ComposerTextView: NSTextView {
     var onEditLast: () -> Void = {}
     var onPasteFiles: ([URL]) -> Void = { _ in }
 
+    var suggestionActive: () -> Bool = { false }
+    var suggestionReplacement: () -> (range: NSRange, text: String)? = { nil }
+    var onSuggestionNavigate: (Int) -> Void = { _ in }
+    var onSuggestionAccepted: () -> Void = {}
+    var onSuggestionCancelled: () -> Void = {}
+
     override func keyDown(with event: NSEvent) {
-        if sendShortcut?.matches(keyCode: event.keyCode, modifiers: event.modifierFlags) == true {
-            onSubmit()
+        let modifiers = event.modifierFlags
+
+        // escape closes the suggestion menu first, then falls through to the usual cancel
+        if event.keyCode == 53 {
+            if suggestionActive() {
+                onSuggestionCancelled()
+            } else {
+                onCancel()
+            }
 
             return
         }
 
-        switch event.keyCode {
-        case 53:
-            onCancel()
+        // tab accepts the highlighted suggestion
+        if event.keyCode == 48, suggestionActive() {
+            acceptSelectedSuggestion()
 
-        case 126:
-            if event.modifierFlags.isEmpty, string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return
+        }
+
+        if event.keyCode == 125, suggestionActive() {
+            onSuggestionNavigate(1)
+
+            return
+        }
+
+        if sendShortcut?.matches(keyCode: event.keyCode, modifiers: modifiers) == true {
+            // enter accepts a pending suggestion instead of sending
+            if suggestionActive() {
+                acceptSelectedSuggestion()
+            } else {
+                onSubmit()
+            }
+
+            return
+        }
+
+        if event.keyCode == 126, modifiers.isEmpty {
+            if suggestionActive() {
+                onSuggestionNavigate(-1)
+            } else if string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 onEditLast()
             } else {
                 super.keyDown(with: event)
             }
 
-        default:
-            super.keyDown(with: event)
+            return
         }
+
+        super.keyDown(with: event)
+    }
+
+    /// replaces the active suggestion token in place, keeping undo and caret placement intact.
+    func acceptSelectedSuggestion() {
+        guard let replacement = suggestionReplacement() else { return }
+        let range = replacement.range
+        let insert = replacement.text
+        guard range.location + range.length <= (string as NSString).length else { return }
+
+        if shouldChangeText(in: range, replacementString: insert) {
+            replaceCharacters(in: range, with: insert)
+            setSelectedRange(NSRange(location: range.location + (insert as NSString).length, length: 0))
+            didChangeText()
+        }
+
+        onSuggestionAccepted()
     }
 
     override func paste(_ sender: Any?) {
@@ -72,10 +124,17 @@ struct ComposerTextEditor: NSViewRepresentable {
     var maxHeight: CGFloat = 150
     var sendShortcut: KeyboardShortcutBinding? = .returnKey
     var onTextChange: (String) -> Void = { _ in }
+    var onSelectionChange: (Int) -> Void = { _ in }
     var onSubmit: () -> Void = {}
     var onCancel: () -> Void = {}
     var onEditLast: () -> Void = {}
     var onPasteFiles: ([URL]) -> Void = { _ in }
+    var onEditorReady: ((ComposerTextView) -> Void)? = nil
+    var suggestionActive: () -> Bool = { false }
+    var suggestionReplacement: () -> (range: NSRange, text: String)? = { nil }
+    var onSuggestionNavigate: (Int) -> Void = { _ in }
+    var onSuggestionAccepted: () -> Void = {}
+    var onSuggestionCancelled: () -> Void = {}
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
@@ -109,6 +168,8 @@ struct ComposerTextEditor: NSViewRepresentable {
         context.coordinator.minHeight = minHeight
         context.coordinator.maxHeight = maxHeight
 
+        onEditorReady?(textView)
+
         return scrollView
     }
 
@@ -127,6 +188,11 @@ struct ComposerTextEditor: NSViewRepresentable {
         textView.onCancel = onCancel
         textView.onEditLast = onEditLast
         textView.onPasteFiles = onPasteFiles
+        textView.suggestionActive = suggestionActive
+        textView.suggestionReplacement = suggestionReplacement
+        textView.onSuggestionNavigate = onSuggestionNavigate
+        textView.onSuggestionAccepted = onSuggestionAccepted
+        textView.onSuggestionCancelled = onSuggestionCancelled
 
         if textView.string != text {
             textView.string = text
@@ -161,6 +227,12 @@ struct ComposerTextEditor: NSViewRepresentable {
             owner.text = textView.string
             owner.onTextChange(textView.string)
             reportHeight()
+        }
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let textView else { return }
+
+            owner.onSelectionChange(textView.selectedRange().location)
         }
 
         /// wrapping changes when the pane is resized, so the measured height can change
@@ -234,6 +306,12 @@ struct Composer: View {
     @State private var errorMessage: String?
     @State private var showsEmoji = false
     @State private var composerHeight: CGFloat = 42
+    @State private var selection = NSRange(location: 0, length: 0)
+    @State private var suggestionQuery: ComposerSuggestionQuery?
+    @State private var suggestionItems: [ComposerSuggestionItem] = []
+    @State private var suggestionIndex = 0
+    @State private var suggestionsSuppressed = false
+    @State private var editor = EditorHandle()
 
     private let composerMinHeight: CGFloat = 42
     private let composerMaxHeight: CGFloat = 150
@@ -305,15 +383,28 @@ struct Composer: View {
                         minHeight: composerMinHeight,
                         maxHeight: composerMaxHeight,
                         sendShortcut: keyboardShortcuts.preferences.sendMessage,
-                        onTextChange: { _ in signalTyping() },
+                        onTextChange: handleTextChange,
+                        onSelectionChange: handleSelectionChange,
                         onSubmit: send,
                         onCancel: cancel,
                         onEditLast: editLastOwnMessage,
-                        onPasteFiles: startUpload
+                        onPasteFiles: startUpload,
+                        onEditorReady: { editor.textView = $0 },
+                        suggestionActive: { !suggestionItems.isEmpty },
+                        suggestionReplacement: currentSuggestionReplacement,
+                        onSuggestionNavigate: moveSuggestion,
+                        onSuggestionAccepted: { suggestionIndex = 0 },
+                        onSuggestionCancelled: suppressSuggestions
                     )
                 }
                 .frame(height: composerHeight)
                 .background(Theme.input, in: RoundedRectangle(cornerRadius: 8))
+                .overlay(alignment: .topLeading) {
+                    if !showsEmoji, !suggestionItems.isEmpty {
+                        suggestionMenu
+                            .offset(y: -(CGFloat(suggestionItems.count) * 30 + 20))
+                    }
+                }
 
                 if canCompose {
                     Button {
@@ -439,6 +530,20 @@ struct Composer: View {
         }
     }
 
+    private var suggestionMenu: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(suggestionItems.enumerated()), id: \.element.id) { index, item in
+                SuggestionRow(item: item, highlighted: index == suggestionIndex)
+                    .contentShape(Rectangle())
+                    .onTapGesture { acceptSuggestion(at: index) }
+            }
+        }
+        .padding(6)
+        .frame(maxWidth: 320, alignment: .leading)
+        .background(Theme.deep, in: RoundedRectangle(cornerRadius: 8))
+        .shadow(radius: 10)
+    }
+
     // MARK: - actions
 
     private func send() {
@@ -532,6 +637,83 @@ struct Composer: View {
     private func signalTyping() {
         guard canSend, editing == nil else { return }
         session.signalTyping(channelId: channel.id, parentMessageId: parentMessageId)
+    }
+
+    private func handleTextChange(_ value: String) {
+        suggestionsSuppressed = false
+        signalTyping()
+        updateSuggestions()
+    }
+
+    private func handleSelectionChange(_ location: Int) {
+        selection = NSRange(location: location, length: 0)
+        updateSuggestions()
+    }
+
+    private func updateSuggestions() {
+        guard canCompose, !suggestionsSuppressed else {
+            suggestionItems = []
+            suggestionQuery = nil
+            suggestionIndex = 0
+            return
+        }
+
+        let query = ComposerSuggestion.query(in: text, caret: selection.location)
+        suggestionQuery = query
+
+        guard let query else {
+            suggestionItems = []
+            suggestionIndex = 0
+            return
+        }
+
+        suggestionItems = ComposerSuggestion.items(
+            for: query,
+            users: session.users.map { (id: $0.id, name: $0.name) },
+            channels: session.channels.map { (id: $0.id, name: $0.name) },
+            emojis: emojiCandidates,
+            commands: session.pluginCommands.entries.values.flatMap { $0 }
+        )
+
+        if suggestionIndex >= suggestionItems.count {
+            suggestionIndex = 0
+        }
+    }
+
+    private var emojiCandidates: [EmojiCandidate] {
+        let custom = session.emojis.compactMap { emoji -> EmojiCandidate? in
+            guard emoji.file != nil else { return nil }
+            return EmojiCandidate(name: emoji.name, glyph: "", isCustom: true)
+        }
+        let standard = EmojiCatalog.entries.compactMap { entry -> EmojiCandidate? in
+            guard let shortcode = entry.shortcodes.first else { return nil }
+            return EmojiCandidate(name: shortcode, glyph: entry.emoji, isCustom: false)
+        }
+        return custom + standard
+    }
+
+    private func currentSuggestionReplacement() -> (range: NSRange, text: String)? {
+        guard let query = suggestionQuery, suggestionItems.indices.contains(suggestionIndex) else { return nil }
+        let item = suggestionItems[suggestionIndex]
+        return (NSRange(location: query.range.lowerBound, length: query.range.count), item.insert)
+    }
+
+    private func moveSuggestion(_ direction: Int) {
+        guard !suggestionItems.isEmpty else { return }
+        suggestionIndex = (suggestionIndex + direction + suggestionItems.count) % suggestionItems.count
+    }
+
+    private func suppressSuggestions() {
+        suggestionsSuppressed = true
+        suggestionItems = []
+        suggestionQuery = nil
+        suggestionIndex = 0
+    }
+
+    private func acceptSuggestion(at index: Int) {
+        guard suggestionItems.indices.contains(index) else { return }
+        suggestionIndex = index
+        editor.textView?.acceptSelectedSuggestion()
     }
 
     private func pickFiles() {
@@ -653,4 +835,64 @@ struct PendingAttachment: Identifiable, Hashable {
     let id: String
     let fileId: String
     let fileName: String
+}
+
+/// holds a weak reference to the live text view so the composer can drive imperative edits
+/// (accepting a suggestion) that must preserve undo and caret placement.
+private final class EditorHandle {
+    weak var textView: ComposerTextView?
+}
+
+/// one row in the composer's suggestion menu.
+private struct SuggestionRow: View {
+    let item: ComposerSuggestionItem
+    let highlighted: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            leading
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.label)
+                    .font(.system(size: 13))
+                    .lineLimit(1)
+
+                if let detail = item.detail {
+                    Text(detail)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(highlighted ? Theme.elevated : .clear, in: RoundedRectangle(cornerRadius: 6))
+        .foregroundStyle(highlighted ? Theme.accent : .primary)
+    }
+
+    @ViewBuilder private var leading: some View {
+        if item.kind == .emoji, let glyph = item.glyph, !glyph.isEmpty {
+            Text(glyph)
+                .font(.system(size: 16))
+                .frame(width: 16)
+        } else {
+            Image(systemName: iconName)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+        }
+    }
+
+    private var iconName: String {
+        switch item.kind {
+        case .mention: return "person"
+        case .channel: return "number"
+        case .emoji: return "face.smiling"
+        case .command: return "chevron.right.forwardslash.chevron.left"
+        }
+    }
 }
