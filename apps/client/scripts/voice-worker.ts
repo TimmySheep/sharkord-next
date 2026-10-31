@@ -114,6 +114,15 @@ let screenShareEnabled = false;
 let shareScreenLabel = '';
 let stopScreenShareLabel = '';
 let mediaLabels = defaultMediaLabels;
+// device selection is applied per capture, so the ids have to outlive a single join
+let deviceMicrophoneId: string | undefined;
+let devicePlaybackId: string | undefined;
+let deviceWebcamId: string | undefined;
+let deviceEchoCancellation = true;
+let deviceAutoGainControl = true;
+let microphoneTestStream: MediaStream | undefined;
+let microphoneTestContext: AudioContext | undefined;
+let microphoneTestTimer: ReturnType<typeof setInterval> | undefined;
 
 const getNoiseMixParameter = (node: AudioWorkletNode) => {
   let parameter: AudioParam | undefined;
@@ -253,6 +262,7 @@ const consume = async (remoteId: number, kind: string) => {
       audio.srcObject = new MediaStream([consumer.track]);
       audio.muted = outputMuted;
       audio.volume = remoteAudioVolumes.get(key) ?? 1;
+      applyPlaybackSink(audio);
       document.body.append(audio);
       consumers.set(key, { consumer, element: audio });
       await audio.play();
@@ -387,6 +397,7 @@ const closeMedia = () => {
   microphoneMuted = true;
   outputMuted = false;
   pending.clear();
+  stopMicrophoneTest();
   syncScreenShareButton();
 };
 
@@ -438,9 +449,12 @@ const openMicrophone = async () => {
   try {
     inputStream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        autoGainControl: true,
-        echoCancellation: true,
-        noiseSuppression: microphoneNoiseMode === 'standard'
+        autoGainControl: deviceAutoGainControl,
+        echoCancellation: deviceEchoCancellation,
+        noiseSuppression: microphoneNoiseMode === 'standard',
+        ...(deviceMicrophoneId
+          ? { deviceId: { exact: deviceMicrophoneId } }
+          : {})
       },
       video: false
     });
@@ -631,7 +645,8 @@ const setWebcamEnabled = async (enabled: boolean) => {
         facingMode: 'user',
         width: { ideal: 1280 },
         height: { ideal: 720 },
-        frameRate: { ideal: 30, max: 30 }
+        frameRate: { ideal: 30, max: 30 },
+        ...(deviceWebcamId ? { deviceId: { exact: deviceWebcamId } } : {})
       }
     });
     const track = cameraStream.getVideoTracks()[0];
@@ -847,17 +862,7 @@ const setNoiseSuppressionMode = async (mode: TNoiseMode) => {
   }
   if (microphoneNoiseMode === mode) return;
   const wasMuted = microphoneMuted;
-  if (microphoneProducer) {
-    await callNative('voice.closeProducer', { kind: 'audio' });
-    microphoneProducer.close();
-    microphoneProducer = undefined;
-    microphoneTrack = undefined;
-    microphoneStream?.getTracks().forEach((track) => track.stop());
-    microphoneInputStream?.getTracks().forEach((track) => track.stop());
-    await microphoneAudioContext?.close();
-    microphoneAudioContext = undefined;
-    microphoneNoiseNode = undefined;
-  }
+  await releaseMicrophoneProducer();
   microphoneNoiseMode = mode;
   if (!wasMuted) await setMicrophoneMuted(false);
 };
@@ -875,6 +880,157 @@ const setNoiseSuppressionMix = (mix: number) => {
       0.03
     );
   }
+};
+
+// setSinkId is unavailable in some engines, so a playback choice is best effort
+const applyPlaybackSink = (element: HTMLAudioElement) => {
+  const sinkable = element as HTMLAudioElement & {
+    setSinkId?: (deviceId: string) => Promise<void>;
+  };
+  if (typeof sinkable.setSinkId !== 'function') return;
+  sinkable.setSinkId(devicePlaybackId ?? '').catch(() => undefined);
+};
+
+const applyPlaybackDevice = () => {
+  consumers.forEach(({ element }) => {
+    if (element instanceof HTMLAudioElement) {
+      applyPlaybackSink(element);
+    }
+  });
+};
+
+const enumerateDevices = async () => {
+  const entries = await navigator.mediaDevices.enumerateDevices();
+  const list = (kind: MediaDeviceKind) =>
+    entries
+      .filter((entry) => entry.kind === kind)
+      .map((entry) => ({ deviceId: entry.deviceId, label: entry.label }));
+
+  return {
+    inputs: list('audioinput'),
+    outputs: list('audiooutput'),
+    videos: list('videoinput')
+  };
+};
+
+const releaseMicrophoneProducer = async () => {
+  if (!microphoneProducer) return;
+  await callNative('voice.closeProducer', { kind: 'audio' });
+  microphoneProducer.close();
+  microphoneProducer = undefined;
+  microphoneTrack = undefined;
+  microphoneStream?.getTracks().forEach((track) => track.stop());
+  microphoneInputStream?.getTracks().forEach((track) => track.stop());
+  await microphoneAudioContext?.close();
+  microphoneAudioContext = undefined;
+  microphoneNoiseNode = undefined;
+};
+
+const reopenMicrophone = async () => {
+  if (!microphoneProducer) return;
+  const wasMuted = microphoneMuted;
+  await releaseMicrophoneProducer();
+  if (!wasMuted) await setMicrophoneMuted(false);
+};
+
+const reopenWebcam = async () => {
+  if (!cameraProducer) return;
+  await setWebcamEnabled(false);
+  await setWebcamEnabled(true);
+};
+
+const setDeviceSettings = async (settings: {
+  microphoneId?: string;
+  playbackId?: string;
+  webcamId?: string;
+  echoCancellation?: boolean;
+  autoGainControl?: boolean;
+}) => {
+  // an empty id means "platform default", so it is treated as no selection at all
+  const normalize = (value: string | undefined) => {
+    return value ? value : undefined;
+  };
+  const nextMicrophoneId = normalize(settings.microphoneId);
+  const nextPlaybackId = normalize(settings.playbackId);
+  const nextWebcamId = normalize(settings.webcamId);
+
+  const microphoneChanged =
+    nextMicrophoneId !== undefined && nextMicrophoneId !== deviceMicrophoneId;
+  const echoChanged =
+    settings.echoCancellation !== undefined &&
+    settings.echoCancellation !== deviceEchoCancellation;
+  const gainChanged =
+    settings.autoGainControl !== undefined &&
+    settings.autoGainControl !== deviceAutoGainControl;
+  const webcamChanged =
+    nextWebcamId !== undefined && nextWebcamId !== deviceWebcamId;
+
+  if (nextMicrophoneId !== undefined) {
+    deviceMicrophoneId = nextMicrophoneId;
+  }
+  if (nextPlaybackId !== undefined || settings.playbackId !== undefined) {
+    devicePlaybackId = nextPlaybackId;
+    applyPlaybackDevice();
+  }
+  if (nextWebcamId !== undefined) {
+    deviceWebcamId = nextWebcamId;
+  }
+  if (settings.echoCancellation !== undefined) {
+    deviceEchoCancellation = settings.echoCancellation;
+  }
+  if (settings.autoGainControl !== undefined) {
+    deviceAutoGainControl = settings.autoGainControl;
+  }
+
+  if (microphoneChanged || echoChanged || gainChanged) {
+    await reopenMicrophone();
+  }
+  if (webcamChanged) {
+    await reopenWebcam();
+  }
+};
+
+const stopMicrophoneTest = () => {
+  if (microphoneTestTimer !== undefined) {
+    clearInterval(microphoneTestTimer);
+    microphoneTestTimer = undefined;
+  }
+  microphoneTestContext?.close().catch(() => undefined);
+  microphoneTestContext = undefined;
+  microphoneTestStream?.getTracks().forEach((track) => track.stop());
+  microphoneTestStream = undefined;
+  postToNative({ type: 'microphoneTest', level: 0 });
+};
+
+const startMicrophoneTest = async (deviceId?: string) => {
+  stopMicrophoneTest();
+  const targetId = deviceId ?? deviceMicrophoneId;
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      autoGainControl: deviceAutoGainControl,
+      echoCancellation: deviceEchoCancellation,
+      noiseSuppression: microphoneNoiseMode === 'standard',
+      ...(targetId ? { deviceId: { exact: targetId } } : {})
+    },
+    video: false
+  });
+  const context = new AudioContext({ sampleRate: 48000 });
+  const source = context.createMediaStreamSource(stream);
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 1024;
+  source.connect(analyser);
+  if (context.state === 'suspended') await context.resume();
+
+  const buffer = new Float32Array(analyser.fftSize);
+  microphoneTestStream = stream;
+  microphoneTestContext = context;
+  microphoneTestTimer = setInterval(() => {
+    analyser.getFloatTimeDomainData(buffer);
+    let sum = 0;
+    for (const sample of buffer) sum += sample * sample;
+    const level = Math.min(1, Math.sqrt(sum / buffer.length) * 6);
+    postToNative({ type: 'microphoneTest', level });
+  }, 100);
 };
 
 const setOutputMuted = async (muted: boolean) => {
@@ -945,6 +1101,10 @@ const reportActionError = async (
   setRemoteAudioVolume,
   setNoiseSuppressionMix,
   setNoiseSuppressionMode,
+  enumerateDevices,
+  setDeviceSettings,
+  startMicrophoneTest,
+  stopMicrophoneTest,
   setMicrophoneMuted: (muted: boolean) =>
     reportActionError(() => setMicrophoneMuted(muted), 'microphone'),
   setOutputMuted: (muted: boolean) =>

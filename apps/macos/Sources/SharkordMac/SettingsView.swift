@@ -181,7 +181,13 @@ struct SettingsView: View {
         case .others:
             OtherSettingsView()
         case .devices:
-            VoiceSettingsView()
+            VStack(alignment: .leading, spacing: 0) {
+                DevicesSettingsView()
+
+                Divider()
+
+                VoiceSettingsView()
+            }
         case .shortcuts:
             KeyboardShortcutsSettingsView()
         case .developer:
