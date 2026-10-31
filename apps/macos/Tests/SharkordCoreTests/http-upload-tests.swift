@@ -7,7 +7,10 @@ final class HTTPUploadTests: XCTestCase {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [UploadURLProtocol.self]
         let session = URLSession(configuration: configuration)
-        defer { session.invalidateAndCancel() }
+        defer {
+            session.invalidateAndCancel()
+            UploadURLProtocol.inspectRequest = nil
+        }
         let client = SharkordHTTPClient(baseURL: URL(string: "https://example.test")!, session: session)
 
         for (filename, expected) in [
@@ -30,7 +33,6 @@ final class HTTPUploadTests: XCTestCase {
             )
             XCTAssertEqual(file.id, "temporary-file")
         }
-        UploadURLProtocol.inspectRequest = nil
     }
 }
 

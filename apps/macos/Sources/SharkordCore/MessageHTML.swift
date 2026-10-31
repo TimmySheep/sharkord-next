@@ -69,7 +69,7 @@ public enum MessageHTML {
             return anchorHtml
         }
 
-        let label = inner.trimmingCharacters(in: .whitespaces)
+        let label = decodeEntities(inner).trimmingCharacters(in: .whitespaces)
 
         guard
             isExplicitHTTPURL(label),
@@ -426,19 +426,20 @@ public enum MessageHTML {
         var cursor = text.startIndex
 
         for match in regex.matches(in: text, range: range) {
-            guard let matchRange = Range(match.range, in: text), matchRange.lowerBound > cursor else {
+            guard let matchRange = Range(match.range, in: text), matchRange.lowerBound >= cursor else {
                 continue
             }
 
             let candidate = String(text[matchRange])
             let trimmed = trailingPunctuationTrimmed(candidate)
+            let decoded = decodeEntities(trimmed)
 
-            guard let url = URL(string: trimmed), url.host != nil else {
+            guard let url = URL(string: decoded), url.host != nil else {
                 continue
             }
 
             output += text[cursor..<matchRange.lowerBound]
-            output += link(href: trimmed, label: trimmed)
+            output += link(href: decoded, label: decoded)
 
             cursor = text.index(matchRange.lowerBound, offsetBy: trimmed.count)
         }
@@ -857,7 +858,7 @@ private struct Tag {
                 continue
             }
 
-            return String(raw[valueRange])
+            return MessageHTML.decodeEntities(String(raw[valueRange]))
         }
 
         return nil

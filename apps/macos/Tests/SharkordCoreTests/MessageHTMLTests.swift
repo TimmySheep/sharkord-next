@@ -6,6 +6,30 @@ import Testing
 @Suite
 struct MessageHTMLTests {
     @Test
+    func linksAtTheStartOfARunKeepQueryEntitiesExactlyOnce() {
+        let url = "https://example.test/path?a=1&b=2"
+        let prepared = MessageHTML.prepare(MessageHTML.fromPlainText(url))
+        #expect(prepared.contains("href=\"https://example.test/path?a=1&amp;b=2\""))
+        #expect(!prepared.contains("&amp;amp;"))
+        #expect(MessageHTML.toPlainText(prepared) == url)
+        #expect(MessageHTML.parse(prepared).blocks.first?.spans.first?.href == url)
+    }
+
+    @Test
+    func incomingLinkAndMediaAttributesDecodeHTMLEntities() {
+        let document = MessageHTML.parse("<p><a href=\"https://example.test/?a=1&amp;b=2\">link</a><img src=\"/public/image.png?accessToken=x&amp;expires=3\" alt=\"a &amp; b\"></p>")
+        #expect(document.blocks.first?.spans.first?.href == "https://example.test/?a=1&b=2")
+        #expect(document.blocks.first?.spans.last?.content == .media(src: "/public/image.png?accessToken=x&expires=3", alt: "a & b"))
+    }
+
+    @Test
+    func normalizingVisibleURLLabelsDoesNotDoubleEscapeTheQuery() {
+        let prepared = MessageHTML.prepare("<p><a href=\"https://wrong.test\">https://example.test/?a=1&amp;b=2</a></p>")
+        #expect(prepared.contains("href=\"https://example.test/?a=1&amp;b=2\""))
+        #expect(!prepared.contains("&amp;amp;"))
+    }
+
+    @Test
     func plainTextEscapesAndKeepsLineStructure() {
         #expect(MessageHTML.fromPlainText("hello") == "<p>hello</p>")
         #expect(MessageHTML.fromPlainText("<b>") == "<p>&lt;b&gt;</p>")
