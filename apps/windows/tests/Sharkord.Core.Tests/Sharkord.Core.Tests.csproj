@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Sharkord.Core/Sharkord.Core.csproj" />
+    <Compile Include="../../src/Sharkord.App/message-presentation.cs" Link="message-presentation.cs" />
   </ItemGroup>
 
 </Project>
