@@ -202,6 +202,8 @@ public sealed class TrpcWebSocketClient : IAsyncDisposable
 
     private async Task HandleFrameAsync(string text)
     {
+        _lastInbound = DateTime.UtcNow;
+
         if (text == "PING")
         {
             await TrySendRawAsync("PONG").ConfigureAwait(false);
@@ -212,8 +214,6 @@ public sealed class TrpcWebSocketClient : IAsyncDisposable
         {
             return;
         }
-
-        _lastInbound = DateTime.UtcNow;
 
         JsonNode? value;
         try
