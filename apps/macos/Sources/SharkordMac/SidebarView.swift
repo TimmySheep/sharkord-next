@@ -16,12 +16,16 @@ struct SidebarView: View {
     @State private var appliedDisclosureDefaults = false
     @State private var prompt: SidebarPrompt?
     @State private var confirmDelete: SidebarConfirm?
-    @State private var newUserQuery = ""
+    @State private var showsNewDM = false
+    @State private var newChannelCategory: SharkordCategory?
+    @State private var editingChannel: SharkordChannel?
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
             serverHeader
             Divider()
+            if let errorMessage { Text(errorMessage).font(.caption).foregroundStyle(.red).padding(8) }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
@@ -46,6 +50,13 @@ struct SidebarView: View {
         .sheet(item: $prompt) { prompt in
             PromptSheet(prompt: prompt) { self.prompt = nil }
         }
+        .sheet(isPresented: $showsNewDM) { DirectMessagePicker() }
+        .sheet(item: $newChannelCategory) { category in
+            ChannelSettingsView(channel: nil, initialCategoryId: category.id)
+        }
+        .sheet(item: $editingChannel) { channel in
+            ChannelSettingsView(channel: channel, initialCategoryId: session.categories.first?.id ?? 0)
+        }
         .confirmationDialog(
             confirmDelete?.title ?? "",
             isPresented: Binding(
@@ -54,7 +65,11 @@ struct SidebarView: View {
             )
         ) {
             Button(L10n.t("deleteLabel", ns: "sidebar"), role: .destructive) {
-                confirmDelete?.action()
+                let action = confirmDelete?.action
+                Task {
+                    do { try await action?(); errorMessage = nil }
+                    catch { errorMessage = SharkordSession.describe(error) }
+                }
                 confirmDelete = nil
             }
 
@@ -77,7 +92,7 @@ struct SidebarView: View {
                         placeholder: L10n.t("categoryNamePlaceholder", ns: "dialogs"),
                         initial: ""
                     ) { name in
-                        Task { try? await session.addCategory(name: name) }
+                        _ = try await session.addCategory(name: name)
                     }
                 }
             }
@@ -123,13 +138,7 @@ struct SidebarView: View {
                 ),
                 trailing: {
                     Button {
-                        prompt = SidebarPrompt(
-                            title: L10n.t("startNewConversation", ns: "sidebar"),
-                            placeholder: L10n.t("searchUser", ns: "sidebar"),
-                            initial: ""
-                        ) { name in
-                            openDirectMessage(named: name)
-                        }
+                        showsNewDM = true
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -186,15 +195,7 @@ struct SidebarView: View {
                 trailing: {
                     if session.canManageChannels {
                         Button {
-                            prompt = SidebarPrompt(
-                                title: L10n.t("createChannelTitle", ns: "dialogs"),
-                                placeholder: L10n.t("channelNamePlaceholder", ns: "dialogs"),
-                                initial: ""
-                            ) { name in
-                                Task {
-                                    try? await session.addChannel(type: .text, name: name, categoryId: category.id)
-                                }
-                            }
+                            newChannelCategory = category
                         } label: {
                             Image(systemName: "plus")
                         }
@@ -336,7 +337,7 @@ struct SidebarView: View {
                     placeholder: L10n.t("categoryNamePlaceholder", ns: "dialogs"),
                     initial: category.name
                 ) { name in
-                    Task { try? await session.updateCategory(categoryId: category.id, name: name) }
+                    try await session.updateCategory(categoryId: category.id, name: name)
                 }
             }
 
@@ -345,7 +346,7 @@ struct SidebarView: View {
                     title: L10n.t("deleteCategoryTitle", ns: "sidebar"),
                     message: L10n.t("deleteCategoryMsg", ns: "sidebar")
                 ) {
-                    Task { try? await session.deleteCategory(categoryId: category.id) }
+                    try await session.deleteCategory(categoryId: category.id)
                 }
             }
 
@@ -363,23 +364,19 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func channelMenu(_ channel: SharkordChannel) -> some View {
-        if session.canManageChannels, !channel.isDm {
+        if !channel.isDm, session.canManageChannels || session.hasPermission(.manageChannelPermissions) {
             Button(L10n.t("editLabel", ns: "sidebar")) {
-                prompt = SidebarPrompt(
-                    title: L10n.t("editChannelTitle", ns: "macos"),
-                    placeholder: L10n.t("channelNamePlaceholder", ns: "dialogs"),
-                    initial: channel.name
-                ) { name in
-                    Task { try? await session.updateChannel(channelId: channel.id, name: name) }
-                }
+                editingChannel = channel
             }
+        }
 
+        if session.canManageChannels, !channel.isDm {
             Button(L10n.t("deleteLabel", ns: "sidebar"), role: .destructive) {
                 confirmDelete = SidebarConfirm(
                     title: L10n.t("deleteChannelTitle", ns: "sidebar"),
                     message: L10n.t("deleteChannelMsg", ns: "sidebar")
                 ) {
-                    Task { try? await session.deleteChannel(channelId: channel.id) }
+                    try await session.deleteChannel(channelId: channel.id)
                 }
             }
 
@@ -513,18 +510,6 @@ struct SidebarView: View {
         }
     }
 
-    private func openDirectMessage(named name: String) {
-        guard let user = session.users.first(where: {
-            $0.name.localizedCaseInsensitiveContains(name) && $0.id != session.ownUserId
-        }) else {
-            return
-        }
-
-        Task {
-            try? await session.openDirectMessage(userId: user.id)
-        }
-    }
-
     private func moveCategory(_ category: SharkordCategory, by offset: Int) {
         var ids = session.categories.map(\.id)
 
@@ -541,7 +526,8 @@ struct SidebarView: View {
         ids.swapAt(index, target)
 
         Task {
-            try? await session.reorderCategories(categoryIds: ids)
+            do { try await session.reorderCategories(categoryIds: ids); errorMessage = nil }
+            catch { errorMessage = SharkordSession.describe(error) }
         }
     }
 
@@ -568,7 +554,8 @@ struct SidebarView: View {
         ids.swapAt(index, target)
 
         Task {
-            try? await session.reorderChannels(categoryId: categoryId, channelIds: ids)
+            do { try await session.reorderChannels(categoryId: categoryId, channelIds: ids); errorMessage = nil }
+            catch { errorMessage = SharkordSession.describe(error) }
         }
     }
 }
@@ -695,13 +682,13 @@ struct SidebarPrompt: Identifiable {
     let title: String
     let placeholder: String
     let initial: String
-    let onSubmit: (String) -> Void
+    let onSubmit: (String) async throws -> Void
 }
 
 struct SidebarConfirm {
     let title: String
     let message: String
-    let action: () -> Void
+    let action: () async throws -> Void
 }
 
 /// One field dialog used for every rename and create action in the sidebar.
@@ -710,6 +697,8 @@ struct PromptSheet: View {
     var onDismiss: () -> Void
 
     @State private var value = ""
+    @State private var saving = false
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -719,6 +708,8 @@ struct PromptSheet: View {
             TextField(prompt.placeholder, text: $value)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(submit)
+                .disabled(saving)
+            if let errorMessage { Text(errorMessage).font(.caption).foregroundStyle(.red) }
 
             HStack {
                 Spacer()
@@ -727,7 +718,7 @@ struct PromptSheet: View {
 
                 Button(L10n.t("saveButton", ns: "macos"), action: submit)
                     .buttonStyle(.borderedProminent)
-                    .disabled(value.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(saving || value.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
         .padding(20)
@@ -740,11 +731,15 @@ struct PromptSheet: View {
     private func submit() {
         let trimmed = value.trimmingCharacters(in: .whitespaces)
 
-        guard !trimmed.isEmpty else {
+        guard !trimmed.isEmpty, !saving else {
             return
         }
 
-        prompt.onSubmit(trimmed)
-        onDismiss()
+        saving = true
+        Task {
+            defer { saving = false }
+            do { try await prompt.onSubmit(trimmed); onDismiss() }
+            catch { errorMessage = SharkordSession.describe(error) }
+        }
     }
 }
