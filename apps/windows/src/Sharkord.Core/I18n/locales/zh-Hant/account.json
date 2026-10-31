@@ -1,0 +1,5 @@
+{
+  "rememberLogin": "安全記住登入",
+  "logout": "中斷連線並忘記登入",
+  "credentialFailure": "Windows 無法存取已儲存的登入資訊。請手動登入或重試。"
+}

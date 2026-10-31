@@ -1,0 +1,5 @@
+{
+  "rememberLogin": "Mémoriser la connexion en toute sécurité",
+  "logout": "Déconnecter et oublier la connexion",
+  "credentialFailure": "Windows ne peut pas accéder aux identifiants enregistrés. Connectez-vous manuellement ou réessayez."
+}

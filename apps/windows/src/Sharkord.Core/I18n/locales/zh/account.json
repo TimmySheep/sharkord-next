@@ -1,0 +1,5 @@
+{
+  "rememberLogin": "安全记住登录",
+  "logout": "断开连接并忘记登录",
+  "credentialFailure": "Windows 无法访问已保存的登录信息。请手动登录或重试。"
+}

@@ -353,6 +353,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         Emojis = join.Emojis;
         Settings = join.PublicSettings;
         OwnUserId = join.OwnUserId;
+        ShouldShowWelcomeProfile = join.ShowWelcomeDialog == true;
         _hasDirectMessageSnapshot = join.DirectMessages is not null;
         DirectMessages = join.DirectMessages ?? [];
         ServerName = join.ServerName;
@@ -1331,6 +1332,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         _hasDirectMessageSnapshot = false;
         Settings = null;
         OwnUserId = 0;
+        ShouldShowWelcomeProfile = false;
         SelectedChannelId = null;
         IsVoiceTextSelected = false;
         CurrentVoiceChannelId = null;

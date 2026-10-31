@@ -1,0 +1,5 @@
+{
+  "rememberLogin": "Memorizza accesso in modo sicuro",
+  "logout": "Disconnetti e dimentica accesso",
+  "credentialFailure": "Windows non può accedere alle credenziali salvate. Accedi manualmente o riprova."
+}

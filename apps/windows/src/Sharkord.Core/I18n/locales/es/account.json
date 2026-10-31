@@ -1,0 +1,5 @@
+{
+  "rememberLogin": "Guardar acceso de forma segura",
+  "logout": "Desconectar y olvidar acceso",
+  "credentialFailure": "Windows no pudo acceder al inicio de sesión guardado. Inicia sesión manualmente o inténtalo de nuevo."
+}

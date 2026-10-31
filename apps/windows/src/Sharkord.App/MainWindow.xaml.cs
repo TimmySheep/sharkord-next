@@ -71,6 +71,7 @@ public sealed partial class MainWindow : Window
         MessageList.ItemsSource = _messages;
         InitializeDesktopControls();
         InitializeNativeVoiceControls();
+        InitializeAccountControls();
 
         ApplyLocalisation();
         L10n.LanguageChanged += ApplyLocalisation;
@@ -124,6 +125,7 @@ public sealed partial class MainWindow : Window
         GitHubLink.Content = "GitHub";
         SharkordLink.Content = "Sharkord";
         LocaliseDesktopControls();
+        LocaliseAccountControls();
         AdvancedOptionsText.Text = L10n.T("advancedOptions", ns: "macos");
         RefreshLanguagePicker();
         HostBox.Header = L10n.T("serverAddress", ns: "windows");
@@ -358,6 +360,7 @@ public sealed partial class MainWindow : Window
 
         SyncChannels();
         RefreshDesktopControls();
+        RefreshWelcomeProfile();
 
         var selected = _session.SelectedChannelId is { } id ? _session.Channel(id) : null;
         var selectedVoice = (selected?.IsVoice == true && !_session.IsVoiceTextSelected) || (selected?.IsDm == true && _showDmVoice);
@@ -510,16 +513,20 @@ public sealed partial class MainWindow : Window
     private async void OnConnectClick(object sender, RoutedEventArgs e)
     {
         ResetDesktopWorkspace();
+        var loginIdentity = IdentityBox.Text;
+        var loginPassword = PasswordBox.Password;
+        var rememberLogin = RememberLoginBox.IsChecked == true;
         await _session.ConnectAsync(
             HostBox.Text,
-            IdentityBox.Text,
-            PasswordBox.Password,
+            loginIdentity,
+            loginPassword,
             ServerPasswordBox.Password,
             InviteBox.Text
         );
 
         if (_session.Phase == SessionPhase.Connected)
         {
+            RememberConnectedAccount(loginIdentity, loginPassword, rememberLogin);
             var restored = await RestoreLastSelectedChannelAsync();
             if (!restored && _session.SelectedChannelId is { } channelId)
             {

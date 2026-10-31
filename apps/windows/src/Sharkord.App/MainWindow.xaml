@@ -79,6 +79,7 @@
                         <TextBox x:Name="HostBox" PlaceholderText="localhost:4991" TextChanged="OnHostTextChanged" />
                         <TextBox x:Name="IdentityBox" />
                         <PasswordBox x:Name="PasswordBox" />
+                        <CheckBox x:Name="RememberLoginBox" />
                     </StackPanel>
 
                     <Expander x:Name="AdvancedOptionsExpander">

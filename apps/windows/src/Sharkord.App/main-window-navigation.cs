@@ -171,6 +171,7 @@ public sealed partial class MainWindow
             });
         }
         AddChannelManagement(menu);
+        AddAccountActions(menu);
         menu.ShowAt(NavigationButton);
     }
 
