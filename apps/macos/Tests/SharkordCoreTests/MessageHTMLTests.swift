@@ -6,6 +6,28 @@ import Testing
 @Suite
 struct MessageHTMLTests {
     @Test
+    func literalEntityTextIsDecodedOnlyOnceInTextAndURLs() {
+        #expect(MessageHTML.decodeEntities("&amp;#65;") == "&#65;")
+        #expect(MessageHTML.decodeEntities("&#38;lt;") == "&lt;")
+        #expect(MessageHTML.decodeEntities("&#38;amp;") == "&amp;")
+
+        for url in ["https://example.test/?q=&#65;", "https://example.test/?q=a&"] {
+            let prepared = MessageHTML.prepare(MessageHTML.fromPlainText(url))
+            #expect(MessageHTML.toPlainText(prepared) == url)
+            #expect(MessageHTML.parse(prepared).blocks.first?.spans.first?.href == url)
+        }
+
+        let incoming = MessageHTML.parse("<p><a href=\"https://example.test/?q=&amp;#65;\">literal &amp;#65;</a></p>")
+        #expect(incoming.blocks.first?.spans.first?.href == "https://example.test/?q=&#65;")
+        #expect(incoming.blocks.first?.spans.first?.content == .text("literal &#65;"))
+
+        let text = "literal <tag> & &#65; https://example.test/?q=a&"
+        let prepared = MessageHTML.prepare(MessageHTML.fromPlainText(text))
+        #expect(!prepared.contains("<tag>"))
+        #expect(MessageHTML.toPlainText(prepared) == text)
+    }
+
+    @Test
     func linksAtTheStartOfARunKeepQueryEntitiesExactlyOnce() {
         let url = "https://example.test/path?a=1&b=2"
         let prepared = MessageHTML.prepare(MessageHTML.fromPlainText(url))

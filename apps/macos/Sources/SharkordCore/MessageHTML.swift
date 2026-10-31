@@ -299,43 +299,34 @@ public enum MessageHTML {
     }
 
     static func decodeEntities(_ text: String) -> String {
-        var result = text
-        result = result.replacingOccurrences(of: "&nbsp;", with: " ")
-        result = result.replacingOccurrences(of: "&lt;", with: "\u{0}")
-        result = result.replacingOccurrences(of: "&gt;", with: "\u{1}")
-        result = result.replacingOccurrences(of: "&quot;", with: "\u{2}")
-        result = result.replacingOccurrences(of: "&#39;", with: "'")
-        result = result.replacingOccurrences(of: "&apos;", with: "'")
-        result = result.replacingOccurrences(of: "&amp;", with: "&")
-        result = result.replacingOccurrences(of: "\u{0}", with: "<")
-        result = result.replacingOccurrences(of: "\u{1}", with: ">")
-        result = result.replacingOccurrences(of: "\u{2}", with: "\"")
-
-        return decodeNumericEntities(result)
-    }
-
-    private static func decodeNumericEntities(_ text: String) -> String {
-        guard let regex = try? NSRegularExpression(pattern: "&#(x?)([0-9a-fA-F]+);") else {
+        guard let regex = try? NSRegularExpression(pattern: "&(nbsp|lt|gt|quot|apos|amp|#(?:[xX][0-9a-fA-F]+|[0-9]+));") else {
             return text
         }
 
+        let named = ["nbsp": " ", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "amp": "&"]
         let range = NSRange(text.startIndex..., in: text)
         var output = text
 
+        // match the original input once so escaped entity text is never decoded twice
         for match in regex.matches(in: text, range: range).reversed() {
             guard
                 let full = Range(match.range, in: text),
-                let radixFlag = Range(match.range(at: 1), in: text),
-                let digits = Range(match.range(at: 2), in: text)
+                let entityRange = Range(match.range(at: 1), in: text)
             else {
                 continue
             }
 
-            let radix = text[radixFlag].isEmpty ? 10 : 16
-            let raw = String(text[digits])
+            let entity = String(text[entityRange])
+            if let replacement = named[entity] {
+                output.replaceSubrange(full, with: replacement)
+                continue
+            }
 
+            let numeric = entity.dropFirst()
+            let hexadecimal = numeric.first == "x" || numeric.first == "X"
+            let digits = hexadecimal ? String(numeric.dropFirst()) : String(numeric)
             guard
-                let scalarValue = UInt32(raw, radix: radix),
+                let scalarValue = UInt32(digits, radix: hexadecimal ? 16 : 10),
                 let scalar = Unicode.Scalar(scalarValue)
             else {
                 continue
@@ -421,30 +412,30 @@ public enum MessageHTML {
             return text
         }
 
-        let range = NSRange(text.startIndex..., in: text)
+        let decodedText = decodeEntities(text)
+        let range = NSRange(decodedText.startIndex..., in: decodedText)
         var output = ""
-        var cursor = text.startIndex
+        var cursor = decodedText.startIndex
 
-        for match in regex.matches(in: text, range: range) {
-            guard let matchRange = Range(match.range, in: text), matchRange.lowerBound >= cursor else {
+        for match in regex.matches(in: decodedText, range: range) {
+            guard let matchRange = Range(match.range, in: decodedText), matchRange.lowerBound >= cursor else {
                 continue
             }
 
-            let candidate = String(text[matchRange])
+            let candidate = String(decodedText[matchRange])
             let trimmed = trailingPunctuationTrimmed(candidate)
-            let decoded = decodeEntities(trimmed)
 
-            guard let url = URL(string: decoded), url.host != nil else {
+            guard let url = URL(string: trimmed), url.host != nil else {
                 continue
             }
 
-            output += text[cursor..<matchRange.lowerBound]
-            output += link(href: decoded, label: decoded)
+            output += escape(String(decodedText[cursor..<matchRange.lowerBound]))
+            output += link(href: trimmed, label: trimmed)
 
-            cursor = text.index(matchRange.lowerBound, offsetBy: trimmed.count)
+            cursor = decodedText.index(matchRange.lowerBound, offsetBy: trimmed.count)
         }
 
-        output += text[cursor...]
+        output += escape(String(decodedText[cursor...]))
 
         return output
     }
@@ -453,6 +444,12 @@ public enum MessageHTML {
         var result = value
 
         while let last = result.last, ".,;:!?)]}'\"".contains(last) {
+            if last == ";" {
+                let entitySuffix = "&(?:[a-zA-Z]+|#[xX]?[0-9a-fA-F]+);$"
+                if result.range(of: entitySuffix, options: .regularExpression) != nil {
+                    break
+                }
+            }
             // a closing paren is only trailing when the url has no matching opener
             if last == ")", result.filter({ $0 == "(" }).count >= result.filter({ $0 == ")" }).count {
                 break
