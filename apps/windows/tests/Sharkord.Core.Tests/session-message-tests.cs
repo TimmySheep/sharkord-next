@@ -16,6 +16,45 @@ public class SessionMessageTests
             .CreateDelegate<Action<SharkordSession, JoinResult>>();
 
     [Fact]
+    public async Task MessageRevisionChangesOnlyWhenThatChannelsHistoryChanges()
+    {
+        await using var session = new SharkordSession();
+        var message = new SharkordMessage { Id = 1, ChannelId = 7, CreatedAt = 100 };
+        Assert.Equal(0, session.GetMessagesRevision(7));
+        Upsert(session, message, false);
+        var snapshot = session.GetMessagesSnapshot(7, out var revision);
+        Assert.True(revision > 0);
+        Assert.Same(message, Assert.Single(snapshot));
+
+        Upsert(session, message, false);
+        Upsert(session, new SharkordMessage { Id = 2, ChannelId = 8 }, false);
+        session.MarkAsRead(7);
+        Assert.Equal(revision, session.GetMessagesRevision(7));
+
+        Upsert(session, new SharkordMessage { Id = 1, ChannelId = 7, CreatedAt = 100, Content = "edited" }, false);
+        Assert.True(session.GetMessagesRevision(7) > revision);
+        await session.DisconnectAsync();
+        Assert.Equal(0, session.GetMessagesRevision(7));
+        Assert.Empty(session.GetMessagesSnapshot(7));
+    }
+
+    [Fact]
+    public async Task OutOfOrderMessagesUseTimestampThenIdWithoutDuplicatingUpdatesOrThreads()
+    {
+        await using var session = new SharkordSession();
+        Upsert(session, new SharkordMessage { Id = 3, ChannelId = 7, CreatedAt = 100 }, false);
+        Upsert(session, new SharkordMessage { Id = 2, ChannelId = 7, CreatedAt = 200 }, false);
+        Upsert(session, new SharkordMessage { Id = 1, ChannelId = 7, CreatedAt = 100 }, false);
+        var edited = new SharkordMessage { Id = 3, ChannelId = 7, CreatedAt = 100, Content = "edited" };
+        Upsert(session, edited, false);
+        Upsert(session, new SharkordMessage { Id = 4, ChannelId = 7, CreatedAt = 300, ParentMessageId = 1 }, false);
+
+        var messages = session.GetMessagesSnapshot(7);
+        Assert.Equal(new[] { 1, 3, 2 }, messages.Select(message => message.Id));
+        Assert.Same(edited, messages[1]);
+    }
+
+    [Fact]
     public async Task JoinLoadsUnreadCountsAndRejoinReplacesThem()
     {
         await using var session = new SharkordSession();

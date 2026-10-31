@@ -52,7 +52,7 @@ public sealed class SharkordHttpClient
     {
         try
         {
-            var response = await _http.GetAsync(new Uri(BaseUrl, "info"), cancellationToken).ConfigureAwait(false);
+            using var response = await _http.GetAsync(new Uri(BaseUrl, "info"), cancellationToken).ConfigureAwait(false);
             return await ReadAsync<SharkordServerInfo>(response, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
@@ -83,7 +83,7 @@ public sealed class SharkordHttpClient
         try
         {
             using var content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
-            var response = await _http.PostAsync(new Uri(BaseUrl, "login"), content, cancellationToken).ConfigureAwait(false);
+            using var response = await _http.PostAsync(new Uri(BaseUrl, "login"), content, cancellationToken).ConfigureAwait(false);
             return await ReadAsync<SharkordLoginResult>(response, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
@@ -110,7 +110,7 @@ public sealed class SharkordHttpClient
             request.Content = new ByteArrayContent(data);
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
 
-            var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
             return await ReadAsync<SharkordTempFile>(response, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
