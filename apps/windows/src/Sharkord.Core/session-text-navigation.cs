@@ -10,6 +10,7 @@ public sealed partial class SharkordSession
     private readonly HashSet<int> _hasNewer = [];
     private readonly Dictionary<int, long> _historyRequests = [];
     private readonly Dictionary<int, long> _threadRequests = [];
+    private readonly Dictionary<int, Dictionary<int, SharkordMessage?>> _threadLiveChanges = [];
     private long _historyGeneration;
     private long _navigationRequest;
 
@@ -32,6 +33,7 @@ public sealed partial class SharkordSession
         _hasNewer.Clear();
         _historyRequests.Clear();
         _threadRequests.Clear();
+        _threadLiveChanges.Clear();
     }
 
     private void InvalidateChannelHistory(int channelId)
@@ -129,6 +131,7 @@ public sealed partial class SharkordSession
         var input = new JsonObject { ["parentMessageId"] = parentMessageId, ["limit"] = ProtocolDefaults.MessagesLimit };
         long generation;
         long request;
+        var changes = new Dictionary<int, SharkordMessage?>();
         lock (_gate)
         {
             generation = _historyGeneration;
@@ -139,20 +142,38 @@ public sealed partial class SharkordSession
             }
             request = _threadRequests.GetValueOrDefault(parentMessageId) + 1;
             _threadRequests[parentMessageId] = request;
+            _threadLiveChanges[parentMessageId] = changes;
         }
-        var result = await CallQueryAsync("messages.getThread", input, cancellationToken).ConfigureAwait(false);
-        var page = result.DeserializeObject<MessagesPage>() ?? new();
-        lock (_gate)
+        try
         {
-            if (generation != _historyGeneration || request != _threadRequests.GetValueOrDefault(parentMessageId)) { return; }
-            var current = more && _messagesByThread.TryGetValue(parentMessageId, out var existing) ? existing : [];
-            _messagesByThread[parentMessageId] = current.Concat(page.Messages)
-                .DistinctBy(message => message.Id).OrderBy(message => message, MessageOrder).ToList();
-            _nextMessageRevision++;
-            if (page.NextCursor is { } next) { _threadCursors[parentMessageId] = next; }
-            else { _threadCursors.Remove(parentMessageId); }
+            var result = await CallQueryAsync("messages.getThread", input, cancellationToken).ConfigureAwait(false);
+            var page = result.DeserializeObject<MessagesPage>() ?? new();
+            lock (_gate)
+            {
+                if (generation != _historyGeneration || request != _threadRequests.GetValueOrDefault(parentMessageId)) { return; }
+                var merged = more && _messagesByThread.TryGetValue(parentMessageId, out var existing)
+                    ? existing.ToDictionary(message => message.Id) : [];
+                foreach (var message in page.Messages) { merged.TryAdd(message.Id, message); }
+                // live events are newer than the outstanding page snapshot, including unseen deletions.
+                foreach (var (id, message) in changes)
+                {
+                    if (message is null) { merged.Remove(id); }
+                    else { merged[id] = message; }
+                }
+                _messagesByThread[parentMessageId] = merged.Values.OrderBy(message => message, MessageOrder).ToList();
+                _nextMessageRevision++;
+                if (page.NextCursor is { } next) { _threadCursors[parentMessageId] = next; }
+                else { _threadCursors.Remove(parentMessageId); }
+            }
+            Notify();
         }
-        Notify();
+        finally
+        {
+            lock (_gate)
+            {
+                if (ReferenceEquals(_threadLiveChanges.GetValueOrDefault(parentMessageId), changes)) { _threadLiveChanges.Remove(parentMessageId); }
+            }
+        }
     }
 
     public Task<JsonNode?> SearchAsync(string query, CancellationToken cancellationToken = default)

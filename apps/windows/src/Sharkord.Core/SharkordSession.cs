@@ -652,6 +652,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
             {
                 return;
             }
+            if (message.ParentMessageId is { } changedParent && _threadLiveChanges.TryGetValue(changedParent, out var changes)) { changes[message.Id] = message; }
             _messageRevisions[message.ChannelId] = ++_nextMessageRevision;
         }
 
@@ -669,6 +670,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
     {
         lock (_gate)
         {
+            foreach (var changes in _threadLiveChanges.Values) { changes[messageId] = null; }
             var removed = false;
             if (_messagesByChannel.TryGetValue(channelId, out var list) && list.RemoveAll(message => message.Id == messageId) > 0)
             {

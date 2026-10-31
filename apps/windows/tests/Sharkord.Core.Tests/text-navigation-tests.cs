@@ -7,6 +7,39 @@ namespace Sharkord.Core.Tests;
 
 public class TextNavigationTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PendingThreadPagePreservesNewerLiveMutations(bool more)
+    {
+        await WebSocketConformanceTests.WithConnectionAsync(async (client, server, token) =>
+        {
+            var session = new SharkordSession();
+            typeof(SharkordSession).GetField("_client", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(session, client);
+            if (more)
+            {
+                var initial = session.LoadThreadAsync(12, cancellationToken: token);
+                var first = JsonNode.Parse(await WebSocketConformanceTests.ReceiveAsync(server, token))!;
+                await Respond(first, "{\"messages\":[],\"nextCursor\":{\"id\":1,\"createdAt\":1}}");
+                await initial;
+            }
+            var loading = session.LoadThreadAsync(12, more, token);
+            var request = JsonNode.Parse(await WebSocketConformanceTests.ReceiveAsync(server, token))!;
+            var upsert = typeof(SharkordSession).GetMethod("Upsert", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            upsert.Invoke(session, [new SharkordMessage { Id = 13, ChannelId = 7, ParentMessageId = 12, Content = "live edit", CreatedAt = 100 }, false]);
+            upsert.Invoke(session, [new SharkordMessage { Id = 15, ChannelId = 7, ParentMessageId = 12, Content = "live new", CreatedAt = 300 }, false]);
+            // the deleted reply need not have been loaded before the outstanding page began.
+            typeof(SharkordSession).GetMethod("RemoveMessage", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(session, [14, 7]);
+            await Respond(request, "{\"messages\":[{\"id\":13,\"channelId\":7,\"parentMessageId\":12,\"content\":\"old\",\"createdAt\":100},{\"id\":14,\"channelId\":7,\"parentMessageId\":12,\"content\":\"deleted\",\"createdAt\":200}]}");
+            await loading;
+            var replies = session.GetThreadMessagesSnapshot(12);
+            Assert.Equal(new[] { 13, 15 }, replies.Select(message => message.Id));
+            Assert.Equal("live edit", replies[0].Content);
+            Task Respond(JsonNode envelope, string data) => WebSocketConformanceTests.SendAsync(server,
+                $"{{\"id\":{envelope["id"]},\"result\":{{\"data\":{data}}}}}", token);
+        });
+    }
+
     private static void Apply(SharkordSession session, JoinResult join) =>
         typeof(SharkordSession).GetMethod("Apply", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(session, [join]);
 

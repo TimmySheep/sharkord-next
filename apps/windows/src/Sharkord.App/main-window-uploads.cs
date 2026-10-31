@@ -25,9 +25,13 @@ public sealed partial class MainWindow
     private async void OnComposerDrop(object sender, DragEventArgs e)
     {
         if (!CanAttachFiles() || _uploadingAttachments || !e.DataView.Contains(StandardDataFormats.StorageItems)) { return; }
+        var channelId = _session.SelectedChannelId;
+        var parentId = _threadParent?.Id;
+        var generation = _composerGeneration;
         try
         {
             var items = await e.DataView.GetStorageItemsAsync();
+            if (_session.SelectedChannelId != channelId || _threadParent?.Id != parentId || generation != _composerGeneration) { return; }
             await AddStorageFilesAsync(items.OfType<StorageFile>().ToArray());
         }
         catch (Exception exception) { ChatErrorText.Text = exception.Message; }
@@ -47,6 +51,7 @@ public sealed partial class MainWindow
             if (clipboard.Contains(StandardDataFormats.StorageItems))
             {
                 var items = await clipboard.GetStorageItemsAsync();
+                if (_session.SelectedChannelId != channelId || _threadParent?.Id != parentId || generation != _composerGeneration) { return; }
                 await AddStorageFilesAsync(items.OfType<StorageFile>().ToArray());
                 return;
             }
