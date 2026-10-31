@@ -147,5 +147,6 @@
   "loadMoreReplies": "載入更多回覆",
   "latestLoadedReply": "最新已載入的回覆",
   "reactionEmojiTooLong": "伺服器不支援將此表情用作回應。",
-  "noCategory": "無分類"
+  "noCategory": "無分類",
+  "uploadServerLogo": "上傳 Logo 圖片"
 }

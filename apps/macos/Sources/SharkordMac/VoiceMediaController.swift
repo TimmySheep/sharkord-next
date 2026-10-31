@@ -14,6 +14,12 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
     @Published private(set) var receiveStreams: [String: ReceiveStream] = [:]
     @Published private(set) var noiseSuppressionMix = VoiceMediaController.loadNoiseSuppressionMix()
     @Published private(set) var noiseSuppressionMode = UserDefaults.standard.string(forKey: "voice.noiseSuppressionMode") ?? "standard"
+    @Published private(set) var deviceSettings = VoiceDeviceSettingsStore.load()
+    @Published private(set) var inputDevices: [VoiceMediaDevice] = []
+    @Published private(set) var outputDevices: [VoiceMediaDevice] = []
+    @Published private(set) var videoDevices: [VoiceMediaDevice] = []
+    @Published private(set) var microphoneTestLevel: Double = 0
+    @Published private(set) var isMicrophoneTesting = false
 
     private weak var session: SharkordSession?
     private var webView: WKWebView?
@@ -130,6 +136,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         }
 
         try await applyRemoteAudioVolumes(to: webView)
+        try await applyDeviceSettings(to: webView)
 
         let capabilitiesData = try JSONEncoder().encode(routerRtpCapabilities)
         let capabilities = try JSONSerialization.jsonObject(with: capabilitiesData, options: [.fragmentsAllowed])
@@ -219,6 +226,111 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
             } catch {
                 presentError(error, context: "microphone")
             }
+        }
+    }
+
+    /// Re-reads the device list from the media engine. Labels only appear once the
+    /// webview has capture permission, so an empty list is a normal transient state
+    /// rather than an error the user has to act on.
+    func reloadDevices() async {
+        guard let webView else {
+            return
+        }
+
+        do {
+            let result = try await webView.callAsyncJavaScript(
+                "return await window.coveVoice.enumerateDevices()",
+                arguments: [:],
+                in: nil,
+                contentWorld: .page
+            )
+
+            guard let object = result else {
+                return
+            }
+
+            let data = try JSONSerialization.data(withJSONObject: object, options: [.fragmentsAllowed])
+
+            guard let devices = try? JSONDecoder().decode(VoiceEnumeratedDevices.self, from: data) else {
+                return
+            }
+
+            inputDevices = devices.inputs
+            outputDevices = devices.outputs
+            videoDevices = devices.videos
+
+            let resolved = devices.resolved(deviceSettings)
+            if resolved != deviceSettings {
+                updateDeviceSettings(resolved)
+            }
+        } catch {
+            presentError(error, context: "devices")
+        }
+    }
+
+    /// Persists a device preference and pushes it into the live media engine, which
+    /// reopens the affected capture so the change takes effect without a rejoin.
+    func updateDeviceSettings(_ settings: VoiceDeviceSettings) {
+        deviceSettings = settings
+        VoiceDeviceSettingsStore.save(settings)
+
+        guard let webView else {
+            return
+        }
+
+        Task {
+            do {
+                _ = try await webView.callAsyncJavaScript(
+                    "return await window.coveVoice.setDeviceSettings(settings)",
+                    arguments: ["settings": settings.bridgePayload],
+                    in: nil,
+                    contentWorld: .page
+                )
+            } catch {
+                presentError(error, context: "devices")
+            }
+        }
+    }
+
+    func startMicrophoneTest(deviceId: String? = nil) {
+        guard let webView else {
+            return
+        }
+
+        isMicrophoneTesting = true
+        microphoneTestLevel = 0
+
+        Task {
+            do {
+                _ = try await webView.callAsyncJavaScript(
+                    "return await window.coveVoice.startMicrophoneTest(deviceId)",
+                    arguments: ["deviceId": deviceId ?? deviceSettings.microphoneId ?? ""],
+                    in: nil,
+                    contentWorld: .page
+                )
+            } catch {
+                isMicrophoneTesting = false
+                microphoneTestLevel = 0
+                presentError(error, context: "microphone")
+            }
+        }
+    }
+
+    func stopMicrophoneTest() {
+        isMicrophoneTesting = false
+        microphoneTestLevel = 0
+
+        guard let webView else {
+            return
+        }
+
+        Task {
+            _ = try? await webView.callAsyncJavaScript(
+                "window.coveVoice?.stopMicrophoneTest()",
+                arguments: [:],
+                in: nil,
+                contentWorld: .page
+            )
         }
     }
 
@@ -388,6 +500,11 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
             return
         }
 
+        if type == "microphoneTest" {
+            microphoneTestLevel = (body["level"] as? Double) ?? 0
+            return
+        }
+
         guard
             type == "rpc",
             let id = body["id"] as? String,
@@ -474,6 +591,15 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         }
 
         return VoiceAudioVolumeSettings.clamped(defaults.double(forKey: "voice.noiseSuppressionMix"))
+    }
+
+    private func applyDeviceSettings(to webView: WKWebView) async throws {
+        _ = try await webView.callAsyncJavaScript(
+            "return await window.coveVoice.setDeviceSettings(settings)",
+            arguments: ["settings": deviceSettings.bridgePayload],
+            in: nil,
+            contentWorld: .page
+        )
     }
 
     private func applyRemoteAudioVolumes(to webView: WKWebView) async throws {

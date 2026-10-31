@@ -192,4 +192,75 @@ struct MessageHTMLTests {
     func decodesEntitiesIncludingNumericOnes() {
         #expect(MessageHTML.decodeEntities("a &amp; b &lt;c&gt; &#65; &#x42;") == "a & b <c> A B")
     }
+
+    @Test
+    func fromComposerTextBuildsRichHtml() {
+        let html = MessageHTML.fromComposerText(
+            "**bold** *it* `code` [site](https://x.dev) https://y.dev <b>",
+            users: [(id: 7, name: "Ada")],
+            channels: [(id: 3, name: "general")],
+            emojis: [(name: "party", src: "/public/emoji/1")],
+            emojiGlyph: { $0 == "smile" ? "😄" : $0 }
+        )
+
+        #expect(html.contains("<strong>bold</strong>"))
+        #expect(html.contains("<em>it</em>"))
+        #expect(html.contains("<code>code</code>"))
+        #expect(html.contains("<a href=\"https://x.dev\""))
+        #expect(html.contains("<a href=\"https://y.dev\""))
+        #expect(html.contains("&lt;b&gt;"))
+    }
+
+    @Test
+    func fromComposerTextResolvesMentionsChannelsAndEmoji() {
+        let html = MessageHTML.fromComposerText(
+            "hi @[Ada](user:7) and @Ada, see #[general](channel:3) and :party::smile:",
+            users: [(id: 7, name: "Ada")],
+            channels: [(id: 3, name: "general")],
+            emojis: [(name: "party", src: "/public/emoji/1")],
+            emojiGlyph: { $0 == "smile" ? "😄" : $0 }
+        )
+
+        #expect(html.contains("data-user-id=\"7\""))
+        #expect(html.contains("data-channel-id=\"3\""))
+        #expect(html.contains("class=\"emoji-image\""))
+        #expect(html.contains("src=\"/public/emoji/1\""))
+        #expect(html.contains("data-name=\"smile\">😄</span>"))
+    }
+
+    @Test
+    func fromComposerTextKeepsFencedCodeBlocks() {
+        let html = MessageHTML.fromComposerText("before\n```\nlet x = 1\n```\nafter")
+
+        #expect(html.hasPrefix("<p>before"))
+        #expect(html.contains("<pre><code>let x = 1</code></pre>"))
+        #expect(html.hasSuffix("after</p>"))
+    }
+
+    @Test
+    func toComposerTextEmitsRoundTrippableMarkdown() {
+        let html = MessageHTML.fromComposerText(
+            "**bold** `code` @[Ada](user:7) #[general](channel:3) :party:",
+            users: [(id: 7, name: "Ada")],
+            channels: [(id: 3, name: "general")],
+            emojis: [(name: "party", src: "/public/emoji/1")]
+        )
+
+        #expect(MessageHTML.toComposerText(html) == "**bold** `code` @[Ada](user:7) #[general](channel:3) :party:")
+    }
+
+    @Test
+    func toComposerTextRendersCodeBlocksAndLinks() {
+        let html = "<p><a href=\"https://x.dev\">site</a></p><pre><code>let x = 1</code></pre>"
+
+        #expect(MessageHTML.toComposerText(html) == "[site](https://x.dev)\n```\nlet x = 1\n```")
+    }
+
+    @Test
+    func unicodeEmojiRoundTripsAsItsGlyph() {
+        let html = MessageHTML.fromComposerText("hi :smile:", emojiGlyph: { $0 == "smile" ? "😄" : $0 })
+
+        #expect(html.contains("data-name=\"smile\">😄</span>"))
+        #expect(MessageHTML.toComposerText(html) == "hi 😄")
+    }
 }

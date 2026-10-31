@@ -1,6 +1,7 @@
 import AppKit
 import SharkordCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Server identity and access settings.
 struct GeneralServerSettingsView: View {
@@ -9,6 +10,9 @@ struct GeneralServerSettingsView: View {
     @State private var name = ""
     @State private var description = ""
     @State private var password = ""
+    @State private var logoId: Int?
+    @State private var logoStatus: String?
+    @State private var isUploadingLogo = false
     @State private var allowNewUsers = true
     @State private var directMessages = true
     @State private var enableSearch = true
@@ -48,6 +52,19 @@ struct GeneralServerSettingsView: View {
 
                         Button(L10n.t("deleteBtn", ns: "settings")) {
                             password = ""
+                        }
+                    }
+                }
+
+                SettingsField(label: L10n.t("logoLabel", ns: "settings"), help: L10n.t("logoDesc", ns: "settings")) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Button(L10n.t("uploadServerLogo", ns: "macos"), action: uploadLogo)
+                            .disabled(isUploadingLogo)
+
+                        if let logoStatus {
+                            Text(logoStatus)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -110,6 +127,40 @@ struct GeneralServerSettingsView: View {
             simulcast = settings.webRtcSimulcastEnabled ?? false
             showWelcomeDialog = settings.showWelcomeDialog ?? true
             onlyAskForPasswordOnFirstJoin = settings.onlyAskForPasswordOnFirstJoin ?? false
+            logoId = settings.logoId
+        }
+    }
+
+    private func uploadLogo() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+
+        Task {
+            isUploadingLogo = true
+            defer { isUploadingLogo = false }
+
+            do {
+                let data = try await Task.detached { try Data(contentsOf: url) }.value
+                let fileId = try await session.uploadAttachment(
+                    data: data,
+                    fileName: url.lastPathComponent,
+                    mimeType: UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "image/png"
+                )
+                try await session.changeLogo(fileId: fileId)
+
+                if let settings = try? await session.getSettings() {
+                    logoId = settings.logoId
+                }
+
+                logoStatus = L10n.t("settingsUpdated", ns: "settings")
+            } catch {
+                logoStatus = SharkordSession.describe(error)
+            }
         }
     }
 
@@ -439,7 +490,8 @@ struct UsersSettingsView: View {
     }
 }
 
-/// One member's full record: identity, roles, storage and their recent logins.
+/// One member's full record: identity, roles, storage, their recent logins, plus the moderation
+/// actions an admin can take (kick, ban with a reason, unban and role assignment).
 struct UserDetailSheet: View {
     @EnvironmentObject private var session: SharkordSession
     @Environment(\.dismiss) private var dismiss
@@ -447,11 +499,38 @@ struct UserDetailSheet: View {
     let user: SharkordAdminUser
     let detail: UserDetail?
 
+    @State private var workingUser: SharkordAdminUser
+    @State private var workingDetail: UserDetail?
+    @State private var roles: [SharkordRole] = []
+    @State private var statusMessage: String?
+    @State private var isError = false
+
+    init(user: SharkordAdminUser, detail: UserDetail?) {
+        self.user = user
+        self.detail = detail
+        _workingUser = State(initialValue: user)
+        _workingDetail = State(initialValue: detail)
+    }
+
+    private var assignedRoleIds: Set<Int> {
+        Set(workingUser.roleIds ?? [])
+    }
+
+    private var assignableRoles: [SharkordRole] {
+        roles.filter { !assignedRoleIds.contains($0.id) }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(user.name)
+                Text(workingUser.name)
                     .font(.title3.bold())
+
+                if workingUser.banned {
+                    Text(L10n.t("bannedBadge", ns: "common"))
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.red)
+                }
 
                 Spacer()
 
@@ -464,90 +543,173 @@ struct UserDetailSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    row(L10n.t("userIdLabel", ns: "settings"), value: "\(user.id)")
-                    row(L10n.t("identityDetailLabel", ns: "settings"), value: user.identity ?? "-")
-                    row(
-                        L10n.t("joinedServerLabel", ns: "settings"),
-                        value: Date(timeIntervalSince1970: Double(user.createdAt) / 1000)
-                            .formatted(date: .abbreviated, time: .shortened)
-                    )
+                    identitySection
+                    moderationSection
+                    rolesSection
 
-                    if let lastLogin = user.lastLoginAt {
-                        row(
-                            L10n.t("lastActiveLabel", ns: "settings"),
-                            value: Date(timeIntervalSince1970: Double(lastLogin) / 1000)
-                                .formatted(date: .abbreviated, time: .shortened)
-                        )
+                    if let workingDetail {
+                        storageSection(workingDetail)
+                        loginsSection(workingDetail)
                     }
 
-                    row(
-                        L10n.t("passwordTitle", ns: "settings"),
-                        value: user.passwordSet == false
-                            ? L10n.t("secretUnsetPlaceholder", ns: "settings")
-                            : L10n.t("secretSetPlaceholder", ns: "settings")
-                    )
-
-                    if let detail {
-                        Divider()
-
-                        Eyebrow(text: L10n.t("rolesSection", ns: "settings"))
-
-                        HStack(spacing: 6) {
-                            ForEach(detail.user.roleIds?.compactMap { session.role(for: $0) } ?? []) { role in
-                                Text(role.name)
-                                    .font(.system(size: 10.5, weight: .medium))
-                                    .foregroundStyle(Color(hex: role.color) ?? .secondary)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Theme.elevated, in: Capsule())
-                            }
-                        }
-
-                        Divider()
-
-                        Eyebrow(text: L10n.t("modViewStorageTitle", ns: "settings"))
-
-                        row(
-                            L10n.t("modViewStorageUsed", ns: "settings"),
-                            value: ByteCountFormatter.string(
-                                fromByteCount: Int64(detail.storage.usedStorage),
-                                countStyle: .file
-                            )
-                        )
-
-                        row(
-                            L10n.t("modViewStorageFiles", ns: "settings"),
-                            value: "\(detail.storage.fileCount)"
-                        )
-
-                        Divider()
-
-                        Eyebrow(text: L10n.t("ipAddressLabel", ns: "settings"))
-
-                        ForEach(detail.logins) { login in
-                            HStack {
-                                Text(login.ip ?? "-")
-                                    .font(.system(size: 11, design: .monospaced))
-
-                                Text(login.location ?? "")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
-
-                                Spacer()
-
-                                Text(
-                                    Date(timeIntervalSince1970: Double(login.createdAt) / 1000),
-                                    style: .relative
-                                )
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                            }
-                        }
+                    if let statusMessage {
+                        Text(statusMessage)
+                            .font(.system(size: 11))
+                            .foregroundStyle(isError ? Color.red : Color.green)
                     }
                 }
             }
         }
         .padding(18)
+        .task {
+            roles = (try? await session.getAllRoles()) ?? []
+            await refresh()
+        }
+    }
+
+    private var identitySection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            row(L10n.t("userIdLabel", ns: "settings"), value: "\(workingUser.id)")
+            row(L10n.t("identityDetailLabel", ns: "settings"), value: workingUser.identity ?? "-")
+            row(
+                L10n.t("joinedServerLabel", ns: "settings"),
+                value: Date(timeIntervalSince1970: Double(workingUser.createdAt) / 1000)
+                    .formatted(date: .abbreviated, time: .shortened)
+            )
+
+            if let lastLogin = workingUser.lastLoginAt {
+                row(
+                    L10n.t("lastActiveLabel", ns: "settings"),
+                    value: Date(timeIntervalSince1970: Double(lastLogin) / 1000)
+                        .formatted(date: .abbreviated, time: .shortened)
+                )
+            }
+
+            row(
+                L10n.t("passwordTitle", ns: "settings"),
+                value: workingUser.passwordSet == false
+                    ? L10n.t("secretUnsetPlaceholder", ns: "settings")
+                    : L10n.t("secretSetPlaceholder", ns: "settings")
+            )
+
+            if workingUser.isOidcUser == true {
+                row(L10n.t("accountSourceOidc", ns: "settings"), value: workingUser.identity ?? "-")
+            }
+
+            if workingUser.banned {
+                row(L10n.t("banReasonLabel", ns: "settings"), value: workingUser.banReason ?? L10n.t("noReasonProvidedDetail", ns: "settings"))
+
+                if let bannedAt = workingUser.bannedAt {
+                    row(
+                        L10n.t("bannedAtLabel", ns: "settings"),
+                        value: Date(timeIntervalSince1970: Double(bannedAt) / 1000)
+                            .formatted(date: .abbreviated, time: .shortened)
+                    )
+                }
+            }
+        }
+    }
+
+    private var moderationSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Eyebrow(text: L10n.t("usersActionsCol", ns: "settings"))
+
+            HStack(spacing: 8) {
+                Button(L10n.t("kickBtn", ns: "settings"), action: kick)
+                Button(L10n.t("banBtn", ns: "settings"), role: .destructive, action: ban)
+
+                if workingUser.banned {
+                    Button(L10n.t("unbanBtn", ns: "settings"), action: unban)
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+    }
+
+    private var rolesSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Eyebrow(text: L10n.t("rolesSection", ns: "settings"))
+
+            HStack(spacing: 6) {
+                ForEach(workingUser.roleIds?.compactMap { session.role(for: $0) } ?? []) { role in
+                    HStack(spacing: 4) {
+                        Text(role.name)
+                            .font(.system(size: 10.5, weight: .medium))
+                            .foregroundStyle(Color(hex: role.color) ?? .secondary)
+
+                        Button {
+                            removeRole(role)
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 8))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Theme.elevated, in: Capsule())
+                }
+            }
+
+            if let role = assignableRoles.first {
+                Menu {
+                    ForEach(assignableRoles) { candidate in
+                        Button(candidate.name) {
+                            assign(role: candidate)
+                        }
+                    }
+                } label: {
+                    Text(L10n.t("modViewAssignRoleBtn", ns: "settings"))
+                }
+                .frame(width: 200)
+                .controlSize(.small)
+            } else if assignableRoles.isEmpty {
+                Text(L10n.t("noRolesFound", ns: "settings"))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func storageSection(_ detail: UserDetail) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Divider()
+
+            Eyebrow(text: L10n.t("modViewStorageTitle", ns: "settings"))
+
+            row(
+                L10n.t("modViewStorageUsed", ns: "settings"),
+                value: ByteCountFormatter.string(fromByteCount: Int64(detail.storage.usedStorage), countStyle: .file)
+            )
+
+            row(L10n.t("modViewStorageFiles", ns: "settings"), value: "\(detail.storage.fileCount)")
+        }
+    }
+
+    private func loginsSection(_ detail: UserDetail) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Divider()
+
+            Eyebrow(text: L10n.t("ipAddressLabel", ns: "settings"))
+
+            ForEach(detail.logins) { login in
+                HStack {
+                    Text(login.ip ?? "-")
+                        .font(.system(size: 11, design: .monospaced))
+
+                    Text(login.location ?? "")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Text(Date(timeIntervalSince1970: Double(login.createdAt) / 1000), style: .relative)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 
     private func row(_ label: String, value: String) -> some View {
@@ -562,6 +724,141 @@ struct UserDetailSheet: View {
                 .font(.system(size: 11.5))
                 .textSelection(.enabled)
         }
+    }
+
+    // MARK: - moderation actions
+
+    private func refresh() async {
+        guard let refreshed = try? await session.getUserInfo(userId: workingUser.id) else {
+            return
+        }
+
+        workingDetail = refreshed
+        workingUser = refreshed.user
+    }
+
+    private func kick() {
+        guard let reason = promptReason(
+            title: L10n.t("kickTitle", ns: "settings"),
+            message: L10n.t("kickMsg", ns: "settings"),
+            confirm: L10n.t("kickConfirm", ns: "settings")
+        ) else {
+            return
+        }
+
+        Task {
+            do {
+                try await session.kickUser(userId: workingUser.id, reason: reason.isEmpty ? nil : reason)
+                announce(L10n.t("kickedSuccess", ns: "settings"), error: false)
+            } catch {
+                announce(SharkordSession.describe(error), error: true)
+            }
+        }
+    }
+
+    private func ban() {
+        guard let reason = promptReason(
+            title: L10n.t("banTitle", ns: "settings"),
+            message: L10n.t("banMsg", ns: "settings"),
+            confirm: L10n.t("banConfirm", ns: "settings")
+        ) else {
+            return
+        }
+
+        Task {
+            do {
+                try await session.banUser(userId: workingUser.id, reason: reason.isEmpty ? nil : reason)
+                announce(L10n.t("bannedSuccess", ns: "settings"), error: false)
+                await refresh()
+            } catch {
+                announce(SharkordSession.describe(error), error: true)
+            }
+        }
+    }
+
+    private func unban() {
+        guard confirm(
+            title: L10n.t("unbanTitle", ns: "settings"),
+            message: L10n.t("unbanMsg", ns: "settings"),
+            confirm: L10n.t("unbanConfirm", ns: "settings")
+        ) else {
+            return
+        }
+
+        Task {
+            do {
+                try await session.unbanUser(userId: workingUser.id)
+                announce(L10n.t("unbannedSuccess", ns: "settings"), error: false)
+                await refresh()
+            } catch {
+                announce(SharkordSession.describe(error), error: true)
+            }
+        }
+    }
+
+    private func assign(role: SharkordRole) {
+        Task {
+            do {
+                try await session.addRole(userId: workingUser.id, roleId: role.id)
+                await refresh()
+            } catch {
+                announce(SharkordSession.describe(error), error: true)
+            }
+        }
+    }
+
+    private func removeRole(_ role: SharkordRole) {
+        guard confirm(
+            title: L10n.t("removeRoleTitle", ns: "settings"),
+            message: L10n.t("removeRoleMsg", ns: "settings", ["roleName": role.name]),
+            confirm: L10n.t("removeRoleConfirm", ns: "settings")
+        ) else {
+            return
+        }
+
+        Task {
+            do {
+                try await session.removeRole(userId: workingUser.id, roleId: role.id)
+                announce(L10n.t("roleRemovedSuccess", ns: "settings"), error: false)
+                await refresh()
+            } catch {
+                announce(SharkordSession.describe(error), error: true)
+            }
+        }
+    }
+
+    private func announce(_ message: String, error: Bool) {
+        statusMessage = message
+        isError = error
+    }
+
+    private func promptReason(title: String, message: String, confirm: String) -> String? {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: confirm)
+        alert.addButton(withTitle: L10n.t("cancel", ns: "common"))
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return nil
+        }
+
+        return field.stringValue.trimmingCharacters(in: .whitespaces)
+    }
+
+    private func confirm(title: String, message: String, confirm: String) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: confirm)
+        alert.addButton(withTitle: L10n.t("cancel", ns: "common"))
+
+        return alert.runModal() == .alertFirstButtonReturn
     }
 }
 
@@ -910,6 +1207,9 @@ struct InvitesSettingsView: View {
     @EnvironmentObject private var session: SharkordSession
 
     @State private var invites: [SharkordInvite] = []
+    @State private var roles: [SharkordRole] = []
+    @State private var selectedRoleId: Int?
+    @State private var customCode = ""
     @State private var maxUses = 0
     @State private var expiresInDays = 7
     @State private var copiedCode: String?
@@ -917,6 +1217,25 @@ struct InvitesSettingsView: View {
     var body: some View {
         SettingsSectionLayout(title: L10n.t("invitesTitle", ns: "settings")) {
             VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    TextField(L10n.t("invitesCodeCol", ns: "settings"), text: $customCode)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 150)
+
+                    Menu {
+                        Button(L10n.t("inviteDefault", ns: "settings")) { selectedRoleId = nil }
+
+                        ForEach(roles) { role in
+                            Button(role.name) { selectedRoleId = role.id }
+                        }
+                    } label: {
+                        Text(selectedRoleName)
+                    }
+                    .frame(width: 180)
+
+                    Spacer()
+                }
+
                 HStack(spacing: 10) {
                     Stepper(
                         "\(L10n.t("maxUsesLabel", ns: "dialogs")): \(maxUses == 0 ? L10n.t("inviteNever", ns: "settings") : "\(maxUses)")",
@@ -932,20 +1251,8 @@ struct InvitesSettingsView: View {
 
                     Spacer()
 
-                    Button(L10n.t("createInviteBtn", ns: "settings")) {
-                        Task {
-                            _ = try? await session.createInvite(InviteCreate(
-                                maxUses: maxUses == 0 ? nil : maxUses,
-                                expiresAt: expiresInDays == 0
-                                    ? nil
-                                    : Int(Date().timeIntervalSince1970 * 1000)
-                                        + expiresInDays * 86_400_000
-                            ))
-
-                            invites = (try? await session.getAllInvites()) ?? []
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
+                    Button(L10n.t("createInviteBtn", ns: "settings"), action: createInvite)
+                        .buttonStyle(.borderedProminent)
                 }
 
                 if invites.isEmpty {
@@ -958,6 +1265,15 @@ struct InvitesSettingsView: View {
                         Text(invite.code)
                             .font(.system(size: 12, design: .monospaced))
 
+                        if let role = invite.role {
+                            Text(role.name)
+                                .font(.system(size: 10.5, weight: .medium))
+                                .foregroundStyle(Color(hex: role.color) ?? .secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Theme.elevated, in: Capsule())
+                        }
+
                         Text(invite.uses == 0 && invite.maxUses == nil
                             ? L10n.t("inviteDefault", ns: "settings")
                             : "\(invite.uses)/\(invite.maxUses.map(String.init) ?? "∞")")
@@ -965,6 +1281,8 @@ struct InvitesSettingsView: View {
                             .foregroundStyle(.secondary)
 
                         Spacer()
+
+                        expiryStatus(invite)
 
                         if copiedCode == invite.code {
                             Text(L10n.t("inviteCopied", ns: "settings"))
@@ -992,7 +1310,53 @@ struct InvitesSettingsView: View {
         }
         .task {
             invites = (try? await session.getAllInvites()) ?? []
+            roles = (try? await session.getAllRoles()) ?? []
         }
+    }
+
+    private var selectedRoleName: String {
+        selectedRoleId.flatMap { id in roles.first { $0.id == id }?.name }
+            ?? L10n.t("inviteDefault", ns: "settings")
+    }
+
+    private func createInvite() {
+        Task {
+            let code = customCode.trimmingCharacters(in: .whitespaces)
+            _ = try? await session.createInvite(InviteCreate(
+                maxUses: maxUses == 0 ? nil : maxUses,
+                expiresAt: expiresInDays == 0
+                    ? nil
+                    : Int(Date().timeIntervalSince1970 * 1000) + expiresInDays * 86_400_000,
+                code: code.isEmpty ? nil : code,
+                roleId: selectedRoleId
+            ))
+
+            customCode = ""
+            invites = (try? await session.getAllInvites()) ?? []
+        }
+    }
+
+    @ViewBuilder private func expiryStatus(_ invite: SharkordInvite) -> some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            if let expires = invite.expiresAt {
+                Text(Date(timeIntervalSince1970: Double(expires) / 1000), style: .date)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(L10n.t("inviteNever", ns: "settings"))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(isExpired(invite) ? L10n.t("inviteExpired", ns: "settings") : L10n.t("inviteActive", ns: "settings"))
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(isExpired(invite) ? Color.red : Color.green)
+        }
+    }
+
+    private func isExpired(_ invite: SharkordInvite) -> Bool {
+        guard let expires = invite.expiresAt else { return false }
+        return expires < Int(Date().timeIntervalSince1970 * 1000)
     }
 
     private func copy(_ invite: SharkordInvite) {

@@ -147,5 +147,6 @@
   "loadMoreReplies": "加载更多回复",
   "latestLoadedReply": "最新已加载的回复",
   "reactionEmojiTooLong": "服务器不支持将此表情用作回应。",
-  "noCategory": "无分类"
+  "noCategory": "无分类",
+  "uploadServerLogo": "上传 Logo 图片"
 }

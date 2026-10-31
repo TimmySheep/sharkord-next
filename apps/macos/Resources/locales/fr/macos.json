@@ -147,5 +147,6 @@
   "loadMoreReplies": "Charger plus de réponses",
   "latestLoadedReply": "Dernière réponse chargée",
   "reactionEmojiTooLong": "Le serveur ne prend pas en charge cet emoji comme réaction.",
-  "noCategory": "Aucune catégorie"
+  "noCategory": "Aucune catégorie",
+  "uploadServerLogo": "Téléverser l'image du logo"
 }
