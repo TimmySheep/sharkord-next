@@ -125,6 +125,7 @@ public sealed class SharkordMessage
     public List<SharkordMessageReaction>? Reactions { get; init; }
     public int? ReplyCount { get; init; }
     public SharkordReplyPreview? ReplyTo { get; init; }
+    public List<MessageLinkMetadata>? Metadata { get; init; }
 }
 
 public sealed class SharkordSettings

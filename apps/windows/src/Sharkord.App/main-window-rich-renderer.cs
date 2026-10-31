@@ -32,6 +32,26 @@ public sealed partial class MainWindow
             AddRichPart(paragraph.Inlines, part);
             first = false;
         }
+        foreach (var preview in MessageMetadata.Previews(row.Source))
+        {
+            paragraph.Inlines.Add(new LineBreak());
+            var panel = new StackPanel { Spacing = 4, MaxWidth = 420, Margin = new Thickness(0, 8, 0, 4) };
+            if (preview.MediaType is { } mediaType)
+            {
+                panel.DataContext = new AttachmentItem(preview.Title, preview.Url, $"{mediaType}/unknown");
+                RenderAttachment(panel);
+            }
+            else
+            {
+                if (preview.Image is { } image) { panel.Children.Add(new Image { Source = new BitmapImage(image), MaxWidth = 420, MaxHeight = 160, Stretch = Stretch.Uniform }); }
+                var link = new HyperlinkButton { Content = preview.Title, Padding = new Thickness(0) };
+                link.Click += async (_, _) => await OpenExternalFileAsync(preview.Url);
+                panel.Children.Add(link);
+                if (!string.IsNullOrWhiteSpace(preview.Description)) { panel.Children.Add(new TextBlock { Text = preview.Description, TextWrapping = TextWrapping.Wrap, MaxLines = 3 }); }
+                panel.Children.Add(new TextBlock { Text = preview.Url.Host, FontSize = 11, Opacity = .7 });
+            }
+            paragraph.Inlines.Add(new InlineUIContainer { Child = panel });
+        }
         body.Blocks.Add(paragraph);
     }
 
