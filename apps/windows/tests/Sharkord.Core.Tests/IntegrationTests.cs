@@ -30,6 +30,18 @@ public sealed class IntegrationTests(ITestOutputHelper output)
         Assert.NotEqual(writer.Join.OwnUserId, peer.Join.OwnUserId);
         Assert.Equal(writer.Join.ServerId, peer.Join.ServerId);
         output.WriteLine("PASS: HTTPS login, handshake and join for two owned accounts.");
+        // registration assigns a random display name until the welcome profile is saved.
+        await writer.Client.MutationAsync("users.update", new JsonObject
+        {
+            ["name"] = settings.Identity,
+            ["profileColor"] = writer.Join.Users.Single(user => user.Id == writer.Join.OwnUserId).ProfileColor
+        }, ct);
+        await peer.Client.MutationAsync("users.update", new JsonObject
+        {
+            ["name"] = "Cove acceptance peer",
+            ["profileColor"] = peer.Join.Users.Single(user => user.Id == peer.Join.OwnUserId).ProfileColor
+        }, ct);
+        output.WriteLine("PASS: owned test-account display profiles saved through the normal update route.");
         var channelId = (await writer.Client.MutationAsync("dms.open", new JsonObject { ["userId"] = peer.Join.OwnUserId }, ct))!.AsObject().GetInt("channelId")!.Value;
         var peerDm = await peer.Client.MutationAsync("dms.open", new JsonObject { ["userId"] = writer.Join.OwnUserId }, ct);
         Assert.Equal(channelId, peerDm!["channelId"].AsInt());
@@ -63,6 +75,8 @@ public sealed class IntegrationTests(ITestOutputHelper output)
             Assert.Contains(page.Messages, message => message.Id == thread && message.ParentMessageId == root);
             await writer.Client.MutationAsync("messages.signalTyping", new JsonObject { ["channelId"] = channelId, ["parentMessageId"] = root }, ct);
             await typing.NextAsync(value => value.AsObject().GetInt("channelId") == channelId && value.AsObject().GetInt("parentMessageId") == root && value.AsObject().GetInt("userId") == writer.Join.OwnUserId);
+            await writer.Client.MutationAsync("messages.signalTyping", new JsonObject { ["channelId"] = channelId }, ct);
+            await typing.NextAsync(value => value.AsObject().GetInt("channelId") == channelId && value.AsObject().GetInt("parentMessageId") is null && value.AsObject().GetInt("userId") == writer.Join.OwnUserId);
             await writer.Client.MutationAsync("channels.markAsRead", new JsonObject { ["channelId"] = channelId }, ct);
             await read.NextAsync(value => value.AsObject().GetInt("channelId") == channelId && value.AsObject().GetInt("count") == 0);
             output.WriteLine("PASS: inline reply, thread fetch, thread typing and own read-state event.");
