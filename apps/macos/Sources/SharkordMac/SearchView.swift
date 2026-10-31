@@ -6,7 +6,7 @@ import SwiftUI
 struct SearchView: View {
     @EnvironmentObject private var session: SharkordSession
 
-    var onJump: (_ messageId: Int, _ channelId: Int) -> Void
+    var onJump: (_ messageId: Int, _ channelId: Int, _ requestId: UUID) -> Void
 
     @State private var query = ""
     @State private var result: SearchResult?
@@ -82,7 +82,7 @@ struct SearchView: View {
                     Button {
                         task?.cancel()
                         requestId = UUID()
-                        onJump(message.navigationMessageId, message.channelId)
+                        onJump(message.navigationMessageId, message.channelId, session.beginNavigation())
                     } label: {
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 5) {
@@ -153,20 +153,19 @@ struct SearchView: View {
         task?.cancel()
         let id = UUID()
         requestId = id
-        let serverId = session.serverId
-        let ownerId = session.ownUserId
+        let navigationId = session.beginNavigation()
         searching = true
         errorMessage = nil
         task = Task {
             do {
                 let message = try await session.getMessage(messageId: entry.messageId)
                 guard !Task.isCancelled, requestId == id,
-                      session.serverId == serverId, session.ownUserId == ownerId else { return }
+                      session.navigationRequestId == navigationId else { return }
                 searching = false
-                onJump(message.parentMessageId ?? message.id, entry.channelId)
+                onJump(message.parentMessageId ?? message.id, entry.channelId, navigationId)
             } catch {
                 guard !Task.isCancelled, requestId == id,
-                      session.serverId == serverId, session.ownUserId == ownerId else { return }
+                      session.navigationRequestId == navigationId else { return }
                 searching = false
                 errorMessage = SharkordSession.describe(error)
             }

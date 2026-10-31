@@ -91,6 +91,7 @@ public final class SharkordSession: ObservableObject {
         var changedMessageIds: Set<Int> = []
     }
     var threadRequests: [Int: ThreadRequest] = [:]
+    public private(set) var navigationRequestId = UUID()
     private let keychain = KeychainTokenStore()
     private let loginCredentialStore = KeychainLoginCredentialsStore()
 
@@ -494,6 +495,7 @@ public final class SharkordSession: ObservableObject {
     }
 
     public func disconnect() {
+        beginNavigation()
         isStopping = true
         subscriptionTasks.forEach { $0.cancel() }
         subscriptionTasks.removeAll()
@@ -616,6 +618,7 @@ public final class SharkordSession: ObservableObject {
     }
 
     func apply(_ join: JoinResult) {
+        beginNavigation()
         categories = join.categories.sorted { $0.position < $1.position }
         channels = join.channels
         users = join.users.sorted { $0.name.lowercased() < $1.name.lowercased() }
@@ -1073,6 +1076,7 @@ public final class SharkordSession: ObservableObject {
         pinnedByChannel[channelId] = nil
 
         if selectedChannelId == channelId {
+            beginNavigation()
             selectedChannelId = textChannels.first?.id ?? directMessageChannels.first?.id
         }
     }
@@ -1184,31 +1188,47 @@ public final class SharkordSession: ObservableObject {
 
     // MARK: - channel selection + history
 
+    @discardableResult
+    public func beginNavigation() -> UUID {
+        navigationRequestId = UUID()
+        isLoadingInitialMessagesByChannel.removeAll()
+        isLoadingMore.removeAll()
+        return navigationRequestId
+    }
+
     public func select(channelId: Int) async {
+        guard !Task.isCancelled else { return }
+        // the channel view can select again while its sidebar selection is still loading
+        if isLoadingInitialMessagesByChannel.contains(channelId) || isLoadingMore.contains(channelId) {
+            selectedChannelId = channelId
+            return
+        }
+        let requestId = beginNavigation()
         if selectedChannelId != channelId {
             unreadBoundaryByChannel[channelId] = nil
             messageJumpByChannel[channelId] = nil
         }
         selectedChannelId = channelId
 
-        // the channel view can select again while its sidebar selection is still loading
-        guard !isLoadingInitialMessagesByChannel.contains(channelId),
-              !isLoadingMore.contains(channelId) else { return }
-
         guard !loadedChannels.contains(channelId) else {
             markAsRead(channelId)
             return
         }
 
-        loadedChannels.insert(channelId)
         isLoadingInitialMessagesByChannel.insert(channelId)
         messageHistoryErrorsByChannel[channelId] = nil
-        defer { isLoadingInitialMessagesByChannel.remove(channelId) }
+        defer {
+            if navigationRequestId == requestId { isLoadingInitialMessagesByChannel.remove(channelId) }
+        }
 
         do {
-            try await load(channelId: channelId, cursor: nil, targetMessageId: nil)
+            try await load(channelId: channelId, cursor: nil, targetMessageId: nil, requestId: requestId)
+            loadedChannels.insert(channelId)
             markAsRead(channelId)
+        } catch is CancellationError {
+            return
         } catch {
+            guard navigationRequestId == requestId else { return }
             let message = Self.describe(error)
             lastError = message
             messageHistoryErrorsByChannel[channelId] = message
@@ -1217,11 +1237,13 @@ public final class SharkordSession: ObservableObject {
     }
 
     public func clearChannelSelection() {
+        beginNavigation()
         selectedChannelId = nil
     }
 
     public func loadOlder(channelId: Int) async {
         guard
+            !Task.isCancelled,
             !isLoadingMore.contains(channelId),
             hasMoreOlderByChannel[channelId] == true,
             let cursor = cursors[channelId]
@@ -1229,41 +1251,65 @@ public final class SharkordSession: ObservableObject {
             return
         }
 
+        let requestId = navigationRequestId
         isLoadingMore.insert(channelId)
-        defer { isLoadingMore.remove(channelId) }
+        defer {
+            if navigationRequestId == requestId { isLoadingMore.remove(channelId) }
+        }
 
         do {
-            try await load(channelId: channelId, cursor: cursor, targetMessageId: nil)
+            try await load(channelId: channelId, cursor: cursor, targetMessageId: nil, requestId: requestId)
+        } catch is CancellationError {
+            return
         } catch {
+            guard navigationRequestId == requestId else { return }
             lastError = Self.describe(error)
         }
     }
 
     /// Loads the window around one message so the list can jump to it.
-    public func jumpTo(messageId: Int, channelId: Int) async {
+    public func jumpTo(messageId: Int, channelId: Int, requestId: UUID? = nil) async {
+        let requestId = requestId ?? beginNavigation()
+        guard navigationRequestId == requestId, !Task.isCancelled else { return }
         selectedChannelId = channelId
         isLoadingMore.insert(channelId)
-        defer { isLoadingMore.remove(channelId) }
+        defer {
+            if navigationRequestId == requestId { isLoadingMore.remove(channelId) }
+        }
 
         do {
-            try await load(channelId: channelId, cursor: nil, targetMessageId: messageId)
+            try await load(channelId: channelId, cursor: nil, targetMessageId: messageId, requestId: requestId)
+            loadedChannels.insert(channelId)
             messageJumpByChannel[channelId] = messageId
+        } catch is CancellationError {
+            return
         } catch {
+            guard navigationRequestId == requestId else { return }
             lastError = Self.describe(error)
         }
     }
 
     public func returnToPresent(channelId: Int) async {
+        guard !Task.isCancelled else { return }
+        let requestId = beginNavigation()
+        isLoadingMore.insert(channelId)
+        defer {
+            if navigationRequestId == requestId { isLoadingMore.remove(channelId) }
+        }
         do {
-            try await load(channelId: channelId, cursor: nil, targetMessageId: nil, replaceHistory: true)
+            try await load(channelId: channelId, cursor: nil, targetMessageId: nil, replaceHistory: true, requestId: requestId)
+            loadedChannels.insert(channelId)
             messageJumpByChannel[channelId] = nil
             markAsRead(channelId)
+        } catch is CancellationError {
+            return
         } catch {
+            guard navigationRequestId == requestId else { return }
             lastError = Self.describe(error)
         }
     }
 
-    private func load(channelId: Int, cursor: MessagesCursor?, targetMessageId: Int?, replaceHistory: Bool = false) async throws {
+    private func load(channelId: Int, cursor: MessagesCursor?, targetMessageId: Int?, replaceHistory: Bool = false, requestId: UUID) async throws {
         guard let client else {
             throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
         }
@@ -1286,6 +1332,12 @@ public final class SharkordSession: ObservableObject {
 
         let value = try await client.query("messages.get", input: .object(input))
         let page = try value.decode(MessagesPage.self)
+        try applyMessagesPage(page, channelId: channelId, cursor: cursor, targetMessageId: targetMessageId, replaceHistory: replaceHistory, requestId: requestId)
+    }
+
+    func applyMessagesPage(_ page: MessagesPage, channelId: Int, cursor: MessagesCursor?, targetMessageId: Int?, replaceHistory: Bool = false, requestId: UUID) throws {
+        try Task.checkCancellation()
+        guard navigationRequestId == requestId else { throw CancellationError() }
         let ascending = page.messages.sorted { $0.createdAt < $1.createdAt }
 
         if targetMessageId != nil || replaceHistory {
@@ -1322,6 +1374,7 @@ public final class SharkordSession: ObservableObject {
         guard !isStopping, phase == .connected || phase == .connecting else { return }
 
         loadedChannels.removeAll()
+        beginNavigation()
         isLoadingInitialMessagesByChannel.removeAll()
         threadRequests.removeAll()
 

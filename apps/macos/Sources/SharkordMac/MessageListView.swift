@@ -251,21 +251,14 @@ struct MessageRowView: View {
 
     private func jumpToReply(_ messageId: Int) {
         navigationTask?.cancel()
-        let channelId = session.selectedChannelId
-        let jumpId = channelId.flatMap { session.messageJumpByChannel[$0] }
-        let serverId = session.serverId
-        let ownerId = session.ownUserId
+        let requestId = session.beginNavigation()
         navigationTask = Task {
             do {
                 let target = try await session.getMessage(messageId: messageId)
-                guard !Task.isCancelled, session.selectedChannelId == channelId,
-                      channelId.flatMap({ session.messageJumpByChannel[$0] }) == jumpId,
-                      session.serverId == serverId, session.ownUserId == ownerId else { return }
-                await session.jumpTo(messageId: target.parentMessageId ?? target.id, channelId: target.channelId)
+                guard !Task.isCancelled, session.navigationRequestId == requestId else { return }
+                await session.jumpTo(messageId: target.parentMessageId ?? target.id, channelId: target.channelId, requestId: requestId)
             } catch {
-                guard !Task.isCancelled, session.selectedChannelId == channelId,
-                      channelId.flatMap({ session.messageJumpByChannel[$0] }) == jumpId,
-                      session.serverId == serverId, session.ownUserId == ownerId else { return }
+                guard !Task.isCancelled, session.navigationRequestId == requestId else { return }
                 errorMessage = SharkordSession.describe(error)
             }
         }
