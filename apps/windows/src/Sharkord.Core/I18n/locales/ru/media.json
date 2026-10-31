@@ -11,5 +11,6 @@
   "cameraResolution": "Разрешение камеры",
   "cameraFrameRate": "Частота кадров камеры",
   "screenResolution": "Разрешение экрана",
-  "screenFrameRate": "Частота кадров экрана"
+  "screenFrameRate": "Частота кадров экрана",
+  "noiseGateThresholdLabel": "Порог шумоподавителя"
 }

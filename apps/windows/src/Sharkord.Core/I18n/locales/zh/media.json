@@ -11,5 +11,6 @@
   "cameraResolution": "摄像头分辨率",
   "cameraFrameRate": "摄像头帧率",
   "screenResolution": "屏幕共享分辨率",
-  "screenFrameRate": "屏幕共享帧率"
+  "screenFrameRate": "屏幕共享帧率",
+  "noiseGateThresholdLabel": "噪声门阈值"
 }

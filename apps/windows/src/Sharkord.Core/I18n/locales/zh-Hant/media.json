@@ -11,5 +11,6 @@
   "cameraResolution": "攝影機解析度",
   "cameraFrameRate": "攝影機影格率",
   "screenResolution": "螢幕分享解析度",
-  "screenFrameRate": "螢幕分享影格率"
+  "screenFrameRate": "螢幕分享影格率",
+  "noiseGateThresholdLabel": "噪音閘閾值"
 }

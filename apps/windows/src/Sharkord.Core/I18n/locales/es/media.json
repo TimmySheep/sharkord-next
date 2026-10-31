@@ -11,5 +11,6 @@
   "cameraResolution": "Resolución de cámara",
   "cameraFrameRate": "Fotogramas de cámara",
   "screenResolution": "Resolución de pantalla",
-  "screenFrameRate": "Fotogramas de pantalla"
+  "screenFrameRate": "Fotogramas de pantalla",
+  "noiseGateThresholdLabel": "Umbral de la puerta de ruido"
 }

@@ -11,5 +11,6 @@
   "cameraResolution": "Rozlišení kamery",
   "cameraFrameRate": "Snímková frekvence kamery",
   "screenResolution": "Rozlišení obrazovky",
-  "screenFrameRate": "Snímková frekvence obrazovky"
+  "screenFrameRate": "Snímková frekvence obrazovky",
+  "noiseGateThresholdLabel": "Práh hranice šumu"
 }

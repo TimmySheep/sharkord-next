@@ -11,5 +11,6 @@
   "cameraResolution": "Camera resolution",
   "cameraFrameRate": "Camera frame rate",
   "screenResolution": "Screen resolution",
-  "screenFrameRate": "Screen frame rate"
+  "screenFrameRate": "Screen frame rate",
+  "noiseGateThresholdLabel": "Noise gate threshold"
 }
