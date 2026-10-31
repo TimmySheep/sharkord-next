@@ -147,5 +147,6 @@
   "loadMoreReplies": "Загрузить ещё ответы",
   "latestLoadedReply": "Последний загруженный ответ",
   "reactionEmojiTooLong": "Сервер не поддерживает этот эмодзи в качестве реакции.",
-  "noCategory": "Без категории"
+  "noCategory": "Без категории",
+  "uploadServerLogo": "Загрузить изображение логотипа"
 }

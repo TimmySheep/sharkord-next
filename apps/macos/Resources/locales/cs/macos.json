@@ -147,5 +147,6 @@
   "loadMoreReplies": "Načíst další odpovědi",
   "latestLoadedReply": "Poslední načtená odpověď",
   "reactionEmojiTooLong": "Server nepodporuje toto emoji jako reakci.",
-  "noCategory": "Bez kategorie"
+  "noCategory": "Bez kategorie",
+  "uploadServerLogo": "Nahrát obrázek loga"
 }
