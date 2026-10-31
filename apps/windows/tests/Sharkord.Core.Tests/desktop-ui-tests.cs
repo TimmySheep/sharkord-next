@@ -42,6 +42,16 @@ public class DesktopUiTests
         Assert.Contains("EditLastOwnMessage();", shortcuts);
     }
 
+    [Fact]
+    public void AutomaticReconnectKeepsTheWorkspaceAndExplicitLoginResetsIt()
+    {
+        var code = File.ReadAllText(Source("MainWindow.xaml.cs"));
+        Assert.Contains("if (_session.Phase == SessionPhase.Disconnected)", code);
+        var connect = code[code.IndexOf("private async void OnConnectClick", StringComparison.Ordinal)..];
+        Assert.True(connect.IndexOf("ResetDesktopWorkspace();", StringComparison.Ordinal) <
+                    connect.IndexOf("await _session.ConnectAsync", StringComparison.Ordinal));
+    }
+
     private static string Source(string file, [CallerFilePath] string source = "") =>
         Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "../../src/Sharkord.App", file));
 }

@@ -7,6 +7,22 @@ namespace Sharkord.Core.Tests;
 public class MessagePresentationTests
 {
     [Fact]
+    public void UnreadBoundaryCountsIncomingMessagesWithoutCountingOwnMessages()
+    {
+        SharkordMessage[] messages =
+        [
+            new() { Id = 1, UserId = 2 }, new() { Id = 2, UserId = 1 },
+            new() { Id = 3, UserId = 2 }, new() { Id = 4, UserId = 1 },
+            new() { Id = 5, UserId = 3 }
+        ];
+        Assert.Equal(3, MessagePresentation.UnreadBoundary(messages, 2, 1));
+        Assert.Equal(5, MessagePresentation.UnreadBoundary(messages, 1, 1));
+        Assert.Equal(1, MessagePresentation.UnreadBoundary(messages, 10, 1));
+        Assert.Null(MessagePresentation.UnreadBoundary(messages, 0, 1));
+        Assert.Null(MessagePresentation.UnreadBoundary([], 2, 1));
+    }
+
+    [Fact]
     public void ConsecutiveMessagesGroupWithinOneMinute()
     {
         var previous = new SharkordMessage { UserId = 1, ChannelId = 2, CreatedAt = 1_800_000 };
@@ -35,6 +51,17 @@ public class MessagePresentationTests
         Assert.False(MessagePresentation.CanEdit(new SharkordMessage { UserId = 1, Editable = false }, 1));
         Assert.False(MessagePresentation.CanEdit(new SharkordMessage { UserId = 1 }, 1));
         Assert.False(MessagePresentation.CanEdit(new SharkordMessage(), 1));
+    }
+
+    [Fact]
+    public void OwnEditsDoNotRequirePermissionToSendNewMessages()
+    {
+        var own = new SharkordMessage { UserId = 1, Editable = true };
+        Assert.True(MessagePresentation.CanCompose(own, 1, false));
+        Assert.False(MessagePresentation.CanCompose(own, 2, false));
+        Assert.False(MessagePresentation.CanCompose(null, 1, false));
+        Assert.True(MessagePresentation.CanCompose(null, 1, true));
+        Assert.False(MessagePresentation.CanCompose(new SharkordMessage { UserId = 1, Editable = false }, 1, true));
     }
 
     [Fact]

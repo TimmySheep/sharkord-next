@@ -5,6 +5,20 @@ namespace Sharkord.App;
 
 internal static class MessagePresentation
 {
+    internal static int? UnreadBoundary(IReadOnlyList<SharkordMessage> messages, int unreadCount, int ownUserId)
+    {
+        int? boundary = null;
+        for (var index = messages.Count - 1; index >= 0 && unreadCount > 0; index--)
+        {
+            if (messages[index].UserId != ownUserId)
+            {
+                boundary = messages[index].Id;
+                unreadCount--;
+            }
+        }
+        return boundary;
+    }
+
     internal static bool IsContinuation(SharkordMessage? previous, SharkordMessage current, bool hasDivider) =>
         !hasDivider && previous is not null && current.UserId is not null &&
         previous.UserId == current.UserId && previous.ChannelId == current.ChannelId &&
@@ -16,6 +30,9 @@ internal static class MessagePresentation
 
     internal static bool CanEdit(SharkordMessage message, int ownUserId) =>
         message.UserId == ownUserId && message.Editable == true;
+
+    internal static bool CanCompose(SharkordMessage? editing, int ownUserId, bool canSend) =>
+        editing is null ? canSend : CanEdit(editing, ownUserId);
 
     internal static void Reconcile<T>(ObservableCollection<T> rows, IReadOnlyList<T> desired, Func<T, int> id)
     {

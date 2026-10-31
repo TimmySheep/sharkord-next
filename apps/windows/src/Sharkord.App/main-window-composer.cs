@@ -31,9 +31,11 @@ public sealed partial class MainWindow
         (_session.SelectedChannelId is not { } id || _session.Channel(id)?.IsDm != true ||
          _session.Settings?.StorageFileSharingInDirectMessages != false);
 
+    private bool CanUseComposer() => MessagePresentation.CanCompose(_editingMessage, _session.OwnUserId, CanSendMessage());
+
     private void RefreshComposerPermissions()
     {
-        var allowed = CanSendMessage() && !_sendingComposer;
+        var allowed = CanUseComposer() && !_sendingComposer;
         ComposerBox.IsEnabled = allowed;
         SendButton.IsEnabled = allowed && !_uploadingAttachments;
         ComposerEmojiButton.IsEnabled = allowed;
@@ -54,7 +56,7 @@ public sealed partial class MainWindow
 
     private void BeginEdit(SharkordMessage message)
     {
-        if (!MessagePresentation.CanEdit(message, _session.OwnUserId) || !CanSendMessage() || _sendingComposer)
+        if (!MessagePresentation.CanEdit(message, _session.OwnUserId) || message.ChannelId != _session.SelectedChannelId || _sendingComposer)
         {
             return;
         }
@@ -66,8 +68,8 @@ public sealed partial class MainWindow
         ComposerBox.SelectionStart = ComposerBox.Text.Length;
         ComposerContextText.Text = $"{L10n.T("editMessage")} · {L10n.T("pressEnterToSave")}";
         ComposerContext.Visibility = Visibility.Visible;
-        ComposerBox.Focus(FocusState.Programmatic);
         RefreshComposerPermissions();
+        ComposerBox.Focus(FocusState.Programmatic);
     }
 
     private void EditLastOwnMessage()
@@ -124,7 +126,7 @@ public sealed partial class MainWindow
 
     private async Task SendDesktopComposerAsync()
     {
-        if (!CanSendMessage() || _sendingComposer || _uploadingAttachments || _session.SelectedChannelId is not { } channelId)
+        if (!CanUseComposer() || _sendingComposer || _uploadingAttachments || _session.SelectedChannelId is not { } channelId)
         {
             return;
         }

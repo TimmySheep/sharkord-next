@@ -42,7 +42,7 @@ public sealed partial class MainWindow
         var source = channel is null ? [] : _session.GetMessagesSnapshot(channel.Id);
         if (_pendingUnreadCount > 0 && source.Count > 0)
         {
-            _unreadMessageId = source[Math.Max(0, source.Count - _pendingUnreadCount)].Id;
+            _unreadMessageId = MessagePresentation.UnreadBoundary(source, _pendingUnreadCount, _session.OwnUserId);
             _pendingUnreadCount = 0;
         }
 

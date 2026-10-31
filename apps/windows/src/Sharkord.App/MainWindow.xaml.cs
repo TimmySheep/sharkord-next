@@ -357,7 +357,10 @@ public sealed partial class MainWindow : Window
 
         if (!isConnected)
         {
-            ResetDesktopWorkspace();
+            if (_session.Phase == SessionPhase.Disconnected)
+            {
+                ResetDesktopWorkspace();
+            }
             ChatPanel.Visibility = Visibility.Collapsed;
             return;
         }
@@ -526,6 +529,7 @@ public sealed partial class MainWindow : Window
 
     private async void OnConnectClick(object sender, RoutedEventArgs e)
     {
+        ResetDesktopWorkspace();
         await _session.ConnectAsync(
             HostBox.Text,
             IdentityBox.Text,
