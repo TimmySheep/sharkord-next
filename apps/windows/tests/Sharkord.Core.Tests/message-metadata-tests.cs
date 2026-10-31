@@ -10,7 +10,7 @@ public class MessageMetadataTests
     public void MetadataKeepsMediaAndCardsAndRejectsUnsafeOrDuplicateDestinations()
     {
         var message = JsonNode.Parse("""
-            {"metadata":[
+            {"metadata":[null,
               {"kind":"open_graph","url":"https://example.com/post","title":"A <title>","images":["file:///private.png","https://example.com/image.png"]},
               {"kind":"open_graph","url":"https://example.com/post#fragment","title":"duplicate"},
               {"kind":"media","url":"https://example.com/clip.mp4","mediaType":"video"},

@@ -11,6 +11,7 @@ public static class MessageMetadata
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var metadata in message.Metadata ?? [])
         {
+            if (metadata is null) { continue; }
             if (HttpUrl(metadata.Url) is not { } url || !seen.Add(url.GetComponents(UriComponents.SchemeAndServer | UriComponents.PathAndQuery, UriFormat.UriEscaped))) { continue; }
             var media = metadata.MediaType is "image" or "video" or "audio" ? metadata.MediaType : null;
             var title = metadata.Title ?? metadata.SiteName ?? url.Host;
