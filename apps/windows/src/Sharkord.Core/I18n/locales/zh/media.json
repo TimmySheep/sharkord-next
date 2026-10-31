@@ -1,0 +1,15 @@
+{
+  "speaking": "正在说话",
+  "screenAudio": "屏幕共享音频",
+  "quality": "接收画质",
+  "automatic": "自动",
+  "pinStream": "固定视频流",
+  "zoom": "缩放",
+  "fullscreen": "全屏",
+  "pictureInPicture": "画中画",
+  "statistics": "统计信息",
+  "cameraResolution": "摄像头分辨率",
+  "cameraFrameRate": "摄像头帧率",
+  "screenResolution": "屏幕共享分辨率",
+  "screenFrameRate": "屏幕共享帧率"
+}

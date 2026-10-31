@@ -38,7 +38,7 @@ final class ComposerTextView: NSTextView {
 
     override func paste(_ sender: Any?) {
         let board = NSPasteboard.general
-        let urls = board.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
+        let urls = (board.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []).filter(\.isFileURL)
 
         if !urls.isEmpty {
             onPasteFiles(urls)
@@ -224,6 +224,11 @@ struct Composer: View {
     @State private var text = ""
     @State private var attachments: [PendingAttachment] = []
     @State private var uploading = false
+    @State private var uploadTask: Task<Void, Never>?
+    @State private var uploadProgress: Double = 0
+    @State private var uploadName = ""
+    @State private var removing: Set<String> = []
+    @State private var isVisible = false
     @State private var sending = false
     @State private var textBeforeEditing: String?
     @State private var errorMessage: String?
@@ -265,6 +270,14 @@ struct Composer: View {
             if !attachments.isEmpty, editing == nil {
                 attachmentRow
             }
+            if uploading {
+                HStack {
+                    ProgressView(value: uploadProgress).frame(maxWidth: 160)
+                    Text(uploadName).font(.caption).lineLimit(1)
+                    Text("\(Int(uploadProgress * 100))%").font(.caption.monospacedDigit())
+                    Button(L10n.t("cancel", ns: "common")) { uploadTask?.cancel() }
+                }.padding(.horizontal, 12).padding(.top, 6)
+            }
 
             if let errorMessage {
                 Text(errorMessage)
@@ -288,7 +301,7 @@ struct Composer: View {
                     ComposerTextEditor(
                         text: $text,
                         height: $composerHeight,
-                        isEnabled: canCompose && !uploading && !sending,
+                        isEnabled: canCompose && !sending,
                         minHeight: composerMinHeight,
                         maxHeight: composerMaxHeight,
                         sendShortcut: keyboardShortcuts.preferences.sendMessage,
@@ -296,7 +309,7 @@ struct Composer: View {
                         onSubmit: send,
                         onCancel: cancel,
                         onEditLast: editLastOwnMessage,
-                        onPasteFiles: { urls in Task { await upload(urls: urls) } }
+                        onPasteFiles: startUpload
                     )
                 }
                 .frame(height: composerHeight)
@@ -329,7 +342,7 @@ struct Composer: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(canSubmit ? Theme.accent : .secondary)
-                    .disabled(!canSubmit || uploading || sending)
+                    .disabled(!canSubmit || uploading || sending || !removing.isEmpty)
                     .help(L10n.t(editing == nil ? "sendMessage" : "saveButton", ns: "macos"))
                     .accessibilityLabel(L10n.t(editing == nil ? "sendMessage" : "saveButton", ns: "macos"))
                 }
@@ -353,12 +366,18 @@ struct Composer: View {
             }
         }
         .onAppear {
+            isVisible = true
             if let draft = drafts.draft(channelId: channel.id, parentMessageId: parentMessageId) {
                 text = draft.text
                 attachments = draft.attachments
             }
         }
-        .onDisappear(perform: saveDraft)
+        .onDisappear { uploadTask?.cancel(); saveDraft(); isVisible = false }
+        .dropDestination(for: URL.self) { urls, _ in
+            guard urls.allSatisfy(\.isFileURL), !urls.isEmpty else { return false }
+            startUpload(urls)
+            return true
+        }
         .onChange(of: text) { saveDraft() }
         .onChange(of: attachments) { saveDraft() }
         .onChange(of: editing?.id) { oldId, _ in
@@ -403,12 +422,12 @@ struct Composer: View {
                             .lineLimit(1)
 
                         Button {
-                            attachments.removeAll { $0.id == attachment.id }
+                            removeAttachment(attachment)
                         } label: {
                             Image(systemName: "xmark")
                         }
                         .buttonStyle(.plain)
-                        .disabled(sending)
+                        .disabled(sending || removing.contains(attachment.id))
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -423,23 +442,30 @@ struct Composer: View {
     // MARK: - actions
 
     private func send() {
-        guard canCompose, canSubmit, !uploading, !sending else {
+        guard canCompose, canSubmit, !uploading, !sending, removing.isEmpty else {
             return
         }
 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sentText = text
+        let sentAttachments = attachments
+        let messageToEdit = editing
+        let replyId = replyTarget?.id
+        let ownerId = session.ownUserId
+        let serverId = session.serverId
         sending = true
 
         Task {
             defer { sending = false }
             do {
-                if let editing {
+                if let editing = messageToEdit {
                     let originalText = MessageHTML.toPlainText(editing.content ?? "")
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                     if trimmed != originalText {
                         try await session.editMessage(editing.id, text: trimmed)
                     }
-                    self.editing = nil
+                    guard ownerId == session.ownUserId, serverId == session.serverId else { return }
+                    if isVisible { self.editing = nil }
                     text = textBeforeEditing ?? ""
                     textBeforeEditing = nil
                     errorMessage = nil
@@ -462,17 +488,19 @@ struct Composer: View {
                     try await session.sendRichMessage(
                         html,
                         channelId: channel.id,
-                        replyToMessageId: replyTarget?.id,
+                        replyToMessageId: replyId,
                         parentMessageId: parentMessageId,
-                        files: attachments.compactMap(\.fileId)
+                        files: sentAttachments.map(\.fileId)
                     )
 
-                    replyTarget = nil
+                    guard ownerId == session.ownUserId, serverId == session.serverId else { return }
+                    if isVisible { replyTarget = nil }
                 }
 
                 text = ""
                 attachments = []
                 errorMessage = nil
+                drafts.clearIfMatches(text: sentText, attachments: sentAttachments, channelId: channel.id, parentMessageId: parentMessageId)
                 saveDraft()
             } catch {
                 errorMessage = SharkordSession.describe(error)
@@ -510,50 +538,111 @@ struct Composer: View {
     }
 
     private func pickFiles() {
+        guard validateUpload(fileCount: attachments.count + 1) else { return }
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
 
         if panel.runModal() == .OK {
-            Task { await upload(urls: panel.urls) }
+            startUpload(panel.urls)
         }
     }
 
-    private func upload(urls: [URL]) async {
-        guard canSend, editing == nil, !uploading, !sending else { return }
-        guard session.hasPermission(.uploadFiles) else {
-            errorMessage = L10n.t("noUploadPermission", ns: "common")
-
-            return
-        }
-
+    private func startUpload(_ urls: [URL]) {
+        guard editing == nil, !uploading, !sending, !urls.isEmpty else { return }
+        guard validateUpload(fileCount: attachments.count + urls.count) else { return }
         uploading = true
-        defer { uploading = false }
+        uploadTask = Task { await upload(urls: urls) }
+    }
+
+    private func upload(urls: [URL]) async {
+        defer { uploading = false; uploadTask = nil }
+        let ownerId = session.ownUserId
+        let serverId = session.serverId
 
         for url in urls {
-            guard let data = try? Data(contentsOf: url) else {
-                continue
-            }
-
             do {
+                try Task.checkCancellation()
+                uploadName = url.lastPathComponent
+                uploadProgress = 0
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                guard validateUpload(fileCount: attachments.count + 1, fileSize: size) else { return }
+                let data = try await Task.detached { try Data(contentsOf: url) }.value
+                try Task.checkCancellation()
+                guard validateUpload(fileCount: attachments.count + 1, fileSize: data.count) else { return }
                 let fileId = try await session.uploadAttachment(
                     data: data,
                     fileName: url.lastPathComponent,
                     mimeType: UTType(filenameExtension: url.pathExtension)?.preferredMIMEType
-                        ?? "application/octet-stream"
+                        ?? "application/octet-stream",
+                    progress: { sent, total in
+                        Task { @MainActor in
+                            uploadProgress = total > 0 ? min(1, Double(sent) / Double(total)) : 0
+                        }
+                    }
                 )
+
+                guard ownerId == session.ownUserId, serverId == session.serverId else { return }
+                if Task.isCancelled {
+                    try await session.deleteTemporaryFile(fileId: fileId)
+                    return
+                }
 
                 attachments.append(
                     PendingAttachment(id: fileId, fileId: fileId, fileName: url.lastPathComponent)
                 )
+                saveDraft()
             } catch {
+                if Task.isCancelled || error is CancellationError { return }
                 errorMessage = SharkordSession.describe(error)
+                return
             }
         }
     }
 
+    private func validateUpload(fileCount: Int, fileSize: Int = 0) -> Bool {
+        guard let rejection = AttachmentUploadPolicy.rejection(
+            settings: session.settings, canSend: canSend, canUpload: session.hasPermission(.uploadFiles),
+            isDM: channel.isDm, fileCount: fileCount, fileSize: fileSize
+        ) else { return true }
+        let key: String
+        switch rejection {
+        case .permission: key = "uploadPermissionDenied"
+        case .disabled: key = "uploadDisabled"
+        case .directMessage: key = "uploadDMDisabled"
+        case .count: key = "uploadCountExceeded"
+        case .size: key = "uploadSizeExceeded"
+        }
+        errorMessage = L10n.t(key, ns: "macos")
+        return false
+    }
+
+    private func removeAttachment(_ attachment: PendingAttachment) {
+        guard !sending, !removing.contains(attachment.id) else { return }
+        removing.insert(attachment.id)
+        let ownerId = session.ownUserId
+        let serverId = session.serverId
+        Task {
+            defer { removing.remove(attachment.id) }
+            do {
+                do {
+                    try await session.deleteTemporaryFile(fileId: attachment.fileId)
+                } catch let error as TRPCClientError where error.code == "NOT_FOUND" {
+                    // expired temporary uploads are already absent on the server
+                }
+                guard ownerId == session.ownUserId, serverId == session.serverId else { return }
+                drafts.removeAttachment(id: attachment.id, channelId: channel.id, parentMessageId: parentMessageId)
+                attachments.removeAll { $0.id == attachment.id }
+                errorMessage = nil
+                saveDraft()
+            } catch { errorMessage = SharkordSession.describe(error) }
+        }
+    }
+
     private func saveDraft() {
-        guard session.ownUserId != 0 else { return }
+        guard session.ownUserId != 0, isVisible else { return }
         drafts.save(
             text: textBeforeEditing ?? text,
             attachments: attachments,

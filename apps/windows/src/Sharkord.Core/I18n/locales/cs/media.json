@@ -1,0 +1,15 @@
+{
+  "speaking": "Mluví",
+  "screenAudio": "Zvuk obrazovky",
+  "quality": "Kvalita příjmu",
+  "automatic": "Automaticky",
+  "pinStream": "Připnout přenos",
+  "zoom": "Přiblížení",
+  "fullscreen": "Celá obrazovka",
+  "pictureInPicture": "Obraz v obraze",
+  "statistics": "Statistiky",
+  "cameraResolution": "Rozlišení kamery",
+  "cameraFrameRate": "Snímková frekvence kamery",
+  "screenResolution": "Rozlišení obrazovky",
+  "screenFrameRate": "Snímková frekvence obrazovky"
+}

@@ -562,6 +562,7 @@ struct HTMLTokenizer {
         enum Kind {
             case mention(userId: Int?)
             case channelReference(channelId: Int?)
+            case emoji
         }
 
         var kind: Kind
@@ -737,6 +738,7 @@ struct HTMLTokenizer {
         }
 
         if tag.classNames.contains("emoji-image") {
+            if let pending, case .emoji = pending.kind { self.pending = nil }
             let alt = tag.attribute("alt") ?? ""
             let name = alt.hasPrefix(":") && alt.hasSuffix(":")
                 ? String(alt.dropFirst().dropLast())
@@ -771,8 +773,7 @@ struct HTMLTokenizer {
         }
 
         if type == "emoji" {
-            append(.emoji(name: tag.attribute("data-name") ?? "", src: nil))
-            skipDepth += 1
+            pending = PendingSpan(kind: .emoji, fallback: tag.attribute("data-name") ?? "")
 
             return
         }
@@ -792,6 +793,8 @@ struct HTMLTokenizer {
                 append(.mention(userId: userId, label: label))
             case .channelReference(let channelId):
                 append(.channelReference(channelId: channelId, label: label))
+            case .emoji:
+                append(.emoji(name: label, src: nil))
             }
 
             self.pending = nil

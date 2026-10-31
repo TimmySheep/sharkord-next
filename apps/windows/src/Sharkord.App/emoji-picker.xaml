@@ -1,0 +1,21 @@
+<UserControl
+    x:Class="Sharkord.App.EmojiPicker"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Width="360" Height="430">
+    <Grid RowSpacing="8">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <TextBox x:Name="SearchBox" TextChanged="OnSearchChanged" />
+        <ComboBox x:Name="KindBox" Grid.Row="1" SelectionChanged="OnKindChanged" HorizontalAlignment="Stretch" />
+        <GridView x:Name="EmojiGrid" Grid.Row="2" IsItemClickEnabled="True" ItemClick="OnEmojiClick" SelectionMode="None" ScrollViewer.HorizontalScrollMode="Disabled">
+            <GridView.ItemsPanel><ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal" ItemWidth="44" ItemHeight="44"/></ItemsPanelTemplate></GridView.ItemsPanel>
+            <GridView.ItemContainerStyle><Style TargetType="GridViewItem"><Setter Property="Padding" Value="2"/><Setter Property="Margin" Value="0"/><Setter Property="MinWidth" Value="44"/><Setter Property="MinHeight" Value="44"/></Style></GridView.ItemContainerStyle>
+            <GridView.ItemTemplate><DataTemplate>
+                <Grid Width="36" Height="36" ToolTipService.ToolTip="{Binding Name}" AutomationProperties.Name="{Binding Name}">
+                    <TextBlock Text="{Binding Glyph}" FontFamily="Segoe UI Emoji" FontSize="25" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding GlyphVisibility}"/>
+                    <Image Source="{Binding Image}" Width="28" Height="28" Visibility="{Binding ImageVisibility}"/>
+                </Grid>
+            </DataTemplate></GridView.ItemTemplate>
+        </GridView>
+    </Grid>
+</UserControl>

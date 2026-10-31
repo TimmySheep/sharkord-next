@@ -1,0 +1,13 @@
+{
+  "banReason": "封禁原因",
+  "wipeUserData": "删除此用户的消息和文件",
+  "uploadLogo": "上传服务器标志",
+  "messagesTitle": "消息与链接",
+  "filesTitle": "文件",
+  "loginsTitle": "最近登录",
+  "loadMore": "加载更多",
+  "clearSecret": "清除已保存的密钥",
+  "invalidField": "请检查 {{name}} 的值。",
+  "executeCommand": "执行命令",
+  "resetAccess": "恢复插件默认值"
+}

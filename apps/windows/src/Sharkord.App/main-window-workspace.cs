@@ -18,6 +18,7 @@ public sealed partial class MainWindow
     private IReadOnlyList<SharkordUser>? _treeUsers;
     private IReadOnlyList<DirectMessageConversation>? _treeConversations;
     private long _treeUnreadRevision = -1;
+    private IReadOnlyDictionary<int, ChannelPermissionEntry>? _treePermissions;
     private string? _treeLanguage;
     private IReadOnlyList<SharkordUser>? _displayedMembers;
     private string? _membersLanguage;
@@ -72,6 +73,7 @@ public sealed partial class MainWindow
         LabelControl(AttachButton, L10n.T("attachFiles", ns: "windows"));
         LabelControl(ComposerEmojiButton, L10n.T("emojiTab"));
         LabelControl(CancelComposerButton, L10n.T("cancel"));
+        LocaliseNavigationControls();
         LoadOlderButton.Content = L10n.T("loadEarlierMessages", ns: "macos");
         LabelControl(MessageList, L10n.T("channelsLabel", ns: "macos"));
         LabelControl(ComposerBox, L10n.T("messagePlaceholder", ns: "windows"));
@@ -92,12 +94,13 @@ public sealed partial class MainWindow
         var conversations = _session.DirectMessages;
         var unreadRevision = _session.UnreadRevision;
         var language = L10n.Language;
-        if (ReferenceEquals(categories, _treeCategories) && ReferenceEquals(channels, _treeChannels) &&
+        if (ReferenceEquals(_treePermissions, _session.ChannelPermissions) && ReferenceEquals(categories, _treeCategories) && ReferenceEquals(channels, _treeChannels) &&
             ReferenceEquals(users, _treeUsers) && ReferenceEquals(conversations, _treeConversations) &&
             unreadRevision == _treeUnreadRevision && language == _treeLanguage)
         {
             return false;
         }
+        _treePermissions = _session.ChannelPermissions;
         _treeCategories = categories;
         _treeChannels = channels;
         _treeUsers = users;
@@ -189,7 +192,11 @@ public sealed partial class MainWindow
 
     private void RefreshTypingIndicator()
     {
-        var users = _session.SelectedChannelId is { } channelId ? _session.TypingUsers(channelId) : [];
+        IReadOnlyList<SharkordUser> users = [];
+        if (_session.SelectedChannelId is { } channelId)
+        {
+            users = _threadParent is { } parent ? _session.ThreadTypingUsers(channelId, parent.Id) : _session.TypingUsers(channelId);
+        }
         TypingText.Text = users.Count == 0 ? "" : L10n.T("typingUsers", ns: "windows", ("names", string.Join(", ", users.Select(user => user.Name))));
     }
 

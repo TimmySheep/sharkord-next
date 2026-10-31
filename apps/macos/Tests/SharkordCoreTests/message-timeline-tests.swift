@@ -61,6 +61,44 @@ struct MessageTimelineTests {
         #expect(session.lastError == nil)
     }
 
+    @Test @MainActor func latestNavigationRejectsEarlierHistoryAndResolvedTargets() async throws {
+        let session = SharkordSession()
+        session.selectedChannelId = 7
+        let earlier = session.beginNavigation()
+        let latest = session.beginNavigation()
+        let fresh = MessagesPage(messages: try [message(id: 3, time: 3_000)], nextCursor: nil, hasNewer: false)
+        try session.applyMessagesPage(fresh, channelId: 7, cursor: nil, targetMessageId: 3, requestId: latest)
+        let stale = MessagesPage(messages: try [message(id: 1, time: 1_000)], nextCursor: .init(createdAt: 1_000, id: 1), hasNewer: true)
+        #expect(throws: CancellationError.self) {
+            try session.applyMessagesPage(stale, channelId: 7, cursor: nil, targetMessageId: 1, requestId: earlier)
+        }
+        await session.jumpTo(messageId: 1, channelId: 8, requestId: earlier)
+        await session.select(channelId: 8, requestId: earlier)
+        #expect(session.selectedChannelId == 7)
+        #expect(session.messagesByChannel[7]?.map(\.id) == [3])
+        #expect(session.hasNewerByChannel[7] == false)
+        #expect(session.hasMoreOlderByChannel[7] == false)
+        #expect(session.lastError == nil)
+    }
+
+    @Test @MainActor func selectionAndDisconnectInvalidatePendingNavigation() async throws {
+        let session = SharkordSession()
+        let pending = session.beginNavigation()
+        await session.select(channelId: 7)
+        #expect(session.navigationRequestId != pending)
+        let selected = session.navigationRequestId
+        session.clearChannelSelection()
+        #expect(session.navigationRequestId != selected)
+        let cleared = session.navigationRequestId
+        session.disconnect()
+        #expect(session.navigationRequestId != cleared)
+        let page = MessagesPage(messages: try [message(id: 3, time: 3_000)], nextCursor: nil, hasNewer: false)
+        #expect(throws: CancellationError.self) {
+            try session.applyMessagesPage(page, channelId: 7, cursor: nil, targetMessageId: 3, requestId: cleared)
+        }
+        #expect(session.messagesByChannel.isEmpty)
+    }
+
     private func message(id: Int, time: Int, userId: Int = 1, plugin: String? = nil, reply: Int? = nil) throws -> SharkordMessage {
         var value: [String: JSONValue] = [
             "id": .int(id), "channelId": .int(7), "createdAt": .int(time), "userId": .int(userId)

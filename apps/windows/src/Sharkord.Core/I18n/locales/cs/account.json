@@ -1,0 +1,5 @@
+{
+  "rememberLogin": "Bezpečně uložit přihlášení",
+  "logout": "Odpojit a zapomenout přihlášení",
+  "credentialFailure": "Windows nemá přístup k uloženému přihlášení. Přihlaste se ručně nebo to zkuste znovu."
+}

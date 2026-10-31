@@ -1,0 +1,15 @@
+{
+  "speaking": "Parle",
+  "screenAudio": "Audio du partage",
+  "quality": "Qualité de réception",
+  "automatic": "Automatique",
+  "pinStream": "Épingler le flux",
+  "zoom": "Zoom",
+  "fullscreen": "Plein écran",
+  "pictureInPicture": "Image dans l’image",
+  "statistics": "Statistiques",
+  "cameraResolution": "Résolution de la caméra",
+  "cameraFrameRate": "Fréquence de la caméra",
+  "screenResolution": "Résolution du partage",
+  "screenFrameRate": "Fréquence du partage"
+}

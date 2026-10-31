@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 
 namespace Sharkord.Core;
 
@@ -55,7 +56,10 @@ public sealed class SharkordChannel
     public long? UpdatedAt { get; init; }
 
     [JsonIgnore]
-    public bool IsVoice => string.Equals(Type, "VOICE", StringComparison.OrdinalIgnoreCase);
+    public bool IsVoice => !IsDm && SupportsVoice;
+
+    [JsonIgnore]
+    public bool SupportsVoice => string.Equals(Type, "VOICE", StringComparison.OrdinalIgnoreCase);
 
     [JsonIgnore]
     public bool IsText => !IsVoice;
@@ -122,6 +126,7 @@ public sealed class SharkordMessage
     public List<SharkordMessageReaction>? Reactions { get; init; }
     public int? ReplyCount { get; init; }
     public SharkordReplyPreview? ReplyTo { get; init; }
+    public List<MessageLinkMetadata>? Metadata { get; init; }
 }
 
 public sealed class SharkordSettings
@@ -139,6 +144,7 @@ public sealed class SharkordSettings
     public bool? EnableSearch { get; init; }
     public bool? StorageSignedUrlsEnabled { get; init; }
     public long? WebRtcMaxBitrate { get; init; }
+    public bool? WebRtcSimulcastEnabled { get; init; }
 }
 
 public sealed class SharkordServerInfo
@@ -193,7 +199,12 @@ public sealed class JoinResult
     public bool? OwnUserPasswordSet { get; init; }
     public SharkordSettings PublicSettings { get; init; } = new();
     public Dictionary<string, long>? ReadStates { get; init; }
+    public List<DirectMessageConversation>? DirectMessages { get; init; }
+    public Dictionary<int, VoiceChannelState>? VoiceMap { get; init; }
+    public Dictionary<int, Dictionary<int, ExternalVoiceStream>>? ExternalStreamsMap { get; init; }
     public bool? ShowWelcomeDialog { get; init; }
+    public JsonObject? Commands { get; init; }
+    public List<PluginCapabilityRule>? PluginCapabilityAccess { get; init; }
 }
 
 public sealed class ChannelPermissionEntry
@@ -244,6 +255,7 @@ public sealed class DirectMessageConversation
     public int UserId { get; init; }
     public int UnreadCount { get; init; }
     public long LastMessageAt { get; init; }
+    public long? ClosedAt { get; init; }
 }
 
 public sealed class ReadStateUpdate

@@ -46,5 +46,17 @@
   "offline": "Offline",
   "attachmentLimit": "Můžete připojit nejvýše {{count}} souborů.",
   "attachmentSizeLimit": "Tento soubor překračuje limit nahrávání {{size}} MB.",
-  "removeAttachment": "Odebrat {{name}}"
+  "removeAttachment": "Odebrat {{name}}",
+  "loadMoreReplies": "Načíst další odpovědi",
+  "recentEmojis": "Nedávné emotikony",
+  "revealSpoiler": "Odhalit spoiler",
+  "formatBold": "Tučné",
+  "formatItalic": "Kurzíva",
+  "formatCode": "Řádkový kód",
+  "formatCodeBlock": "Blok kódu",
+  "formatSpoiler": "Spoiler",
+  "formatMention": "Zmínit člena",
+  "formatChannel": "Odkázat na kanál",
+  "formatMessage": "Formátovat zprávu",
+  "uploadProgress": "{{name}}: {{percent}} % · {{speed}} KB/s"
 }

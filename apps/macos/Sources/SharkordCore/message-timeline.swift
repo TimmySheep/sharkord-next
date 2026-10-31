@@ -1,6 +1,11 @@
 import Foundation
 
 public enum MessageTimeline {
+    static func precedes(_ first: SharkordMessage, _ second: SharkordMessage) -> Bool {
+        if first.createdAt == second.createdAt { return first.id < second.id }
+        return first.createdAt < second.createdAt
+    }
+
     public static func isGrouped(_ message: SharkordMessage, after previous: SharkordMessage?) -> Bool {
         guard let previous else { return false }
         return previous.userId == message.userId

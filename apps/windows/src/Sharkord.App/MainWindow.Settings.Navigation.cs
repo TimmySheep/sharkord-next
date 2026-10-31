@@ -7,7 +7,9 @@ namespace Sharkord.App;
 
 public sealed partial class MainWindow
 {
-    private async void OnSettingsClick(object sender, RoutedEventArgs e)
+    private Grid? _settingsOverlay;
+
+    private void OnSettingsClick(object sender, RoutedEventArgs e)
     {
         var navigation = new NavigationView
         {
@@ -33,7 +35,8 @@ public sealed partial class MainWindow
             () => Task.FromResult<FrameworkElement>(BuildKeyboardShortcutSettings()),
             titleNamespace: "macos"
         );
-        AddLazySettingsItem(navigation, "microphoneLabel", () => Task.FromResult<FrameworkElement>(BuildNoiseSuppressionSettings()));
+        AddLazySettingsItem(navigation, "devicesTab", BuildMediaDeviceSettingsAsync);
+        AddLazySettingsItem(navigation, "soundsTitle", () => Task.FromResult<FrameworkElement>(BuildEventSoundSettings()), titleNamespace: "dialogs");
 
         if (_session.Phase == SessionPhase.Connected && _session.HasPermission("MANAGE_SETTINGS"))
         {
@@ -77,14 +80,24 @@ public sealed partial class MainWindow
 
         navigation.SelectedItem = navigation.MenuItems.FirstOrDefault();
 
-        var dialog = new ContentDialog
-        {
-            Title = L10n.T("settingsButton", ns: "macos"),
-            Content = navigation,
-            CloseButtonText = L10n.T("close", ns: "windows"),
-            XamlRoot = RootGrid.XamlRoot
-        };
-        await dialog.ShowAsync();
+        CloseSettingsOverlay();
+        var close = new Button { Content = L10n.T("close"), HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(12) };
+        close.Click += (_, _) => CloseSettingsOverlay();
+        var panel = new Grid { MaxWidth = 1000, MaxHeight = 740, Margin = new Thickness(24), Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black) };
+        panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        panel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        panel.Children.Add(close);
+        Grid.SetRow(navigation, 1);
+        panel.Children.Add(navigation);
+        _settingsOverlay = new Grid { Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(220, 15, 15, 18)) };
+        _settingsOverlay.Children.Add(panel);
+        RootGrid.Children.Add(_settingsOverlay);
+        close.Focus(FocusState.Programmatic);
+    }
+
+    private void CloseSettingsOverlay()
+    {
+        if (_settingsOverlay is not null) { RootGrid.Children.Remove(_settingsOverlay); _settingsOverlay = null; }
     }
 
     private static void AddLazySettingsItem(
@@ -127,7 +140,7 @@ public sealed partial class MainWindow
         {
             var content = await loadContent();
             item.Tag = content;
-            sender.Content = content;
+            if (ReferenceEquals(sender.SelectedItem, item)) { sender.Content = content; }
         }
         catch (Exception exception)
         {
@@ -138,7 +151,7 @@ public sealed partial class MainWindow
                 Padding = new Thickness(20)
             };
             item.Tag = content;
-            sender.Content = content;
+            if (ReferenceEquals(sender.SelectedItem, item)) { sender.Content = content; }
         }
     }
 

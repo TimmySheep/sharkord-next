@@ -1,0 +1,5 @@
+{
+  "rememberLogin": "Remember login securely",
+  "logout": "Disconnect and forget login",
+  "credentialFailure": "Windows could not access the saved login. Sign in manually or try again."
+}

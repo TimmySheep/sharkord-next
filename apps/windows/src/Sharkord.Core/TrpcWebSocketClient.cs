@@ -187,7 +187,7 @@ public sealed class TrpcWebSocketClient : IAsyncDisposable
                 await HandleFrameAsync(text).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return;
         }

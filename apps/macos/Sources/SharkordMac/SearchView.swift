@@ -6,13 +6,14 @@ import SwiftUI
 struct SearchView: View {
     @EnvironmentObject private var session: SharkordSession
 
-    var onJump: (_ messageId: Int, _ channelId: Int) -> Void
+    var onJump: (_ messageId: Int, _ channelId: Int, _ requestId: UUID) -> Void
 
     @State private var query = ""
     @State private var result: SearchResult?
     @State private var searching = false
     @State private var errorMessage: String?
     @State private var task: Task<Void, Never>?
+    @State private var requestId = UUID()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -22,7 +23,7 @@ struct SearchView: View {
 
                 TextField(L10n.t("searchPlaceholder", ns: "macos"), text: $query)
                     .textFieldStyle(.plain)
-                    .onSubmit { Task { await search() } }
+                    .onSubmit { scheduleSearch(delay: false) }
 
                 if searching {
                     ProgressView()
@@ -49,18 +50,8 @@ struct SearchView: View {
             }
         }
         .background(Theme.panel)
-        .onChange(of: query) {
-            task?.cancel()
-            task = Task {
-                try? await Task.sleep(nanoseconds: 300_000_000)
-
-                guard !Task.isCancelled else {
-                    return
-                }
-
-                await search()
-            }
-        }
+        .onChange(of: query) { scheduleSearch(delay: true) }
+        .onDisappear { task?.cancel(); requestId = UUID() }
     }
 
     private func placeholder(_ text: String) -> some View {
@@ -89,11 +80,13 @@ struct SearchView: View {
 
                 ForEach(result.messages) { message in
                     Button {
-                        onJump(message.id, message.channelId)
+                        task?.cancel()
+                        requestId = UUID()
+                        onJump(message.navigationMessageId, message.channelId, session.beginNavigation())
                     } label: {
                         VStack(alignment: .leading, spacing: 3) {
                             HStack(spacing: 5) {
-                                Text(message.channelIsDm ? "Direct message" : "#\(message.channelName)")
+                                Text(message.channelIsDm ? L10n.t("directMessage", ns: "common") : "#\(message.channelName)")
                                     .font(.system(size: 10.5, weight: .semibold))
                                     .foregroundStyle(Theme.accent)
 
@@ -120,53 +113,89 @@ struct SearchView: View {
                 }
 
                 ForEach(result.files, id: \.file.id) { entry in
-                    Button {
-                        onJump(entry.messageId, entry.channelId)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "doc.fill")
-                                .foregroundStyle(.secondary)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.file.originalName)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .lineLimit(1)
-
-                                Text(entry.channelIsDm ? "Direct message" : "#\(entry.channelName)")
-                                    .font(.system(size: 10))
+                    HStack {
+                        Button {
+                            jumpToFile(entry)
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "doc.fill")
                                     .foregroundStyle(.secondary)
-                            }
 
-                            Spacer()
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(entry.file.originalName)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .lineLimit(1)
+
+                                    Text(entry.channelIsDm ? L10n.t("directMessage", ns: "common") : "#\(entry.channelName)")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+                            }
+                            .padding(8)
+                            .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 8))
                         }
-                        .padding(8)
-                        .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 8))
+                        .buttonStyle(.plain)
+                        if let url = session.publicFileURL(for: entry.file) {
+                            Link(destination: url) {
+                                Label(L10n.t("openFile", ns: "macos"), systemImage: "arrow.up.right.square")
+                            }.labelStyle(.iconOnly)
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(12)
         }
     }
 
-    private func search() async {
-        let trimmed = query.trimmingCharacters(in: .whitespaces).lowercased()
-
-        guard trimmed.count >= 2 else {
-            result = nil
-            errorMessage = nil
-
-            return
-        }
-
+    private func jumpToFile(_ entry: SearchFile) {
+        task?.cancel()
+        let id = UUID()
+        requestId = id
+        let navigationId = session.beginNavigation()
         searching = true
-        defer { searching = false }
+        errorMessage = nil
+        task = Task {
+            do {
+                let message = try await session.getMessage(messageId: entry.messageId)
+                guard !Task.isCancelled, requestId == id,
+                      session.navigationRequestId == navigationId else { return }
+                searching = false
+                onJump(message.parentMessageId ?? message.id, entry.channelId, navigationId)
+            } catch {
+                guard !Task.isCancelled, requestId == id,
+                      session.navigationRequestId == navigationId else { return }
+                searching = false
+                errorMessage = SharkordSession.describe(error)
+            }
+        }
+    }
 
-        do {
-            result = try await session.search(query: trimmed)
-            errorMessage = nil
-        } catch {
-            errorMessage = SharkordSession.describe(error)
+    private func scheduleSearch(delay: Bool) {
+        task?.cancel()
+        let id = UUID()
+        requestId = id
+        let trimmed = query.trimmingCharacters(in: .whitespaces).lowercased()
+        result = nil
+        errorMessage = nil
+        searching = false
+
+        guard trimmed.count >= 2 else { return }
+        task = Task {
+            if delay { try? await Task.sleep(nanoseconds: 300_000_000) }
+            guard !Task.isCancelled, requestId == id else { return }
+            searching = true
+            do {
+                let found = try await session.search(query: trimmed)
+                guard !Task.isCancelled, requestId == id else { return }
+                result = found
+                searching = false
+            } catch {
+                guard !Task.isCancelled, requestId == id else { return }
+                errorMessage = SharkordSession.describe(error)
+                searching = false
+            }
         }
     }
 }

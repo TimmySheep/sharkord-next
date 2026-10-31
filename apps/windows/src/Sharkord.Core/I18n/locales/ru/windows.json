@@ -46,5 +46,17 @@
   "offline": "Не в сети",
   "attachmentLimit": "Можно прикрепить не более {{count}} файлов.",
   "attachmentSizeLimit": "Файл превышает ограничение загрузки {{size}} МБ.",
-  "removeAttachment": "Убрать {{name}}"
+  "removeAttachment": "Убрать {{name}}",
+  "loadMoreReplies": "Загрузить ещё ответы",
+  "recentEmojis": "Недавние эмодзи",
+  "revealSpoiler": "Показать спойлер",
+  "formatBold": "Жирный",
+  "formatItalic": "Курсив",
+  "formatCode": "Код в строке",
+  "formatCodeBlock": "Блок кода",
+  "formatSpoiler": "Спойлер",
+  "formatMention": "Упомянуть участника",
+  "formatChannel": "Ссылка на канал",
+  "formatMessage": "Форматировать сообщение",
+  "uploadProgress": "{{name}}: {{percent}}% · {{speed}} КБ/с"
 }

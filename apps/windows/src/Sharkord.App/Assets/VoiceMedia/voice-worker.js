@@ -11071,6 +11071,8 @@ bridgeWindow.chrome?.webview?.addEventListener("message", (event) => {
 var consume = async (remoteId, kind) => {
   if (!receiveTransport || !device)
     return;
+  const transport = receiveTransport;
+  const generation = mediaGeneration;
   const key = `${remoteId}:${kind}`;
   if (consumers.has(key))
     return;
@@ -11080,20 +11082,29 @@ var consume = async (remoteId, kind) => {
       remoteId,
       rtpCapabilities: device.recvRtpCapabilities
     });
-    if (!receiveTransport || consumers.has(key))
+    if (receiveTransport !== transport || generation !== mediaGeneration || consumers.has(key))
       return;
-    const consumer = await receiveTransport.consume({
+    const consumer = await transport.consume({
       id: parameters.consumerId,
       producerId: parameters.producerId,
-      kind: parameters.consumerKind === "audio" || parameters.consumerKind === "screen_audio" ? "audio" : "video",
+      kind: ["audio", "screen_audio", "external_audio"].includes(parameters.consumerKind) ? "audio" : "video",
       rtpParameters: parameters.consumerRtpParameters
     });
+    if (receiveTransport !== transport || generation !== mediaGeneration) { consumer.close(); return; }
     if (consumer.track.kind === "audio") {
       const audio = document.createElement("audio");
       audio.autoplay = true;
       audio.srcObject = new MediaStream([consumer.track]);
       audio.muted = outputMuted;
       audio.volume = remoteAudioVolumes.get(key) ?? 1;
+      if (audio.setSinkId && window.coveMediaOptions?.speakerId) {
+        try { await audio.setSinkId(window.coveMediaOptions.speakerId); }
+        catch {
+          try { await audio.setSinkId(""); }
+          catch (error) { consumer.close(); audio.srcObject = null; throw error; }
+        }
+      }
+      if (receiveTransport !== transport || generation !== mediaGeneration) { consumer.close(); audio.srcObject = null; return; }
       document.body.append(audio);
       consumers.set(key, { consumer, element: audio });
       await audio.play();
@@ -11112,7 +11123,7 @@ var consume = async (remoteId, kind) => {
     label.textContent = `${mediaLabel} ${remoteId}`;
     tile.append(video, label);
     document.getElementById("video-grid")?.append(tile);
-    consumers.set(key, { consumer, element: video });
+    consumers.set(key, { consumer, element: video, qualityLayers: parameters.qualityLayers ?? [] });
     remoteVideoCount += 1;
     setGalleryVisible(true);
     await video.play();
@@ -11135,9 +11146,10 @@ var closeConsumer = (remoteId, kind) => {
     setGalleryVisible(remoteVideoCount > 0 || cameraProducer !== undefined);
   }
   consumers.delete(key);
+  window.coveMedia?.consumerClosed(key);
 };
 var setRemoteAudioVolume = (remoteId, kind, volume) => {
-  if (kind !== "audio" && kind !== "screen_audio")
+  if (kind !== "audio" && kind !== "screen_audio" && kind !== "external_audio")
     return;
   const key = `${remoteId}:${kind}`;
   const normalized = Number.isFinite(volume) ? Math.min(Math.max(volume, 0), 1) : 1;
@@ -11158,6 +11170,8 @@ var updateLocalPreview = () => {
   setGalleryVisible(remoteVideoCount > 0 || cameraStream !== undefined);
 };
 var closeMedia = () => {
+  window.coveMedia?.stopPreview();
+  window.coveMedia?.pin(null);
   mediaGeneration += 1;
   microphoneProducer?.close();
   microphoneProducer = undefined;
@@ -11219,6 +11233,7 @@ var configureTransport = (transport, isProducer) => {
       callNative("voice.produce", {
         transportId: transport.id,
         kind: streamKind,
+        qualityLayers: appData.qualityLayers,
         rtpParameters
       }).then((id) => callback({ id })).catch((error) => errback(error));
     });
@@ -11242,8 +11257,9 @@ var openMicrophone = async () => {
   try {
     inputStream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        autoGainControl: true,
-        echoCancellation: true,
+        deviceId: window.coveMediaOptions?.microphoneId ? { exact: window.coveMediaOptions.microphoneId } : undefined,
+        autoGainControl: window.coveMediaOptions?.autoGainControl ?? true,
+        echoCancellation: window.coveMediaOptions?.echoCancellation ?? true,
         noiseSuppression: microphoneNoiseMode === "standard"
       },
       video: false
@@ -11307,7 +11323,7 @@ var openMicrophone = async () => {
     throw error;
   }
 };
-var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, canPublishScreen = false, labels = defaultMediaLabels, initialNoiseMix = 1, initialNoiseMode = "rnnoise") => {
+var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, canPublishScreen = false, labels = defaultMediaLabels, initialNoiseMix = 1, initialNoiseMode = window.coveMediaOptions?.noiseMode ?? "rnnoise") => {
   if (activeChannelId === channelId)
     return;
   closeMedia();
@@ -11371,7 +11387,10 @@ var start = async (channelId, routerRtpCapabilities, canProduceAudio = true, can
       ...(remoteProducers.remoteScreenAudioIds ?? []).map((remoteId) => ({
         remoteId,
         kind: "screen_audio"
-      }))
+      })),
+      ...(remoteProducers.remoteExternalStreamIds ?? []).flatMap((remoteId) =>
+        ["audio", "video"].filter((kind) => window.coveMediaOptions?.externalStreams?.[remoteId]?.[kind])
+          .map((kind) => ({ remoteId, kind: `external_${kind}` })))
     ];
     await Promise.all(remoteStreams.map(({ remoteId, kind }) => consume(remoteId, kind)));
     notify("connected", microphoneError, microphoneError ? "microphone" : undefined);
@@ -11391,10 +11410,10 @@ var setWebcamEnabled = async (enabled) => {
     cameraStream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
+        deviceId: window.coveMediaOptions?.cameraId ? { exact: window.coveMediaOptions.cameraId } : undefined,
         facingMode: "user",
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        frameRate: { ideal: 30, max: 30 }
+        height: { ideal: window.coveMediaOptions?.height ?? 720 },
+        frameRate: { ideal: window.coveMediaOptions?.frameRate ?? 30, max: window.coveMediaOptions?.frameRate ?? 30 }
       }
     });
     const track = cameraStream.getVideoTracks()[0];
@@ -11404,11 +11423,7 @@ var setWebcamEnabled = async (enabled) => {
       throw new Error("No camera video track is available.");
     }
     try {
-      cameraProducer = await sendTransport.produce({
-        track,
-        appData: { kind: "video" },
-        encodings: [{ maxBitrate: 1500000 }]
-      });
+      cameraProducer = await sendTransport.produce(videoProduceOptions(track, "video", 1500000));
       updateLocalPreview();
       await callNative("voice.updateState", { webcamEnabled: true });
     } catch (error) {
@@ -11486,7 +11501,8 @@ var setScreenShareEnabled = async (enabled) => {
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        frameRate: { ideal: 30, max: 30 }
+        height: { ideal: window.coveMediaOptions?.screenHeight ?? 1080 },
+        frameRate: { ideal: window.coveMediaOptions?.screenFrameRate ?? 30, max: window.coveMediaOptions?.screenFrameRate ?? 30 }
       },
       audio: true
     });
@@ -11499,11 +11515,7 @@ var setScreenShareEnabled = async (enabled) => {
       throw new Error("No screen video track is available.");
     }
     videoTrack.contentHint = "detail";
-    videoProducer = await sendTransport.produce({
-      track: videoTrack,
-      appData: { kind: "screen" },
-      encodings: [{ maxBitrate: 2500000 }]
-    });
+    videoProducer = await sendTransport.produce(videoProduceOptions(videoTrack, "screen", 2500000));
     const audioTrack = stream.getAudioTracks()[0];
     if (audioTrack) {
       audioProducer = await sendTransport.produce({
@@ -11671,5 +11683,4 @@ document.getElementById("screen-share-button")?.addEventListener("click", () => 
     notify(activeChannelId === undefined ? "failed" : "connected", error instanceof Error ? error.message : String(error), "screenShare");
   });
 });
-postToNative({ type: "ready" });
 notify("ready");

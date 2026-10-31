@@ -1,0 +1,13 @@
+{
+  "banReason": "封鎖原因",
+  "wipeUserData": "刪除此使用者的訊息和檔案",
+  "uploadLogo": "上傳伺服器標誌",
+  "messagesTitle": "訊息與連結",
+  "filesTitle": "檔案",
+  "loginsTitle": "最近登入",
+  "loadMore": "載入更多",
+  "clearSecret": "清除已儲存的密鑰",
+  "invalidField": "請檢查 {{name}} 的值。",
+  "executeCommand": "執行命令",
+  "resetAccess": "還原外掛預設值"
+}

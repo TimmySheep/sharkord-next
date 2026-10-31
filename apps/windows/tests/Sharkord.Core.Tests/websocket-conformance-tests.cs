@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -11,6 +12,28 @@ namespace Sharkord.Core.Tests;
 
 public class WebSocketConformanceTests
 {
+    [Fact]
+    public async Task AbortedSocketImmediatelyDisconnectsAndCompletesPendingRequest()
+    {
+        await WithConnectionAsync(async (client, server, token) =>
+        {
+            var disconnected = new TaskCompletionSource<Exception?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            client.Disconnected += error => disconnected.TrySetResult(error);
+            var query = client.QueryAsync("pending", cancellationToken: token);
+            await ReceiveAsync(server, token);
+            var socket = (ClientWebSocket)typeof(TrpcWebSocketClient)
+                .GetField("_socket", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(client)!;
+
+            socket.Abort();
+
+            var reason = await disconnected.Task.WaitAsync(TimeSpan.FromSeconds(2), token);
+            Assert.NotNull(reason);
+            var error = await Assert.ThrowsAnyAsync<Exception>(() => query);
+            Assert.Same(reason, error);
+            Assert.False(client.IsOpen);
+        });
+    }
+
     [Fact]
     public async Task ConnectionParamsPrecedeRequestsAndServerPingGetsPong()
     {
@@ -87,7 +110,7 @@ public class WebSocketConformanceTests
         });
     }
 
-    private static async Task WithConnectionAsync(
+    internal static async Task WithConnectionAsync(
         Func<TrpcWebSocketClient, WebSocket, CancellationToken, Task> run,
         TimeSpan? keepAliveInterval = null,
         TimeSpan? pongTimeout = null)
@@ -133,10 +156,10 @@ public class WebSocketConformanceTests
         }
     }
 
-    private static Task SendAsync(WebSocket socket, string text, CancellationToken token) =>
+    internal static Task SendAsync(WebSocket socket, string text, CancellationToken token) =>
         socket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(text)), WebSocketMessageType.Text, true, token);
 
-    private static async Task<string> ReceiveAsync(WebSocket socket, CancellationToken token)
+    internal static async Task<string> ReceiveAsync(WebSocket socket, CancellationToken token)
     {
         using var message = new MemoryStream();
         var buffer = new byte[4096];

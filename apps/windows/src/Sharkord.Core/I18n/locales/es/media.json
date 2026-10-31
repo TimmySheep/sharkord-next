@@ -1,0 +1,15 @@
+{
+  "speaking": "Hablando",
+  "screenAudio": "Audio de pantalla",
+  "quality": "Calidad de recepción",
+  "automatic": "Automática",
+  "pinStream": "Fijar transmisión",
+  "zoom": "Zoom",
+  "fullscreen": "Pantalla completa",
+  "pictureInPicture": "Imagen en imagen",
+  "statistics": "Estadísticas",
+  "cameraResolution": "Resolución de cámara",
+  "cameraFrameRate": "Fotogramas de cámara",
+  "screenResolution": "Resolución de pantalla",
+  "screenFrameRate": "Fotogramas de pantalla"
+}

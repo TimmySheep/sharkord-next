@@ -34,6 +34,14 @@ extension SharkordSession {
 
     @discardableResult
     public func loadThread(parentMessageId: Int, cursor: MessagesCursor? = nil) async throws -> ThreadPage {
+        try Task.checkCancellation()
+        let request = ThreadRequest()
+        threadRequests[parentMessageId] = request
+        defer {
+            if threadRequests[parentMessageId]?.id == request.id {
+                threadRequests[parentMessageId] = nil
+            }
+        }
         var input: [String: JSONValue] = [
             "parentMessageId": .int(parentMessageId),
             "limit": .int(ProtocolDefaults.messagesLimit)
@@ -49,14 +57,27 @@ extension SharkordSession {
         let page = try await call("messages.getThread", method: .query, input: .object(input))
             .decode(ThreadPage.self)
 
-        let ascending = page.messages.sorted { $0.createdAt < $1.createdAt }
-        let existing = threadMessages[parentMessageId] ?? []
-        let existingIds = Set(existing.map(\.id))
-        let merged = existing + ascending.filter { !existingIds.contains($0.id) }
-
-        threadMessages[parentMessageId] = merged.sorted { $0.createdAt < $1.createdAt }
+        try applyThreadPage(page, parentMessageId: parentMessageId, requestId: request.id)
 
         return page
+    }
+
+    public func cancelThreadLoad(parentMessageId: Int) {
+        threadRequests[parentMessageId] = nil
+    }
+
+    func applyThreadPage(_ page: ThreadPage, parentMessageId: Int, requestId: UUID) throws {
+        try Task.checkCancellation()
+        guard let request = threadRequests[parentMessageId], request.id == requestId else {
+            throw CancellationError()
+        }
+        var byId = Dictionary(uniqueKeysWithValues: (threadMessages[parentMessageId] ?? []).map { ($0.id, $0) })
+        // subscription changes received during this request are newer than its snapshot
+        for message in page.messages where message.parentMessageId == parentMessageId && !request.changedMessageIds.contains(message.id) {
+            byId[message.id] = message
+        }
+        threadMessages[parentMessageId] = byId.values.sorted(by: MessageTimeline.precedes)
+        threadNextCursor[parentMessageId] = page.nextCursor
     }
 
     @discardableResult

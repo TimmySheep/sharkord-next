@@ -11,13 +11,24 @@ struct ThreadSidebarView: View {
     @State private var parent: SharkordMessage?
     @State private var replyTarget: SharkordMessage?
     @State private var editing: SharkordMessage?
+    @State private var loading = false
+    @State private var errorMessage: String?
+    @State private var visibleMessageId: Int?
+    @State private var loadTask: Task<Void, Never>?
+    @State private var rootDeleted = false
 
     private var replies: [SharkordMessage] {
         session.threadMessages(for: messageId)
     }
 
+    private var currentParent: SharkordMessage? {
+        guard !rootDeleted else { return nil }
+        let channelId = parent?.channelId ?? session.selectedChannelId ?? 0
+        return session.messagesByChannel[channelId]?.first { $0.id == messageId } ?? parent
+    }
+
     private var channel: SharkordChannel? {
-        session.channel(for: parent?.channelId ?? session.selectedChannelId ?? 0)
+        currentParent.flatMap { session.channel(for: $0.channelId) }
     }
 
     var body: some View {
@@ -25,40 +36,76 @@ struct ThreadSidebarView: View {
             header
             Divider()
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    if let parent {
-                        MessageRowView(
-                            message: parent,
-                            grouped: false,
-                            onReply: { replyTarget = $0 },
-                            onEdit: { editing = $0 },
-                            onOpenThread: { _ in }
-                        )
-
-                        Divider().padding(.vertical, 6)
-                    }
-
-                    if replies.isEmpty {
-                        emptyState
-                    } else {
-                        ForEach(replies) { message in
-                            MessageRowView(
-                                message: message,
-                                grouped: false,
-                                onReply: { replyTarget = $0 },
-                                onEdit: { editing = $0 },
-                                onOpenThread: { _ in }
-                            )
-                        }
-                    }
-                }
-                .padding(.vertical, 8)
+            if let errorMessage {
+                Text(errorMessage).font(.caption).foregroundStyle(.red).padding(8)
             }
 
+            ScrollViewReader { proxy in
+                VStack(spacing: 0) {
+                    Button(L10n.t("latestLoadedReply", ns: "macos")) {
+                        if let last = replies.last { proxy.scrollTo(last.id, anchor: .bottom) }
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            if let parent = currentParent {
+                                MessageRowView(
+                                    message: parent,
+                                    grouped: false,
+                                    onReply: { replyTarget = $0 },
+                                    onEdit: { editing = $0 },
+                                    onOpenThread: { _ in }
+                                )
+
+                                Divider().padding(.vertical, 6)
+                            }
+
+                            if replies.isEmpty {
+                                emptyState
+                            } else {
+                                ForEach(replies) { message in
+                                    MessageRowView(
+                                        message: message,
+                                        grouped: false,
+                                        onReply: { replyTarget = $0 },
+                                        onEdit: { editing = $0 },
+                                        onOpenThread: { _ in }
+                                    )
+                                    .id(message.id)
+                                }
+                            }
+                            if let cursor = session.threadNextCursor[messageId] {
+                                Button(L10n.t("loadMoreReplies", ns: "macos")) {
+                                    loadTask?.cancel()
+                                    loadTask = Task { await load(cursor: cursor) }
+                                }
+                                .disabled(loading)
+                                .buttonStyle(.borderless)
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .scrollTargetLayout()
+                        .padding(.vertical, 8)
+                    }
+                    .scrollPosition(id: $visibleMessageId, anchor: .top)
+                    .defaultScrollAnchor(.bottom)
+                }
+            }
             Divider()
 
             if let channel {
+                TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                    let names = session.typingUsers(in: channel.id, parentMessageId: messageId, now: timeline.date).map(\.name)
+                    if !names.isEmpty {
+                        HStack {
+                            TypingDots()
+                            Text(L10n.t(names.count == 1 ? "typingSingle" : "typingMultiple", ns: "macos", ["names": names.joined(separator: ", ")]))
+                                .font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+                        }.padding(8)
+                    }
+                }
                 Composer(
                     channel: channel,
                     parentMessageId: messageId,
@@ -69,8 +116,45 @@ struct ThreadSidebarView: View {
         }
         .background(Theme.panel)
         .task(id: messageId) {
-            _ = try? await session.loadThread(parentMessageId: messageId)
-            parent = try? await session.getMessage(messageId: messageId)
+            await load()
+        }
+        .onReceive(session.$deletedMessage) { event in
+            guard event?.messageId == messageId else { return }
+            rootDeleted = true
+            loadTask?.cancel()
+            onClose()
+        }
+        .onDisappear {
+            loadTask?.cancel()
+            session.cancelThreadLoad(parentMessageId: messageId)
+        }
+    }
+
+    private func load(cursor: MessagesCursor? = nil) async {
+        guard !loading else { return }
+        loading = true
+        defer { loading = false }
+        let anchor = visibleMessageId
+        do {
+            if cursor == nil {
+                let fetchedParent = try await session.getMessage(messageId: messageId)
+                try Task.checkCancellation()
+                guard !rootDeleted else { return }
+                parent = fetchedParent
+            }
+            _ = try await session.loadThread(parentMessageId: messageId, cursor: cursor)
+            try Task.checkCancellation()
+            guard !rootDeleted else { return }
+            if cursor != nil { visibleMessageId = anchor }
+            errorMessage = nil
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled, !rootDeleted else { return }
+            if (error as? TRPCClientError)?.code == "NOT_FOUND" {
+                rootDeleted = true
+                onClose()
+            } else { errorMessage = SharkordSession.describe(error) }
         }
     }
 
@@ -89,7 +173,7 @@ struct ThreadSidebarView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Close thread")
+            .help(L10n.t("closeThread", ns: "macos"))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -116,6 +200,7 @@ struct PinnedMessagesPanel: View {
 
     let channel: SharkordChannel
     var onJump: (SharkordMessage) -> Void
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -124,6 +209,7 @@ struct PinnedMessagesPanel: View {
                 .padding(12)
 
             Divider()
+            if let errorMessage { Text(errorMessage).font(.caption).foregroundStyle(.red).padding(10) }
 
             if session.pinnedMessages(in: channel.id).isEmpty {
                 VStack(spacing: 8) {
@@ -144,7 +230,7 @@ struct PinnedMessagesPanel: View {
                                 HStack {
                                     Text(
                                         session.user(for: message.pinnedBy ?? message.userId ?? 0)?.name
-                                            ?? "Unknown"
+                                            ?? L10n.t("unknownUser", ns: "common")
                                     )
                                     .font(.system(size: 11, weight: .semibold))
 
@@ -166,7 +252,7 @@ struct PinnedMessagesPanel: View {
                                     }
                                     .buttonStyle(.plain)
                                     .foregroundStyle(Theme.accent)
-                                    .help("Scroll to message")
+                                    .help(L10n.t("jumpToMessage", ns: "macos"))
                                 }
 
                                 Text(MessageHTML.toPlainText(message.content ?? ""))
@@ -183,7 +269,8 @@ struct PinnedMessagesPanel: View {
             }
         }
         .task {
-            _ = try? await session.loadPinned(channelId: channel.id)
+            do { _ = try await session.loadPinned(channelId: channel.id) }
+            catch { errorMessage = SharkordSession.describe(error) }
         }
     }
 }

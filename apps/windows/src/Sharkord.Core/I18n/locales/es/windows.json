@@ -46,5 +46,17 @@
   "offline": "Desconectado",
   "attachmentLimit": "Puedes adjuntar como máximo {{count}} archivos.",
   "attachmentSizeLimit": "Este archivo supera el límite de carga de {{size}} MB.",
-  "removeAttachment": "Eliminar {{name}}"
+  "removeAttachment": "Eliminar {{name}}",
+  "loadMoreReplies": "Cargar más respuestas",
+  "recentEmojis": "Emojis recientes",
+  "revealSpoiler": "Mostrar spoiler",
+  "formatBold": "Negrita",
+  "formatItalic": "Cursiva",
+  "formatCode": "Código en línea",
+  "formatCodeBlock": "Bloque de código",
+  "formatSpoiler": "Spoiler",
+  "formatMention": "Mencionar a un miembro",
+  "formatChannel": "Referenciar un canal",
+  "formatMessage": "Dar formato al mensaje",
+  "uploadProgress": "{{name}}: {{percent}}% · {{speed}} KB/s"
 }

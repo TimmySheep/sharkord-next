@@ -11,6 +11,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
     @Published private(set) var errorContext: String?
     @Published private(set) var canPublishAudio = false
     @Published private(set) var remoteAudioVolumes = VoiceAudioVolumeSettings.load()
+    @Published private(set) var receiveStreams: [String: ReceiveStream] = [:]
     @Published private(set) var noiseSuppressionMix = VoiceMediaController.loadNoiseSuppressionMix()
     @Published private(set) var noiseSuppressionMode = UserDefaults.standard.string(forKey: "voice.noiseSuppressionMode") ?? "standard"
 
@@ -337,6 +338,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
     func stop() {
         currentChannelId = nil
         knownProducerKeys.removeAll()
+        receiveStreams.removeAll()
         errorMessage = nil
         errorContext = nil
         status = "idle"
@@ -402,9 +404,19 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
             input = nil
         }
 
+        let requestedChannelId = currentChannelId
         Task {
             do {
                 let result = try await session.callVoiceMediaProcedure(path, input: input)
+                if path == "voice.consume", currentChannelId == requestedChannelId,
+                   let remoteId = input?["remoteId"]?.intValue,
+                   let kindValue = input?["kind"]?.stringValue,
+                   let kind = StreamKind(rawValue: kindValue),
+                   kind == .video || kind == .screen,
+                   let consumed = try? result.decode(ConsumeResult.self) {
+                    let stream = ReceiveStream(remoteId: remoteId, kind: kind, layers: consumed.qualityLayers ?? [])
+                    receiveStreams[stream.id] = stream
+                }
                 await reply(to: id, result: result, error: nil)
             } catch {
                 ClientLogStore.shared.recordError("voice.procedure.failed", error: error)
@@ -519,6 +531,7 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
         let nextKeys = Set(events.map { "\($0.remoteId):\($0.kind.rawValue)" })
 
         for key in knownProducerKeys.subtracting(nextKeys) {
+            receiveStreams[key] = nil
             sendProducerChange(key, added: false, to: webView)
         }
 
@@ -546,6 +559,13 @@ final class VoiceMediaController: NSObject, ObservableObject, WKScriptMessageHan
             )
         }
     }
+}
+
+struct ReceiveStream: Identifiable {
+    let remoteId: Int
+    let kind: StreamKind
+    let layers: [StreamQualityLayer]
+    var id: String { "\(remoteId):\(kind.rawValue)" }
 }
 
 struct VoiceMediaHost: NSViewRepresentable {

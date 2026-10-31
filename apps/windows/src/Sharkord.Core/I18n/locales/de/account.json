@@ -1,0 +1,5 @@
+{
+  "rememberLogin": "Anmeldung sicher speichern",
+  "logout": "Trennen und Anmeldung vergessen",
+  "credentialFailure": "Windows konnte nicht auf die gespeicherte Anmeldung zugreifen. Melde dich manuell an oder versuche es erneut."
+}

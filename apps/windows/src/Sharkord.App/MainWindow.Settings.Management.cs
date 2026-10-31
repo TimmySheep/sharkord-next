@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -24,10 +25,16 @@ public sealed partial class MainWindow
 
         async Task RunUserActionAsync(string path, JsonObject input, string title, string name)
         {
+            var reason = new TextBox { Header = L10n.T("banReason", ns: "admin"), MaxLength = 1000, AcceptsReturn = true };
+            var wipe = new CheckBox { Content = L10n.T("wipeUserData", ns: "admin") };
+            var confirmation = new StackPanel { Spacing = 12 };
+            confirmation.Children.Add(new TextBlock { Text = name, TextWrapping = TextWrapping.Wrap });
+            if (path == "users.ban") { confirmation.Children.Add(reason); }
+            if (path == "users.delete") { confirmation.Children.Add(wipe); }
             var confirm = new ContentDialog
             {
                 Title = title,
-                Content = name,
+                Content = confirmation,
                 PrimaryButtonText = title,
                 CloseButtonText = L10n.T("close", ns: "windows"),
                 XamlRoot = RootGrid.XamlRoot
@@ -39,6 +46,8 @@ public sealed partial class MainWindow
 
             try
             {
+                if (path == "users.ban" && !string.IsNullOrWhiteSpace(reason.Text)) { input["reason"] = reason.Text.Trim(); }
+                if (path == "users.delete") { input["wipe"] = wipe.IsChecked == true; }
                 await _session.CallMutationAsync(path, input);
                 await ReloadAsync();
                 status.Text = "";
@@ -67,27 +76,8 @@ public sealed partial class MainWindow
                 {
                     try
                     {
-                        var detail = await _session.CallQueryAsync(
-                            "users.getInfo",
-                            new JsonObject { ["userId"] = userId }
-                        );
-                        var dialog = new ContentDialog
-                        {
-                            Title = userName,
-                            Content = new ScrollViewer
-                            {
-                                Content = new TextBlock
-                                {
-                                    Text = detail?.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) ?? "",
-                                    TextWrapping = TextWrapping.Wrap,
-                                    IsTextSelectionEnabled = true
-                                },
-                                MaxHeight = 420
-                            },
-                            CloseButtonText = L10n.T("close", ns: "windows"),
-                            XamlRoot = RootGrid.XamlRoot
-                        };
-                        await dialog.ShowAsync();
+                        await ShowUserModerationAsync(userId, userName);
+
                     }
                     catch (Exception exception)
                     {
@@ -112,7 +102,8 @@ public sealed partial class MainWindow
                 var actionLabel = banned ? "unbanBtn" : "banBtn";
                 var actionPath = banned ? "users.unban" : "users.ban";
                 var actionInput = new JsonObject { ["userId"] = userId };
-                var action = new MenuFlyoutItem { Text = L10n.T(actionLabel, ns: "settings") };
+                var mayModerate = userId != _session.OwnUserId && (_session.User(userId)?.RoleIds?.Contains(1) != true || _session.OwnUser?.RoleIds?.Contains(1) == true);
+                var action = new MenuFlyoutItem { Text = L10n.T(actionLabel, ns: "settings"), IsEnabled = mayModerate };
                 action.Click += async (_, _) => await RunUserActionAsync(
                     actionPath,
                     actionInput,
@@ -122,7 +113,7 @@ public sealed partial class MainWindow
                 contextMenu.Items.Add(action);
                 if (!banned)
                 {
-                    var kick = new MenuFlyoutItem { Text = L10n.T("kickBtn", ns: "settings") };
+                    var kick = new MenuFlyoutItem { Text = L10n.T("kickBtn", ns: "settings"), IsEnabled = mayModerate };
                     kick.Click += async (_, _) => await RunUserActionAsync(
                         "users.kick",
                         new JsonObject { ["userId"] = userId },
@@ -132,7 +123,7 @@ public sealed partial class MainWindow
                     contextMenu.Items.Add(kick);
                 }
 
-                var delete = new MenuFlyoutItem { Text = L10n.T("deleteBtn", ns: "settings") };
+                var delete = new MenuFlyoutItem { Text = L10n.T("deleteBtn", ns: "settings"), IsEnabled = mayModerate };
                 delete.Click += async (_, _) => await RunUserActionAsync(
                     "users.delete",
                     new JsonObject { ["userId"] = userId, ["wipe"] = false },
@@ -185,6 +176,11 @@ public sealed partial class MainWindow
     {
         var invites = new List<JsonObject>();
         var rows = new StackPanel { Spacing = 8 };
+        var customCode = new TextBox { Header = L10n.T("inviteCodeLabel", ns: "macos"), MaxLength = 64 };
+        var assignedRole = new ComboBox { Header = L10n.T("assignRoleLabel", ns: "dialogs"), HorizontalAlignment = HorizontalAlignment.Stretch };
+        assignedRole.Items.Add(new ComboBoxItem { Content = L10n.T("roleDefault", ns: "dialogs"), Tag = 0 });
+        foreach (var role in _session.Roles) { assignedRole.Items.Add(new ComboBoxItem { Content = role.Name, Tag = role.Id }); }
+        assignedRole.SelectedIndex = 0;
         var status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         var maxUses = new NumberBox
         {
@@ -285,10 +281,19 @@ public sealed partial class MainWindow
                 return;
             }
 
+            var inviteCode = customCode.Text.Trim();
+            if (inviteCode.Length > 0 && (inviteCode.Length < 4 || !Regex.IsMatch(inviteCode, "^[A-Za-z0-9_-]+$")))
+            {
+                status.Text = L10n.T("invalidField", ns: "admin", ("name", L10n.T("inviteCodeLabel", ns: "macos")));
+                return;
+            }
+
             create.IsEnabled = false;
             try
             {
                 var input = new JsonObject();
+                if (!string.IsNullOrWhiteSpace(customCode.Text)) { input["code"] = customCode.Text.Trim(); }
+                if (assignedRole.SelectedItem is ComboBoxItem { Tag: int roleId } && roleId > 0) { input["roleId"] = roleId; }
                 if (maxUses.Value > 0)
                 {
                     input["maxUses"] = (int)maxUses.Value;
@@ -315,6 +320,8 @@ public sealed partial class MainWindow
 
         await ReloadAsync();
         var form = new StackPanel { Spacing = 10, Margin = new Thickness(20) };
+        form.Children.Add(customCode);
+        form.Children.Add(assignedRole);
         form.Children.Add(maxUses);
         form.Children.Add(expiryDays);
         form.Children.Add(create);

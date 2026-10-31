@@ -1,0 +1,107 @@
+// native controls use only the bundled media worker's tracks and transports.
+window.coveMediaOptions = { cameraId: "", microphoneId: "", speakerId: "", height: 720, frameRate: 30, screenHeight: 1080, screenFrameRate: 30, echoCancellation: true, autoGainControl: true, simulcast: false };
+let previewStream;
+let previewAudio;
+let previewGeneration = 0;
+let monitoring = false;
+let pinnedMediaKey;
+const audioDevice = (id) => id ? { exact: id } : undefined;
+const videoEncodings = (bitrate) => window.coveMediaOptions.simulcast
+  ? [{ scaleResolutionDownBy: 4, maxBitrate: Math.round(bitrate / 8) }, { scaleResolutionDownBy: 2, maxBitrate: Math.round(bitrate / 3) }, { scaleResolutionDownBy: 1, maxBitrate: bitrate }]
+  : [{ maxBitrate: bitrate }];
+const videoProduceOptions = (track, kind, bitrate) => {
+  const encodings = videoEncodings(bitrate);
+  const height = track.getSettings().height ?? 720;
+  const qualityLayers = encodings.map((encoding, spatialLayer) => ({ spatialLayer, label: `${Math.round(height / (encoding.scaleResolutionDownBy ?? 1))}p` }));
+  const codec = window.coveMediaOptions.simulcast ? device.rtpCapabilities.codecs.find((candidate) => candidate.mimeType.toLowerCase() === "video/vp8") : undefined;
+  if (window.coveMediaOptions.simulcast && !codec) throw new Error("VP8 is unavailable for simulcast.");
+  return { track, encodings, codec, appData: { kind, ...(window.coveMediaOptions.simulcast ? { qualityLayers } : {}) } };
+};
+const mediaStats = async (key) => {
+  const target = key === "local" ? microphoneProducer : consumers.get(key)?.consumer;
+  if (!target) return [];
+  const stats = await target.getStats();
+  return [...stats.values()].filter((entry) => ["inbound-rtp", "outbound-rtp", "media-source", "candidate-pair"].includes(entry.type))
+    .map(({ type, kind, bytesReceived, bytesSent, packetsLost, jitter, framesPerSecond, frameWidth, frameHeight, currentRoundTripTime, audioLevel }) =>
+      ({ type, kind, bytesReceived, bytesSent, packetsLost, jitter, framesPerSecond, frameWidth, frameHeight, currentRoundTripTime, audioLevel }));
+};
+const stopPreview = () => {
+  previewGeneration += 1;
+  previewStream?.getTracks().forEach((track) => track.stop());
+  previewStream = undefined;
+  if (previewAudio) { previewAudio.pause(); previewAudio.srcObject = null; previewAudio.remove(); previewAudio = undefined; }
+  updateLocalPreview();
+};
+window.coveMedia = {
+  devices: async () => (await navigator.mediaDevices.enumerateDevices()).map(({ kind, deviceId, label }) => ({ kind, deviceId, label })),
+  options: async (options) => {
+    Object.assign(window.coveMediaOptions, options);
+    const selected = window.coveMediaOptions;
+    await Promise.all([...consumers.values()].filter(({ element }) => element instanceof HTMLAudioElement && element.setSinkId)
+      .map(({ element }) => element.setSinkId(selected.speakerId)));
+    await setNoiseSuppressionMode(selected.noiseMode ?? "rnnoise");
+  },
+  snapshot: () => ({
+    screenSharing: screenShareEnabled,
+    streams: [...consumers.entries()].map(([key, { consumer, qualityLayers }]) => ({ key, remoteId: Number(key.split(":")[0]), kind: key.split(":")[1], qualityLayers: qualityLayers ?? [], video: consumer.track.kind === "video" })),
+    pictureInPicture: document.pictureInPictureEnabled === true
+  }),
+  volume: setRemoteAudioVolume,
+  quality: async (key, layer) => {
+    const [remoteId, kind] = key.split(":");
+    await callNative("voice.setConsumerQuality", { remoteId: Number(remoteId), kind, quality: layer < 0 ? { mode: "auto" } : { mode: "layer", spatialLayer: layer } });
+  },
+  pin: (key) => {
+    pinnedMediaKey = key;
+    for (const [id, { element }] of consumers) {
+      const tile = element.closest(".video-tile");
+      if (tile) tile.style.display = key && key !== id ? "none" : "";
+    }
+    const local = document.getElementById("local-preview")?.closest(".video-tile");
+    if (local) local.style.display = key ? "none" : "";
+  },
+  consumerClosed: (key) => { if (pinnedMediaKey === key) window.coveMedia.pin(null); },
+  zoom: (key, scale) => { const video = consumers.get(key)?.element; if (video?.tagName === "VIDEO") video.style.transform = `scale(${Math.max(1, Math.min(4, scale))})`; },
+  picture: async (key) => { const element = consumers.get(key)?.element; if (element instanceof HTMLVideoElement && document.pictureInPictureEnabled) await element.requestPictureInPicture(); },
+  statistics: mediaStats,
+  screen: async () => reportActionError(() => setScreenShareEnabled(!screenShareEnabled), "screenShare"),
+  stopPreview,
+  preview: async (kind) => {
+    stopPreview();
+    const generation = previewGeneration;
+    const options = window.coveMediaOptions;
+    const stream = await navigator.mediaDevices.getUserMedia(kind === "video"
+      ? { video: { deviceId: audioDevice(options.cameraId), height: { ideal: options.height }, frameRate: { ideal: options.frameRate } }, audio: false }
+      : { audio: { deviceId: audioDevice(options.microphoneId), echoCancellation: options.echoCancellation }, video: false });
+    if (generation !== previewGeneration) { stream.getTracks().forEach((track) => track.stop()); return; }
+    previewStream = stream;
+    if (kind === "video") {
+      const preview = document.getElementById("local-preview");
+      preview.srcObject = stream;
+      preview.hidden = false;
+      preview.closest(".video-tile")?.classList.remove("hidden");
+      await preview.play();
+    } else {
+      previewAudio = document.createElement("audio");
+      previewAudio.srcObject = stream;
+      if (previewAudio.setSinkId) await previewAudio.setSinkId(options.speakerId);
+      document.body.append(previewAudio);
+      await previewAudio.play();
+    }
+  }
+};
+setInterval(async () => {
+  if (monitoring || activeChannelId === undefined) return;
+  monitoring = true;
+  try {
+    const speaking = [];
+    if (!microphoneMuted && (await mediaStats("local")).some((entry) => entry.audioLevel > 0.02)) speaking.push(0);
+    for (const [key, { consumer }] of consumers) {
+      if (consumer.track.kind === "audio" && key.endsWith(":audio") && (await mediaStats(key)).some((entry) => entry.audioLevel > 0.02)) speaking.push(Number(key.split(":")[0]));
+    }
+    if (activeChannelId !== undefined) postToNative({ type: "mediaState", channelId: activeChannelId, ...window.coveMedia.snapshot(), speaking, microphoneMuted, outputMuted, webcamEnabled: cameraProducer !== undefined });
+  } catch (error) {
+    // a consumer can close while its statistics request is outstanding.
+  } finally { monitoring = false; }
+}, 500);
+postToNative({ type: "ready" });

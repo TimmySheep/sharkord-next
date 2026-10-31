@@ -13,17 +13,20 @@ public actor TRPCWebSocketClient {
         public var token: String
         public var keepAliveInterval: TimeInterval
         public var pongTimeout: TimeInterval
+        public var connectTimeout: TimeInterval
 
         public init(
             url: URL,
             token: String,
             keepAliveInterval: TimeInterval = 30,
-            pongTimeout: TimeInterval = 5
+            pongTimeout: TimeInterval = 5,
+            connectTimeout: TimeInterval = 15
         ) {
             self.url = url
             self.token = token
             self.keepAliveInterval = keepAliveInterval
             self.pongTimeout = pongTimeout
+            self.connectTimeout = connectTimeout
         }
     }
 
@@ -59,6 +62,7 @@ public actor TRPCWebSocketClient {
     private var session: URLSession?
     private var task: URLSessionWebSocketTask?
     private var openContinuation: CheckedContinuation<Void, Error>?
+    private var openDeadline: Task<Void, Never>?
     private var receiveLoop: Task<Void, Never>?
     private var keepAliveLoop: Task<Void, Never>?
     private var watchdogLoop: Task<Void, Never>?
@@ -92,15 +96,14 @@ public actor TRPCWebSocketClient {
 
         isClosed = false
 
-        sessionDelegate.onOpen = { [weak self] in
-            Task { await self?.handleOpen() }
+        sessionDelegate.onOpen = { [weak self] task in
+            Task { await self?.handleOpen(task) }
         }
-        sessionDelegate.onClose = { [weak self] code, reason in
-            Task { await self?.handleDisconnect(
-                code: code,
-                reason: reason,
-                error: nil
-            ) }
+        sessionDelegate.onClose = { [weak self] task, _, _ in
+            Task { await self?.handleCompletion(task, error: nil) }
+        }
+        sessionDelegate.onComplete = { [weak self] task, error in
+            Task { await self?.handleCompletion(task, error: error) }
         }
 
         let session = URLSession(
@@ -114,9 +117,20 @@ public actor TRPCWebSocketClient {
         self.session = session
         self.task = task
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            openContinuation = continuation
-            task.resume()
+        try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                openContinuation = continuation
+                openDeadline = Task { [weak self] in
+                    do {
+                        try await Task.sleep(nanoseconds: UInt64(max(0, self?.configuration.connectTimeout ?? 15) * 1_000_000_000))
+                        await self?.handleOpeningTimeout(task)
+                    } catch { }
+                }
+                task.resume()
+            }
+        } onCancel: {
+            Task { await self.close() }
         }
 
         try await send(TRPCConnectionParams.json(token: configuration.token))
@@ -128,6 +142,10 @@ public actor TRPCWebSocketClient {
 
     public func close() {
         isClosed = true
+        openDeadline?.cancel()
+        openDeadline = nil
+        openContinuation?.resume(throwing: CancellationError())
+        openContinuation = nil
         receiveLoop?.cancel()
         keepAliveLoop?.cancel()
         watchdogLoop?.cancel()
@@ -142,7 +160,7 @@ public actor TRPCWebSocketClient {
     }
 
     public var isOpen: Bool {
-        task != nil && !isClosed
+        task != nil && openContinuation == nil && !isClosed
     }
 
     // MARK: - requests
@@ -280,7 +298,7 @@ public actor TRPCWebSocketClient {
             do {
                 message = try await task.receive()
             } catch {
-                await handleDisconnect(code: nil, reason: nil, error: error)
+                await handleCompletion(task, error: error)
                 return
             }
 
@@ -430,9 +448,25 @@ public actor TRPCWebSocketClient {
 
     // MARK: - teardown
 
-    private func handleOpen() {
+    private func handleOpen(_ openedTask: URLSessionWebSocketTask) {
+        guard task === openedTask else { return }
+        openDeadline?.cancel()
+        openDeadline = nil
         openContinuation?.resume()
         openContinuation = nil
+    }
+
+    private func handleCompletion(_ completedTask: URLSessionTask, error: Error?) async {
+        // an old URLSession may finish after a replacement connection has opened
+        guard task === completedTask else { return }
+        await handleDisconnect(code: nil, reason: nil, error: error)
+    }
+
+    private func handleOpeningTimeout(_ openingTask: URLSessionWebSocketTask) async {
+        guard openContinuation != nil else { return }
+        await handleCompletion(openingTask, error: TRPCClientError(
+            code: "CONNECT_TIMEOUT", message: "Connection timed out"
+        ))
     }
 
     private func handleDisconnect(
@@ -441,6 +475,8 @@ public actor TRPCWebSocketClient {
         error: Error?
     ) async {
         let wasConnected = task != nil
+        openDeadline?.cancel()
+        openDeadline = nil
         receiveLoop?.cancel()
         keepAliveLoop?.cancel()
         watchdogLoop?.cancel()
@@ -488,15 +524,16 @@ public actor TRPCWebSocketClient {
 
 /// Bridges `URLSessionWebSocketDelegate` callbacks back onto the actor.
 private final class WebSocketSessionDelegate: NSObject, URLSessionWebSocketDelegate {
-    var onOpen: (() -> Void)?
-    var onClose: ((URLSessionWebSocketTask.CloseCode, Data?) -> Void)?
+    var onOpen: ((URLSessionWebSocketTask) -> Void)?
+    var onClose: ((URLSessionWebSocketTask, URLSessionWebSocketTask.CloseCode, Data?) -> Void)?
+    var onComplete: ((URLSessionTask, Error?) -> Void)?
 
     func urlSession(
         _ session: URLSession,
         webSocketTask: URLSessionWebSocketTask,
         didOpenWithProtocol protocol: String?
     ) {
-        onOpen?()
+        onOpen?(webSocketTask)
     }
 
     func urlSession(
@@ -505,6 +542,10 @@ private final class WebSocketSessionDelegate: NSObject, URLSessionWebSocketDeleg
         didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
         reason: Data?
     ) {
-        onClose?(closeCode, reason)
+        onClose?(webSocketTask, closeCode, reason)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        onComplete?(task, error)
     }
 }

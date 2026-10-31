@@ -1,0 +1,13 @@
+{
+  "banReason": "Sperrgrund",
+  "wipeUserData": "Nachrichten und Dateien dieses Benutzers löschen",
+  "uploadLogo": "Serverlogo hochladen",
+  "messagesTitle": "Nachrichten und Links",
+  "filesTitle": "Dateien",
+  "loginsTitle": "Letzte Anmeldungen",
+  "loadMore": "Mehr laden",
+  "clearSecret": "Gespeichertes Geheimnis löschen",
+  "invalidField": "Prüfe den Wert für {{name}}.",
+  "executeCommand": "Befehl ausführen",
+  "resetAccess": "Plugin-Standard wiederherstellen"
+}

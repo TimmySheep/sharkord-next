@@ -46,11 +46,11 @@ struct MainWindow: View {
         }
         .toolbar { toolbar }
         .sheet(isPresented: $showsSearch) {
-            SearchView { messageId, channelId in
+            SearchView { messageId, channelId, requestId in
                 showsSearch = false
 
                 Task {
-                    await session.jumpTo(messageId: messageId, channelId: channelId)
+                    await session.jumpTo(messageId: messageId, channelId: channelId, requestId: requestId)
                 }
             }
             .frame(minWidth: 560, minHeight: 420)
@@ -220,7 +220,7 @@ struct TextChannelView: View {
 
             Spacer()
 
-            if session.hasPermission(.pinMessages) {
+            if session.hasChannelPermission(channel.id, .viewChannel) {
                 Button {
                     showsPinned.toggle()
                 } label: {

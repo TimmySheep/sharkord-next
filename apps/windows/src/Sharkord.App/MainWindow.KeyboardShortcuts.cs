@@ -251,6 +251,14 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (e.Key == Windows.System.VirtualKey.K && ReadShortcutModifiers() == KeyboardShortcutModifiers.Control &&
+            _session.Phase == SessionPhase.Connected && _session.Settings?.EnableSearch == true)
+        {
+            e.Handled = true;
+            if (!e.KeyStatus.WasKeyDown) { await ShowSearchAsync(); }
+            return;
+        }
+
         var action = _keyboardShortcutPreferences.ActionFor((int)e.Key, ReadShortcutModifiers());
         if (action is null || !CanPerformKeyboardShortcut(action.Value))
         {
@@ -475,8 +483,8 @@ public sealed partial class MainWindow
     {
         try
         {
-            var values = Windows.Storage.ApplicationData.Current.LocalSettings.Values;
-            if (!values.TryGetValue(KeyboardShortcutPreferenceKey, out var stored) || stored is not string json ||
+            var json = FilePreferences.Local.Get(KeyboardShortcutPreferenceKey, "");
+            if (string.IsNullOrWhiteSpace(json) ||
                 JsonSerializer.Deserialize<KeyboardShortcutPreferences>(json) is not { } loaded)
             {
                 return new KeyboardShortcutPreferences();
@@ -504,8 +512,7 @@ public sealed partial class MainWindow
     {
         try
         {
-            Windows.Storage.ApplicationData.Current.LocalSettings.Values[KeyboardShortcutPreferenceKey] =
-                JsonSerializer.Serialize(preferences);
+            FilePreferences.Local.Set(KeyboardShortcutPreferenceKey, JsonSerializer.Serialize(preferences));
         }
         catch (Exception exception)
         {

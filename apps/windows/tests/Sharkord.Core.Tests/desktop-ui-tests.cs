@@ -30,9 +30,10 @@ public class DesktopUiTests
     {
         var composer = File.ReadAllText(Source("main-window-composer.cs"));
         var shortcuts = File.ReadAllText(Source("MainWindow.KeyboardShortcuts.cs"));
-        Assert.Contains("_session.UploadAttachmentAsync", composer);
-        Assert.Contains("_session.SendMessageAsync(channelId, text, _replyToMessageId", composer);
-        Assert.Contains("_session.EditMessageAsync", composer);
+        var uploads = File.ReadAllText(Source("main-window-uploads.cs"));
+        Assert.Contains("_session.UploadAttachmentWithProgressAsync", uploads);
+        Assert.Contains("_session.SendFormattedMessageAsync(channelId, FormatComposerText(text), _replyToMessageId", composer);
+        Assert.Contains("_session.EditFormattedMessageAsync", composer);
         Assert.Contains("_session.SignalTyping", composer);
         Assert.Contains("if (text != _originalEditText)", composer);
         Assert.Contains("_sendingComposer = false;", composer);

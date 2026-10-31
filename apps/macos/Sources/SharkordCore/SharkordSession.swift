@@ -34,6 +34,7 @@ public final class SharkordSession: ObservableObject {
     @Published public internal(set) var emojis: [SharkordEmoji] = []
     @Published public internal(set) var settings: SharkordSettings?
     @Published public internal(set) var directMessages: [DirectMessageConversation] = []
+    public internal(set) var usesJoinedDirectMessages = false
     @Published public internal(set) var ownUserId: Int = 0
     @Published public internal(set) var ownUserPasswordSet = false
     @Published public internal(set) var showWelcomeDialog = false
@@ -48,6 +49,7 @@ public final class SharkordSession: ObservableObject {
 
     @Published public internal(set) var selectedChannelId: Int?
     @Published public internal(set) var incomingMessage: SharkordMessage?
+    @Published public internal(set) var deletedMessage: MessageDeleteEvent?
     @Published public internal(set) var messagesByChannel: [Int: [SharkordMessage]] = [:]
     @Published public internal(set) var hasMoreOlderByChannel: [Int: Bool] = [:]
     @Published public internal(set) var hasNewerByChannel: [Int: Bool] = [:]
@@ -62,6 +64,7 @@ public final class SharkordSession: ObservableObject {
     @Published public internal(set) var replyCounts: [Int: Int] = [:]
     @Published public internal(set) var pinnedByChannel: [Int: [SharkordMessage]] = [:]
     @Published public internal(set) var threadMessages: [Int: [SharkordMessage]] = [:]
+    @Published public internal(set) var threadNextCursor: [Int: MessagesCursor] = [:]
     @Published public internal(set) var voiceReactions: [VoiceReactionEvent] = []
     @Published public internal(set) var producersByChannel: [Int: [VoiceProducerEvent]] = [:]
     @Published public internal(set) var pluginPushes: [PluginPushEvent] = []
@@ -83,6 +86,12 @@ public final class SharkordSession: ObservableObject {
     var subscriptionTasks: [Task<Void, Never>] = []
     private var cursors: [Int: MessagesCursor] = [:]
     private var loadedChannels: Set<Int> = []
+    struct ThreadRequest {
+        let id = UUID()
+        var changedMessageIds: Set<Int> = []
+    }
+    var threadRequests: [Int: ThreadRequest] = [:]
+    public private(set) var navigationRequestId = UUID()
     private let keychain = KeychainTokenStore()
     private let loginCredentialStore = KeychainLoginCredentialsStore()
 
@@ -119,8 +128,9 @@ public final class SharkordSession: ObservableObject {
     }
 
     public var directMessageChannels: [SharkordChannel] {
-        channels
-            .filter(\.isDm)
+        let openIds = Set(directMessages.map(\.channelId))
+        return channels
+            .filter { $0.isDm && (!usesJoinedDirectMessages || openIds.contains($0.id)) }
             .sorted { $0.createdAt < $1.createdAt }
     }
 
@@ -485,6 +495,7 @@ public final class SharkordSession: ObservableObject {
     }
 
     public func disconnect() {
+        beginNavigation()
         isStopping = true
         subscriptionTasks.forEach { $0.cancel() }
         subscriptionTasks.removeAll()
@@ -515,6 +526,7 @@ public final class SharkordSession: ObservableObject {
         emojis = []
         settings = nil
         directMessages = []
+        usesJoinedDirectMessages = false
         ownUserId = 0
         ownUserPasswordSet = false
         showWelcomeDialog = false
@@ -528,6 +540,7 @@ public final class SharkordSession: ObservableObject {
         pluginLogs = []
         selectedChannelId = nil
         incomingMessage = nil
+        deletedMessage = nil
         messagesByChannel = [:]
         hasMoreOlderByChannel = [:]
         hasNewerByChannel = [:]
@@ -541,6 +554,8 @@ public final class SharkordSession: ObservableObject {
         replyCounts = [:]
         pinnedByChannel = [:]
         threadMessages = [:]
+        threadNextCursor = [:]
+        threadRequests = [:]
         cursors = [:]
         loadedChannels = []
         phase = .disconnected
@@ -602,7 +617,8 @@ public final class SharkordSession: ObservableObject {
         }
     }
 
-    private func apply(_ join: JoinResult) {
+    func apply(_ join: JoinResult) {
+        beginNavigation()
         categories = join.categories.sorted { $0.position < $1.position }
         channels = join.channels
         users = join.users.sorted { $0.name.lowercased() < $1.name.lowercased() }
@@ -621,6 +637,13 @@ public final class SharkordSession: ObservableObject {
         pluginIdsWithComponents = join.pluginIdsWithComponents ?? []
         pluginCapabilityAccess = join.pluginCapabilityAccess ?? []
         pluginsMetadata = join.pluginsMetadata ?? []
+        usesJoinedDirectMessages = join.directMessages != nil
+        directMessages = (join.directMessages ?? []).filter { $0.closedAt == nil }
+        // replies can have been edited or deleted while the socket was offline
+        threadMessages = [:]
+        threadNextCursor = [:]
+        threadRequests = [:]
+        deletedMessage = nil
 
         if let readStates = join.readStates {
             unreadByChannel = readStates.reduce(into: [:]) { result, entry in
@@ -788,8 +811,15 @@ public final class SharkordSession: ObservableObject {
         }
 
         // dms
-        subscribe(client, "dms.onConversationOpen") { [weak self] value in
-            Task { await self?.loadDirectMessagesQuietly() }
+        if usesJoinedDirectMessages {
+            subscribe(client, "dms.onConversationUpdate") { [weak self] value in
+                guard let conversation = try? value.decode(DirectMessageConversation.self) else { return }
+                self?.applyConversation(conversation)
+            }
+        } else {
+            subscribe(client, "dms.onConversationOpen") { [weak self] _ in
+                Task { await self?.loadDirectMessagesQuietly() }
+            }
         }
 
         // voice
@@ -924,15 +954,16 @@ public final class SharkordSession: ObservableObject {
 
     // MARK: - state mutators
 
-    private func upsert(_ message: SharkordMessage, markUnread: Bool) {
+    func upsert(_ message: SharkordMessage, markUnread: Bool) {
         if let parentMessageId = message.parentMessageId {
+            threadRequests[parentMessageId]?.changedMessageIds.insert(message.id)
             var thread = threadMessages[parentMessageId] ?? []
 
             if let index = thread.firstIndex(where: { $0.id == message.id }) {
                 thread[index] = message
             } else {
                 thread.append(message)
-                thread.sort { $0.createdAt < $1.createdAt }
+                thread.sort(by: MessageTimeline.precedes)
             }
 
             threadMessages[parentMessageId] = thread
@@ -950,13 +981,15 @@ public final class SharkordSession: ObservableObject {
             list[index] = message
         } else {
             list.append(message)
-            list.sort { $0.createdAt < $1.createdAt }
+            list.sort(by: MessageTimeline.precedes)
         }
 
         messagesByChannel[message.channelId] = list
 
         if message.pinned == true {
             upsertPinned(message)
+        } else {
+            pinnedByChannel[message.channelId]?.removeAll { $0.id == message.id }
         }
 
         if markUnread, message.channelId != selectedChannelId {
@@ -977,15 +1010,23 @@ public final class SharkordSession: ObservableObject {
         pinnedByChannel[message.channelId] = list
     }
 
-    private func removeMessage(id: Int, channelId: Int) {
-        guard var list = messagesByChannel[channelId] else { return }
-        list.removeAll { $0.id == id }
-        messagesByChannel[channelId] = list
+    func removeMessage(id: Int, channelId: Int) {
+        messagesByChannel[channelId]?.removeAll { $0.id == id }
+        cancelThreadLoad(parentMessageId: id)
+        threadMessages[id] = nil
+        threadNextCursor[id] = nil
+        for parentId in Array(threadRequests.keys) {
+            threadRequests[parentId]?.changedMessageIds.insert(id)
+        }
+        for parentId in Array(threadMessages.keys) {
+            threadMessages[parentId]?.removeAll { $0.id == id && $0.channelId == channelId }
+        }
 
         if var pinned = pinnedByChannel[channelId] {
             pinned.removeAll { $0.id == id }
             pinnedByChannel[channelId] = pinned
         }
+        deletedMessage = MessageDeleteEvent(messageId: id, channelId: channelId)
     }
 
     private func upsert(user: SharkordUser, online: Bool?) {
@@ -1035,6 +1076,7 @@ public final class SharkordSession: ObservableObject {
         pinnedByChannel[channelId] = nil
 
         if selectedChannelId == channelId {
+            beginNavigation()
             selectedChannelId = textChannels.first?.id ?? directMessageChannels.first?.id
         }
     }
@@ -1146,31 +1188,48 @@ public final class SharkordSession: ObservableObject {
 
     // MARK: - channel selection + history
 
-    public func select(channelId: Int) async {
+    @discardableResult
+    public func beginNavigation() -> UUID {
+        navigationRequestId = UUID()
+        isLoadingInitialMessagesByChannel.removeAll()
+        isLoadingMore.removeAll()
+        return navigationRequestId
+    }
+
+    public func select(channelId: Int, requestId: UUID? = nil) async {
+        guard !Task.isCancelled else { return }
+        if let requestId, navigationRequestId != requestId { return }
+        // the channel view can select again while its sidebar selection is still loading
+        if isLoadingInitialMessagesByChannel.contains(channelId) || isLoadingMore.contains(channelId) {
+            selectedChannelId = channelId
+            return
+        }
+        let requestId = requestId ?? beginNavigation()
         if selectedChannelId != channelId {
             unreadBoundaryByChannel[channelId] = nil
             messageJumpByChannel[channelId] = nil
         }
         selectedChannelId = channelId
 
-        // the channel view can select again while its sidebar selection is still loading
-        guard !isLoadingInitialMessagesByChannel.contains(channelId),
-              !isLoadingMore.contains(channelId) else { return }
-
         guard !loadedChannels.contains(channelId) else {
             markAsRead(channelId)
             return
         }
 
-        loadedChannels.insert(channelId)
         isLoadingInitialMessagesByChannel.insert(channelId)
         messageHistoryErrorsByChannel[channelId] = nil
-        defer { isLoadingInitialMessagesByChannel.remove(channelId) }
+        defer {
+            if navigationRequestId == requestId { isLoadingInitialMessagesByChannel.remove(channelId) }
+        }
 
         do {
-            try await load(channelId: channelId, cursor: nil, targetMessageId: nil)
+            try await load(channelId: channelId, cursor: nil, targetMessageId: nil, requestId: requestId)
+            loadedChannels.insert(channelId)
             markAsRead(channelId)
+        } catch is CancellationError {
+            return
         } catch {
+            guard navigationRequestId == requestId else { return }
             let message = Self.describe(error)
             lastError = message
             messageHistoryErrorsByChannel[channelId] = message
@@ -1179,11 +1238,13 @@ public final class SharkordSession: ObservableObject {
     }
 
     public func clearChannelSelection() {
+        beginNavigation()
         selectedChannelId = nil
     }
 
     public func loadOlder(channelId: Int) async {
         guard
+            !Task.isCancelled,
             !isLoadingMore.contains(channelId),
             hasMoreOlderByChannel[channelId] == true,
             let cursor = cursors[channelId]
@@ -1191,41 +1252,65 @@ public final class SharkordSession: ObservableObject {
             return
         }
 
+        let requestId = navigationRequestId
         isLoadingMore.insert(channelId)
-        defer { isLoadingMore.remove(channelId) }
+        defer {
+            if navigationRequestId == requestId { isLoadingMore.remove(channelId) }
+        }
 
         do {
-            try await load(channelId: channelId, cursor: cursor, targetMessageId: nil)
+            try await load(channelId: channelId, cursor: cursor, targetMessageId: nil, requestId: requestId)
+        } catch is CancellationError {
+            return
         } catch {
+            guard navigationRequestId == requestId else { return }
             lastError = Self.describe(error)
         }
     }
 
     /// Loads the window around one message so the list can jump to it.
-    public func jumpTo(messageId: Int, channelId: Int) async {
+    public func jumpTo(messageId: Int, channelId: Int, requestId: UUID? = nil) async {
+        let requestId = requestId ?? beginNavigation()
+        guard navigationRequestId == requestId, !Task.isCancelled else { return }
         selectedChannelId = channelId
         isLoadingMore.insert(channelId)
-        defer { isLoadingMore.remove(channelId) }
+        defer {
+            if navigationRequestId == requestId { isLoadingMore.remove(channelId) }
+        }
 
         do {
-            try await load(channelId: channelId, cursor: nil, targetMessageId: messageId)
+            try await load(channelId: channelId, cursor: nil, targetMessageId: messageId, requestId: requestId)
+            loadedChannels.insert(channelId)
             messageJumpByChannel[channelId] = messageId
+        } catch is CancellationError {
+            return
         } catch {
+            guard navigationRequestId == requestId else { return }
             lastError = Self.describe(error)
         }
     }
 
     public func returnToPresent(channelId: Int) async {
+        guard !Task.isCancelled else { return }
+        let requestId = beginNavigation()
+        isLoadingMore.insert(channelId)
+        defer {
+            if navigationRequestId == requestId { isLoadingMore.remove(channelId) }
+        }
         do {
-            try await load(channelId: channelId, cursor: nil, targetMessageId: nil, replaceHistory: true)
+            try await load(channelId: channelId, cursor: nil, targetMessageId: nil, replaceHistory: true, requestId: requestId)
+            loadedChannels.insert(channelId)
             messageJumpByChannel[channelId] = nil
             markAsRead(channelId)
+        } catch is CancellationError {
+            return
         } catch {
+            guard navigationRequestId == requestId else { return }
             lastError = Self.describe(error)
         }
     }
 
-    private func load(channelId: Int, cursor: MessagesCursor?, targetMessageId: Int?, replaceHistory: Bool = false) async throws {
+    private func load(channelId: Int, cursor: MessagesCursor?, targetMessageId: Int?, replaceHistory: Bool = false, requestId: UUID) async throws {
         guard let client else {
             throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
         }
@@ -1248,6 +1333,12 @@ public final class SharkordSession: ObservableObject {
 
         let value = try await client.query("messages.get", input: .object(input))
         let page = try value.decode(MessagesPage.self)
+        try applyMessagesPage(page, channelId: channelId, cursor: cursor, targetMessageId: targetMessageId, replaceHistory: replaceHistory, requestId: requestId)
+    }
+
+    func applyMessagesPage(_ page: MessagesPage, channelId: Int, cursor: MessagesCursor?, targetMessageId: Int?, replaceHistory: Bool = false, requestId: UUID) throws {
+        try Task.checkCancellation()
+        guard navigationRequestId == requestId else { throw CancellationError() }
         let ascending = page.messages.sorted { $0.createdAt < $1.createdAt }
 
         if targetMessageId != nil || replaceHistory {
@@ -1284,7 +1375,9 @@ public final class SharkordSession: ObservableObject {
         guard !isStopping, phase == .connected || phase == .connecting else { return }
 
         loadedChannels.removeAll()
+        beginNavigation()
         isLoadingInitialMessagesByChannel.removeAll()
+        threadRequests.removeAll()
 
         if let error {
             ClientLogStore.shared.recordError("session.disconnected", error: error)

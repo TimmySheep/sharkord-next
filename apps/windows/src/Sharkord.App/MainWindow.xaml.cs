@@ -38,27 +38,6 @@ public sealed partial class MainWindow : Window
     private string _voiceMediaStatus = "idle";
     private double _noiseSuppressionMix = 100;
 
-    private static readonly string[] QuickReactionShortcodes =
-    [
-        "thumbsup",
-        "heart",
-        "joy",
-        "tada",
-        "thinking_face",
-        "eyes"
-    ];
-
-    private static readonly IReadOnlyDictionary<string, string> ReactionGlyphs =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["thumbsup"] = "👍",
-            ["heart"] = "❤️",
-            ["joy"] = "😂",
-            ["tada"] = "🎉",
-            ["thinking_face"] = "🤔",
-            ["eyes"] = "👀"
-        };
-
     public MainWindow(SharkordSession session)
     {
         _session = session;
@@ -91,6 +70,8 @@ public sealed partial class MainWindow : Window
 
         MessageList.ItemsSource = _messages;
         InitializeDesktopControls();
+        InitializeNativeVoiceControls();
+        InitializeAccountControls();
 
         ApplyLocalisation();
         L10n.LanguageChanged += ApplyLocalisation;
@@ -144,6 +125,7 @@ public sealed partial class MainWindow : Window
         GitHubLink.Content = "GitHub";
         SharkordLink.Content = "Sharkord";
         LocaliseDesktopControls();
+        LocaliseAccountControls();
         AdvancedOptionsText.Text = L10n.T("advancedOptions", ns: "macos");
         RefreshLanguagePicker();
         HostBox.Header = L10n.T("serverAddress", ns: "windows");
@@ -225,10 +207,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            var settings = Windows.Storage.ApplicationData.Current.LocalSettings.Values;
-            return settings.TryGetValue("voice.noiseSuppressionMix", out var value) && value is double mix
-                ? Math.Clamp(mix, 0, 100)
-                : 100;
+            return Math.Clamp(FilePreferences.Local.Get("voice.noiseSuppressionMix", 100d), 0, 100);
         }
         catch (Exception exception)
         {
@@ -342,6 +321,7 @@ public sealed partial class MainWindow : Window
             Interlocked.Exchange(ref _refreshQueued, 0);
             if (_session.Phase != SessionPhase.Connected && _voiceWebViewInitialized)
             {
+                InvalidateMediaPreview();
                 _ = VoiceMediaWebView.ExecuteScriptAsync("window.coveVoice?.stop()");
                 _voiceMediaStatus = "idle";
                 _microphoneMuted = true;
@@ -358,6 +338,7 @@ public sealed partial class MainWindow : Window
 
     private void Refresh()
     {
+        RefreshSoundEvents();
         ConnectButton.IsEnabled = _session.Phase != SessionPhase.Connecting;
         ConnectProgress.IsActive = _session.Phase == SessionPhase.Connecting;
         ConnectError.Text = _session.Phase == SessionPhase.Failed ? _session.LastError ?? "" : "";
@@ -381,13 +362,17 @@ public sealed partial class MainWindow : Window
 
         SyncChannels();
         RefreshDesktopControls();
+        RefreshWelcomeProfile();
 
         var selected = _session.SelectedChannelId is { } id ? _session.Channel(id) : null;
-        var selectedVoice = selected?.IsVoice == true;
+        var selectedVoice = (selected?.IsVoice == true && !_session.IsVoiceTextSelected) || (selected?.IsDm == true && _showDmVoice);
         TextChannelPanel.Visibility = selectedVoice ? Visibility.Collapsed : Visibility.Visible;
         VoiceChannelPanel.Visibility = selectedVoice ? Visibility.Visible : Visibility.Collapsed;
         VoiceChannelTitle.Text = selectedVoice ? $"🔊  {selected!.Name}" : "";
         ChannelTitle.Text = selected is null || selectedVoice ? "" : $"# {selected.Name}";
+        if (selected?.IsDm == true) { ChannelTitle.Text = _session.DirectMessagePartner(selected)?.Name ?? selected.Name; }
+        if (_threadParent is not null) { ChannelTitle.Text = $"{L10n.T("thread")} · {ChannelTitle.Text}"; }
+        RefreshNavigationControls();
 
         if (selectedVoice)
         {
@@ -401,15 +386,6 @@ public sealed partial class MainWindow : Window
 
         SyncMessageRows(selected);
     }
-
-    private IReadOnlyList<ReactionItem> BuildReactionItems(SharkordMessage message) => _session
-        .ReactionGroups(message)
-        .Select(group =>
-        {
-            var display = ReactionGlyphs.TryGetValue(group.Emoji, out var glyph) ? glyph : $":{group.Emoji}:";
-            return new ReactionItem(message.Id, group.Emoji, $"{display} {group.Count}", group.Mine);
-        })
-        .ToArray();
 
     private void SyncChannels()
     {
@@ -433,12 +409,12 @@ public sealed partial class MainWindow : Window
         AddChannelSection(
             "text",
             L10n.T("textChannels", ns: "windows"),
-            _session.TextChannels.OrderBy(channel => channel.Position).ToList()
+            _session.TextChannels.Where(_session.CanViewChannel).OrderBy(channel => channel.Position).ToList()
         );
         AddChannelSection(
             "voice",
             L10n.T("voiceChannels", ns: "windows"),
-            _session.Channels.Where(channel => channel.IsVoice && !channel.IsDm)
+            _session.Channels.Where(channel => channel.IsVoice && !channel.IsDm && _session.CanViewChannel(channel))
                 .OrderBy(channel => channel.Position)
                 .ToList()
         );
@@ -539,20 +515,25 @@ public sealed partial class MainWindow : Window
     private async void OnConnectClick(object sender, RoutedEventArgs e)
     {
         ResetDesktopWorkspace();
+        var loginIdentity = IdentityBox.Text;
+        var loginPassword = PasswordBox.Password;
+        var rememberLogin = RememberLoginBox.IsChecked == true;
         await _session.ConnectAsync(
             HostBox.Text,
-            IdentityBox.Text,
-            PasswordBox.Password,
+            loginIdentity,
+            loginPassword,
             ServerPasswordBox.Password,
             InviteBox.Text
         );
 
         if (_session.Phase == SessionPhase.Connected)
         {
+            RememberConnectedAccount(loginIdentity, loginPassword, rememberLogin);
             var restored = await RestoreLastSelectedChannelAsync();
             if (!restored && _session.SelectedChannelId is { } channelId)
             {
-                PrepareChannelSelection(channelId);
+                CloseThread();
+            PrepareChannelSelection(channelId);
                 await _session.SelectChannelAsync(channelId);
             }
         }
@@ -656,6 +637,7 @@ public sealed partial class MainWindow : Window
     {
         if (e.InvokedItem is TreeViewNode { Content: ChannelTreeItem { ChannelId: { } channelId } })
         {
+            CloseThread();
             PrepareChannelSelection(channelId);
             RememberLastSelectedChannel(channelId);
             await _session.SelectChannelAsync(channelId);
@@ -763,6 +745,7 @@ public sealed partial class MainWindow : Window
             }
 
             var type = message["type"]?.GetValue<string>();
+            if (HandleNativeMediaMessage(message)) { return; }
             if (type == "ready")
             {
                 _voiceWorkerReady = true;
@@ -825,7 +808,7 @@ public sealed partial class MainWindow : Window
 
     private void OnVoiceProducerChanged(VoiceProducerEvent producer, bool added)
     {
-        if (producer.RemoteId == _session.OwnUserId)
+        if (producer.RemoteId == _session.OwnUserId && !producer.Kind.StartsWith("external_", StringComparison.Ordinal))
         {
             return;
         }
@@ -850,7 +833,7 @@ public sealed partial class MainWindow : Window
 
     private async void OnJoinVoiceClick(object sender, RoutedEventArgs e)
     {
-        if (_session.SelectedChannelId is not { } channelId || _session.Channel(channelId) is not { IsVoice: true })
+        if (_session.SelectedChannelId is not { } channelId || _session.Channel(channelId) is not { SupportsVoice: true })
         {
             return;
         }
@@ -867,6 +850,7 @@ public sealed partial class MainWindow : Window
             }
 
             await WaitForVoiceWorkerAsync();
+            await ApplyMediaOptionsAsync(channelId);
             var result = await _session.JoinVoiceAsync(channelId);
             var capabilities = result?["routerRtpCapabilities"]
                 ?? throw new InvalidOperationException("The server did not return voice capabilities.");
@@ -972,6 +956,7 @@ public sealed partial class MainWindow : Window
 
     private async Task LeaveVoiceAsync()
     {
+        InvalidateMediaPreview();
         try
         {
             await VoiceMediaWebView.ExecuteScriptAsync("window.coveVoice?.stop()");
@@ -994,7 +979,7 @@ public sealed partial class MainWindow : Window
     private void RefreshVoiceControls()
     {
         var selected = _session.SelectedChannelId is { } id ? _session.Channel(id) : null;
-        var inSelectedVoice = selected?.IsVoice == true && _session.CurrentVoiceChannelId == selected.Id;
+        var inSelectedVoice = selected?.SupportsVoice == true && _session.CurrentVoiceChannelId == selected.Id;
         var mediaConnected = inSelectedVoice && _voiceMediaStatus == "connected";
 
         JoinVoiceButton.Visibility = !inSelectedVoice || _voiceMediaStatus == "failed"
@@ -1014,8 +999,9 @@ public sealed partial class MainWindow : Window
         MicrophoneButton.Content = L10n.T(_microphoneMuted ? "unmuteMic" : "muteMic", ns: "windows");
         DeafenButton.Content = L10n.T(_deafened ? "undeafen" : "deafen", ns: "windows");
         RefreshUserVoiceControls();
-        VoiceChannelTitle.Text = selected?.IsVoice == true ? $"🔊  {selected.Name}" : "";
-        if (selected?.IsVoice != true)
+        RefreshNativeVoiceControls();
+        VoiceChannelTitle.Text = selected?.SupportsVoice == true ? $"🔊  {selected.Name}" : "";
+        if (selected?.SupportsVoice != true)
         {
             return;
         }
@@ -1036,55 +1022,6 @@ public sealed partial class MainWindow : Window
         await SendComposer();
     }
 
-    private async void OnReactionClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is ToggleButton button && button.DataContext is ReactionItem reaction)
-        {
-            await ToggleReactionAsync(reaction.MessageId, reaction.Emoji);
-        }
-    }
-
-    private void OnAddReactionClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button button || button.DataContext is not MessageItem message)
-        {
-            return;
-        }
-
-        var menu = new MenuFlyout();
-
-        foreach (var shortcode in QuickReactionShortcodes)
-        {
-            var item = new MenuFlyoutItem { Text = ReactionGlyphs[shortcode], Tag = shortcode };
-            item.Click += async (menuSender, _) =>
-            {
-                if (menuSender is MenuFlyoutItem selected && selected.Tag is string emoji)
-                {
-                    await ToggleReactionAsync(message.Id, emoji);
-                }
-            };
-            menu.Items.Add(item);
-        }
-
-        menu.ShowAt(button);
-    }
-
-    private async Task ToggleReactionAsync(int messageId, string emoji)
-    {
-        ChatErrorText.Text = "";
-
-        try
-        {
-            await _session.ToggleReactionAsync(messageId, emoji);
-        }
-        catch (Exception exception)
-        {
-            ClientLogStore.Shared.RecordError("chat.reaction.failed", exception);
-            ChatErrorText.Text = exception.Message;
-            Refresh();
-        }
-    }
-
     private async Task SendComposer()
     {
         await SendDesktopComposerAsync();
@@ -1096,8 +1033,6 @@ public sealed partial class MainWindow : Window
         "language"
     );
 
-    [Microsoft.UI.Xaml.Data.Bindable]
-    public sealed record ReactionItem(int MessageId, string Emoji, string Label, bool Mine);
     [Microsoft.UI.Xaml.Data.Bindable]
     public sealed record ChannelTreeItem(string Name, int? ChannelId, string? GroupKey);
 }

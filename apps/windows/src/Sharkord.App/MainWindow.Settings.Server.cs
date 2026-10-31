@@ -274,6 +274,11 @@ public sealed partial class MainWindow
             Content = L10n.T("showWelcomeDialogLabel", ns: "settings"),
             IsChecked = settings["showWelcomeDialog"]?.GetValue<bool>() ?? true
         };
+        var firstPassword = new CheckBox
+        {
+            Content = L10n.T("onlyAskForPasswordOnFirstJoinLabel", ns: "settings"),
+            IsChecked = settings["onlyAskForPasswordOnFirstJoin"]?.GetValue<bool>() ?? false
+        };
         var status = new TextBlock { TextWrapping = TextWrapping.Wrap };
         var save = new Button
         {
@@ -294,7 +299,8 @@ public sealed partial class MainWindow
                     ["enableSearch"] = search.IsChecked ?? true,
                     ["enablePlugins"] = plugins.IsChecked ?? true,
                     ["webRtcSimulcastEnabled"] = simulcast.IsChecked ?? false,
-                    ["showWelcomeDialog"] = welcome.IsChecked ?? true
+                    ["showWelcomeDialog"] = welcome.IsChecked ?? true,
+                    ["onlyAskForPasswordOnFirstJoin"] = firstPassword.IsChecked ?? false
                 };
                 if (removePassword.IsChecked == true)
                 {
@@ -319,6 +325,8 @@ public sealed partial class MainWindow
         };
 
         var form = new StackPanel { Spacing = 12, Margin = new Thickness(20) };
+        AddServerBrandingControls(form, status);
+        form.Children.Add(firstPassword);
         form.Children.Add(name);
         form.Children.Add(description);
         form.Children.Add(password);

@@ -13,7 +13,7 @@ struct FlowLayout: Layout {
         var rowWidth: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            let size = subview.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
 
             if rowWidth > 0, rowWidth + size.width > maxWidth {
                 rows.append([])
@@ -46,7 +46,7 @@ struct FlowLayout: Layout {
         var rowHeight: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            let size = subview.sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
 
             if x > bounds.minX, x + size.width > bounds.maxX {
                 x = bounds.minX
@@ -133,6 +133,7 @@ struct MessageSpanView: View {
     let span: MessageSpan
     var emojiOnly: Bool = false
     @State private var showsImageViewer = false
+    @State private var showsProfile = false
 
     var body: some View {
         switch span.content {
@@ -142,14 +143,25 @@ struct MessageSpanView: View {
         case .lineBreak:
             EmptyView()
 
-        case .mention(_, let label):
-            chip(label, color: Theme.accent)
+        case .mention(let userId, let label):
+            Button { showsProfile = true } label: { chip(label, color: Theme.accent) }
+                .buttonStyle(.plain)
+                .disabled(userId.flatMap { session.user(for: $0) } == nil)
+                .popover(isPresented: $showsProfile) {
+                    if let userId, let user = session.user(for: userId) {
+                        UserProfileCard(user: user).frame(width: 290)
+                    }
+                }
 
-        case .channelReference(_, let label):
-            chip(label, color: Theme.accent.opacity(0.85))
+        case .channelReference(let channelId, let label):
+            Button {
+                if let channelId { Task { await session.select(channelId: channelId) } }
+            } label: { chip(label, color: Theme.accent.opacity(0.85)) }
+                .buttonStyle(.plain)
+                .disabled(channelId.flatMap { session.channel(for: $0) } == nil)
 
-        case .emoji(_, let src):
-            emoji(src: src)
+        case .emoji(let name, let src):
+            emoji(name: name, src: src)
 
         case .media(let src, let alt):
             media(src: src, alt: alt)
@@ -199,7 +211,7 @@ struct MessageSpanView: View {
     }
 
     @ViewBuilder
-    private func emoji(src: String?) -> some View {
+    private func emoji(name: String, src: String?) -> some View {
         let side: CGFloat = emojiOnly ? 32 : 19
 
         if let src, let url = session.url(forPath: src) {
@@ -207,16 +219,15 @@ struct MessageSpanView: View {
                 if case .success(let image) = phase {
                     image.resizable().scaledToFit()
                 } else {
-                    Text(":emoji:")
+                    Text(EmojiCatalog.glyph(for: name))
                         .font(.system(size: side * 0.5))
                         .foregroundStyle(.secondary)
                 }
             }
             .frame(width: side, height: side)
         } else {
-            Text(":emoji:")
-                .font(.system(size: side * 0.5))
-                .foregroundStyle(.secondary)
+            Text(EmojiCatalog.glyph(for: name))
+                .font(.system(size: side))
         }
     }
 
@@ -404,12 +415,12 @@ struct ReactionBar: View {
                 if case .success(let image) = phase {
                     image.resizable().scaledToFit()
                 } else {
-                    Text(group.emoji).font(.system(size: 12))
+                    Text(EmojiCatalog.glyph(for: group.emoji)).font(.system(size: 12))
                 }
             }
             .frame(width: 15, height: 15)
         } else {
-            Text(group.emoji)
+            Text(EmojiCatalog.glyph(for: group.emoji))
                 .font(.system(size: 12))
         }
     }

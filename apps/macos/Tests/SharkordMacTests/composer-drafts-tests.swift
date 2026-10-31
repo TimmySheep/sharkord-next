@@ -3,6 +3,19 @@ import XCTest
 
 @MainActor
 final class ComposerDraftsTests: XCTestCase {
+    func testLateSendAndRemovalDoNotReplaceNewDraftText() {
+        let drafts = ComposerDrafts()
+        let attachment = PendingAttachment(id: "temp", fileId: "temp", fileName: "file.txt")
+        drafts.save(text: "new draft", attachments: [attachment], channelId: 7, parentMessageId: 8)
+        drafts.clearIfMatches(text: "sent draft", attachments: [attachment], channelId: 7, parentMessageId: 8)
+        XCTAssertEqual(drafts.draft(channelId: 7, parentMessageId: 8)?.text, "new draft")
+        drafts.removeAttachment(id: "temp", channelId: 7, parentMessageId: 8)
+        XCTAssertEqual(drafts.draft(channelId: 7, parentMessageId: 8)?.text, "new draft")
+        XCTAssertEqual(drafts.draft(channelId: 7, parentMessageId: 8)?.attachments, [])
+        drafts.clearIfMatches(text: "new draft", attachments: [], channelId: 7, parentMessageId: 8)
+        XCTAssertNil(drafts.draft(channelId: 7, parentMessageId: 8))
+    }
+
     func testThreadPanelIdentityIncludesTheThreadMessageId() throws {
         let packageRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
