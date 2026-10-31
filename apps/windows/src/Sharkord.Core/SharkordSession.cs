@@ -933,18 +933,29 @@ public sealed partial class SharkordSession : IAsyncDisposable
 
     public async Task LeaveVoiceAsync(CancellationToken cancellationToken = default)
     {
-        if (CurrentVoiceChannelId is null)
+        if (CurrentVoiceChannelId is not { } channelId)
         {
             return;
         }
 
-        var client = _client ?? throw new TrpcClientError("DISCONNECTED", "Not connected");
-        await client.MutationAsync("voice.leave", null, cancellationToken).ConfigureAwait(false);
-        _voiceSubscriptions?.Cancel();
-        _voiceSubscriptions?.Dispose();
-        _voiceSubscriptions = null;
-        CurrentVoiceChannelId = null;
-        Notify();
+        var subscriptions = _voiceSubscriptions;
+        try
+        {
+            var client = _client ?? throw new TrpcClientError("DISCONNECTED", "Not connected");
+            await client.MutationAsync("voice.leave", null, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // a late leave response must not tear down a replacement voice session
+            if (CurrentVoiceChannelId == channelId && ReferenceEquals(_voiceSubscriptions, subscriptions))
+            {
+                _voiceSubscriptions?.Cancel();
+                _voiceSubscriptions?.Dispose();
+                _voiceSubscriptions = null;
+                CurrentVoiceChannelId = null;
+                Notify();
+            }
+        }
     }
 
     public async Task<JsonNode?> CallVoiceMediaProcedureAsync(
@@ -1358,6 +1369,12 @@ public sealed partial class SharkordSession : IAsyncDisposable
         {
             return;
         }
+
+        // socket teardown removes server voice membership, so reconnect starts outside voice
+        _voiceSubscriptions?.Cancel();
+        _voiceSubscriptions?.Dispose();
+        _voiceSubscriptions = null;
+        CurrentVoiceChannelId = null;
 
         if (exception is null)
         {
