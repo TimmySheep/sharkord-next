@@ -14,7 +14,7 @@ public enum SessionPhase
 /// Owns one connection to one server: login, handshake, join, every live subscription and
 /// the client side state the UI reads. Mirrors <c>SharkordSession</c> on the macOS side.
 /// </summary>
-public sealed class SharkordSession : IAsyncDisposable
+public sealed partial class SharkordSession : IAsyncDisposable
 {
     private static readonly TimeSpan[] ReconnectDelays =
     [
@@ -333,6 +333,10 @@ public sealed class SharkordSession : IAsyncDisposable
         _reconnectAttempt = 0;
 
         await LoadDirectMessagesQuietlyAsync().ConfigureAwait(false);
+        if (SelectedChannelId is { } selectedChannelId)
+        {
+            await SelectChannelAsync(selectedChannelId, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private void Apply(JoinResult join)
@@ -349,6 +353,7 @@ public sealed class SharkordSession : IAsyncDisposable
 
         lock (_gate)
         {
+            InvalidateHistory();
             _unreadByChannel.Clear();
             _unreadRevision++;
             foreach (var (channel, count) in join.ReadStates ?? [])
@@ -360,7 +365,7 @@ public sealed class SharkordSession : IAsyncDisposable
             }
         }
 
-        if (SelectedChannelId is null)
+        if (SelectedChannelId is null || !Channels.Any(channel => channel.Id == SelectedChannelId))
         {
             var first = TextChannels.FirstOrDefault() ?? DirectMessageChannels.FirstOrDefault();
 
@@ -419,18 +424,7 @@ public sealed class SharkordSession : IAsyncDisposable
 
             if (typing is not null)
             {
-                lock (_gate)
-                {
-                    if (!_typingByChannel.TryGetValue(typing.ChannelId, out var entries))
-                    {
-                        entries = [];
-                        _typingByChannel[typing.ChannelId] = entries;
-                    }
-
-                    entries[typing.UserId] = DateTime.UtcNow;
-                }
-
-                Notify();
+                ApplyTyping(typing);
             }
         });
 
@@ -488,6 +482,12 @@ public sealed class SharkordSession : IAsyncDisposable
                 Users = Users.Where(u => u.Id != id).ToList();
                 Notify();
             }
+        });
+
+        Subscribe(client, "channels.onPermissionsUpdate", token, value =>
+        {
+            ChannelPermissions = value.DeserializeObject<Dictionary<int, ChannelPermissionEntry>>() ?? [];
+            Notify();
         });
 
         Subscribe(client, "channels.onCreate", token, value => UpsertChannel(value));
@@ -603,10 +603,17 @@ public sealed class SharkordSession : IAsyncDisposable
     {
         lock (_gate)
         {
-            if (!_messagesByChannel.TryGetValue(message.ChannelId, out var list))
+            var history = _messagesByChannel;
+            var key = message.ChannelId;
+            if (message.ParentMessageId is { } parentId)
+            {
+                history = _messagesByThread;
+                key = parentId;
+            }
+            if (!history.TryGetValue(key, out var list))
             {
                 list = [];
-                _messagesByChannel[message.ChannelId] = list;
+                history[key] = list;
             }
 
             var index = list.FindIndex(m => m.Id == message.Id);
@@ -619,7 +626,7 @@ public sealed class SharkordSession : IAsyncDisposable
                 }
                 list[index] = message;
             }
-            else if (message.ParentMessageId is null)
+            else if (message.ParentMessageId is not null || !_hasNewer.Contains(message.ChannelId))
             {
                 if (list.Count == 0 || MessageOrder.Compare(list[^1], message) < 0)
                 {
@@ -651,11 +658,19 @@ public sealed class SharkordSession : IAsyncDisposable
     {
         lock (_gate)
         {
-            if (!_messagesByChannel.TryGetValue(channelId, out var list) || list.RemoveAll(m => m.Id == messageId) == 0)
+            var removed = false;
+            if (_messagesByChannel.TryGetValue(channelId, out var list) && list.RemoveAll(message => message.Id == messageId) > 0)
             {
-                return;
+                _messageRevisions[channelId] = ++_nextMessageRevision;
+                removed = true;
             }
-            _messageRevisions[channelId] = ++_nextMessageRevision;
+            foreach (var thread in _messagesByThread.Values)
+            {
+                removed |= thread.RemoveAll(message => message.Id == messageId && message.ChannelId == channelId) > 0;
+            }
+            _messagesByThread.Remove(messageId);
+            _threadCursors.Remove(messageId);
+            if (!removed) { return; }
         }
 
         Notify();
@@ -995,7 +1010,7 @@ public sealed class SharkordSession : IAsyncDisposable
         await LoadAsync(channelId, cursor, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task LoadAsync(int channelId, MessagesCursor? cursor, CancellationToken cancellationToken)
+    private async Task LoadAsync(int channelId, MessagesCursor? cursor, CancellationToken cancellationToken, int? targetMessageId = null)
     {
         var client = _client ?? throw new TrpcClientError("DISCONNECTED", "Not connected");
 
@@ -1014,6 +1029,16 @@ public sealed class SharkordSession : IAsyncDisposable
             };
         }
 
+        if (targetMessageId is { } target) { input["targetMessageId"] = target; }
+        long request;
+        long generation;
+        lock (_gate)
+        {
+            generation = _historyGeneration;
+            request = _historyRequests.GetValueOrDefault(channelId) + 1;
+            _historyRequests[channelId] = request;
+        }
+
         var node = await client.QueryAsync("messages.get", input, cancellationToken).ConfigureAwait(false);
         var page = node.DeserializeObject<MessagesPage>() ?? new MessagesPage();
 
@@ -1021,6 +1046,12 @@ public sealed class SharkordSession : IAsyncDisposable
 
         lock (_gate)
         {
+            if (generation != _historyGeneration || request != _historyRequests.GetValueOrDefault(channelId)) { return; }
+            if (cursor is null)
+            {
+                if (page.HasNewer == true) { _hasNewer.Add(channelId); }
+                else { _hasNewer.Remove(channelId); }
+            }
             if (cursor is null)
             {
                 _messagesByChannel[channelId] = ascending;
@@ -1052,7 +1083,8 @@ public sealed class SharkordSession : IAsyncDisposable
         string text,
         int? replyToMessageId = null,
         IReadOnlyList<string>? files = null,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        int? parentMessageId = null
     )
     {
         var client = _client ?? throw new TrpcClientError("DISCONNECTED", "Not connected");
@@ -1076,6 +1108,8 @@ public sealed class SharkordSession : IAsyncDisposable
             ["channelId"] = channelId,
             ["files"] = fileArray
         };
+
+        if (parentMessageId is { } parent) { input["parentMessageId"] = parent; }
 
         if (replyToMessageId is { } replyTo)
         {
@@ -1129,7 +1163,7 @@ public sealed class SharkordSession : IAsyncDisposable
     }
 
     /// <summary>Fire and forget: a typing signal is not worth surfacing an error for.</summary>
-    public void SignalTyping(int channelId)
+    public void SignalTyping(int channelId, int? parentMessageId = null)
     {
         var client = _client;
 
@@ -1144,7 +1178,7 @@ public sealed class SharkordSession : IAsyncDisposable
             {
                 await client.MutationAsync(
                     "messages.signalTyping",
-                    new JsonObject { ["channelId"] = channelId }
+                    new JsonObject { ["channelId"] = channelId, ["parentMessageId"] = parentMessageId }
                 ).ConfigureAwait(false);
             }
             catch
@@ -1282,6 +1316,7 @@ public sealed class SharkordSession : IAsyncDisposable
 
         lock (_gate)
         {
+            InvalidateHistory();
             _messagesByChannel.Clear();
             _messageRevisions.Clear();
             _cursors.Clear();

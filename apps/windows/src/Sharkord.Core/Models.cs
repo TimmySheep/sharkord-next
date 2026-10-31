@@ -55,7 +55,7 @@ public sealed class SharkordChannel
     public long? UpdatedAt { get; init; }
 
     [JsonIgnore]
-    public bool IsVoice => string.Equals(Type, "VOICE", StringComparison.OrdinalIgnoreCase);
+    public bool IsVoice => !IsDm && string.Equals(Type, "VOICE", StringComparison.OrdinalIgnoreCase);
 
     [JsonIgnore]
     public bool IsText => !IsVoice;
