@@ -205,10 +205,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            var settings = Windows.Storage.ApplicationData.Current.LocalSettings.Values;
-            return settings.TryGetValue("voice.noiseSuppressionMix", out var value) && value is double mix
-                ? Math.Clamp(mix, 0, 100)
-                : 100;
+            return Math.Clamp(FilePreferences.Local.Get("voice.noiseSuppressionMix", 100d), 0, 100);
         }
         catch (Exception exception)
         {

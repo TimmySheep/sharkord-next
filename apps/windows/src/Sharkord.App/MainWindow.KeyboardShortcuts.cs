@@ -483,8 +483,8 @@ public sealed partial class MainWindow
     {
         try
         {
-            var values = Windows.Storage.ApplicationData.Current.LocalSettings.Values;
-            if (!values.TryGetValue(KeyboardShortcutPreferenceKey, out var stored) || stored is not string json ||
+            var json = FilePreferences.Local.Get(KeyboardShortcutPreferenceKey, "");
+            if (string.IsNullOrWhiteSpace(json) ||
                 JsonSerializer.Deserialize<KeyboardShortcutPreferences>(json) is not { } loaded)
             {
                 return new KeyboardShortcutPreferences();
@@ -512,8 +512,7 @@ public sealed partial class MainWindow
     {
         try
         {
-            Windows.Storage.ApplicationData.Current.LocalSettings.Values[KeyboardShortcutPreferenceKey] =
-                JsonSerializer.Serialize(preferences);
+            FilePreferences.Local.Set(KeyboardShortcutPreferenceKey, JsonSerializer.Serialize(preferences));
         }
         catch (Exception exception)
         {

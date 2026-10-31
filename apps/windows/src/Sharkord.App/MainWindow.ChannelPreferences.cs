@@ -1,4 +1,3 @@
-using System.Globalization;
 using Sharkord.Core;
 
 namespace Sharkord.App;
@@ -15,24 +14,8 @@ public sealed partial class MainWindow
 
         try
         {
-            var values = Windows.Storage.ApplicationData.Current.LocalSettings.Values;
             var settingKey = LastChannelPreference.SettingKey(serverBaseUrl);
-            if (!values.TryGetValue(settingKey, out var savedValue))
-            {
-                return false;
-            }
-
-            int? savedChannelId = savedValue switch
-            {
-                int id => id,
-                string text when int.TryParse(
-                    text,
-                    NumberStyles.None,
-                    CultureInfo.InvariantCulture,
-                    out var parsedId
-                ) => parsedId,
-                _ => null
-            };
+            var savedChannelId = FilePreferences.Local.Get<int?>(settingKey, null);
             if (savedChannelId is not { } channelId ||
                 _session.Channel(channelId) is not { } channel ||
                 !LastChannelPreference.CanRestoreChannel(channel.IsText, channel.IsDm, channel.IsVoice))
@@ -62,9 +45,7 @@ public sealed partial class MainWindow
 
         try
         {
-            Windows.Storage.ApplicationData.Current.LocalSettings.Values[
-                LastChannelPreference.SettingKey(serverBaseUrl)
-            ] = channelId;
+            FilePreferences.Local.Set(LastChannelPreference.SettingKey(serverBaseUrl), channelId);
         }
         catch (Exception exception)
         {

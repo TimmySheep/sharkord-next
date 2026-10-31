@@ -122,10 +122,7 @@ public sealed partial class MainWindow
     {
         try
         {
-            var values = Windows.Storage.ApplicationData.Current.LocalSettings.Values;
-            return values.TryGetValue(settingKey, out var value) && value is bool stored
-                ? stored
-                : defaultValue;
+            return FilePreferences.Local.Get(settingKey, defaultValue);
         }
         catch (Exception exception)
         {
@@ -138,7 +135,7 @@ public sealed partial class MainWindow
     {
         try
         {
-            Windows.Storage.ApplicationData.Current.LocalSettings.Values[settingKey] = value;
+            FilePreferences.Local.Set(settingKey, value);
         }
         catch (Exception exception)
         {
@@ -383,8 +380,7 @@ public sealed partial class MainWindow
             value.Text = $"{_noiseSuppressionMix:0}%";
             try
             {
-                Windows.Storage.ApplicationData.Current.LocalSettings.Values["voice.noiseSuppressionMix"] =
-                    _noiseSuppressionMix;
+                FilePreferences.Local.Set("voice.noiseSuppressionMix", _noiseSuppressionMix);
             }
             catch (Exception exception)
             {
