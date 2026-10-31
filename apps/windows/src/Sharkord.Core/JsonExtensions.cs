@@ -8,7 +8,7 @@ namespace Sharkord.Core;
 /// here throws on a missing or wrong-typed field; callers that require a value use the
 /// typed models instead.
 /// </summary>
-internal static class JsonExtensions
+public static class JsonExtensions
 {
     private static readonly JsonSerializerOptions DefaultOptions = new()
     {

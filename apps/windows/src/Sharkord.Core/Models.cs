@@ -142,6 +142,7 @@ public sealed class SharkordSettings
     public bool? EnableSearch { get; init; }
     public bool? StorageSignedUrlsEnabled { get; init; }
     public long? WebRtcMaxBitrate { get; init; }
+    public bool? WebRtcSimulcastEnabled { get; init; }
 }
 
 public sealed class SharkordServerInfo
@@ -197,6 +198,8 @@ public sealed class JoinResult
     public SharkordSettings PublicSettings { get; init; } = new();
     public Dictionary<string, long>? ReadStates { get; init; }
     public List<DirectMessageConversation>? DirectMessages { get; init; }
+    public Dictionary<int, VoiceChannelState>? VoiceMap { get; init; }
+    public Dictionary<int, Dictionary<int, ExternalVoiceStream>>? ExternalStreamsMap { get; init; }
     public bool? ShowWelcomeDialog { get; init; }
 }
 
