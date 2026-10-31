@@ -6,10 +6,10 @@
 	<string>Sharkord Screen Broadcast</string>
 	<key>NSExtension</key>
 	<dict>
+		<key>RPBroadcastProcessMode</key>
+		<string>RPBroadcastProcessModeSampleBuffer</string>
 		<key>NSExtensionAttributes</key>
 		<dict>
-			<key>RPBroadcastProcessMode</key>
-			<string>RPBroadcastProcessModeSampleBuffer</string>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.broadcast-services-upload</string>
