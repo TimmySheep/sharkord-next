@@ -47,5 +47,16 @@
   "attachmentLimit": "Você pode anexar no máximo {{count}} arquivos.",
   "attachmentSizeLimit": "Este arquivo excede o limite de envio de {{size}} MB.",
   "removeAttachment": "Remover {{name}}",
-  "loadMoreReplies": "Carregar mais respostas"
+  "loadMoreReplies": "Carregar mais respostas",
+  "recentEmojis": "Emojis recentes",
+  "revealSpoiler": "Revelar spoiler",
+  "formatBold": "Negrito",
+  "formatItalic": "Itálico",
+  "formatCode": "Código em linha",
+  "formatCodeBlock": "Bloco de código",
+  "formatSpoiler": "Spoiler",
+  "formatMention": "Mencionar membro",
+  "formatChannel": "Referenciar canal",
+  "formatMessage": "Formatar mensagem",
+  "uploadProgress": "{{name}}: {{percent}}% · {{speed}} KB/s"
 }

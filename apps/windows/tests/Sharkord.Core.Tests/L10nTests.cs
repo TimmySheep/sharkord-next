@@ -316,7 +316,7 @@ public class L10nTests
     public void WinUiMessageTemplateWiresReactionDisplayAndActions()
     {
         var xaml = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml"));
-        var code = File.ReadAllText(SourceFile("Sharkord.App/MainWindow.xaml.cs"));
+        var code = File.ReadAllText(SourceFile("Sharkord.App/main-window-reactions.cs"));
 
         Assert.Contains("ItemsSource=\"{Binding Reactions}\"", xaml);
         Assert.Contains("Click=\"OnReactionClick\"", xaml);

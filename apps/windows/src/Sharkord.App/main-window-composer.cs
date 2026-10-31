@@ -18,21 +18,17 @@ public sealed partial class MainWindow
     private string _originalEditText = "";
     private bool _sendingComposer;
     private bool _uploadingAttachments;
-    private Flyout? _composerEmojiFlyout;
     private int _composerGeneration;
     private int? _lastTypingChannelId;
     private int? _lastTypingParentId;
     private long _lastTypingSignalAt;
 
     private bool CanSendMessage() =>
-        _session.SelectedChannelId is { } id && _session.Channel(id) is { IsText: true } &&
+        _session.SelectedChannelId is { } id && _session.Channel(id) is { } channel && (channel.IsText || _session.IsVoiceTextSelected) &&
         _session.HasPermission("SEND_MESSAGES") && _session.HasChannelPermission(id, "SEND_MESSAGES");
 
     private bool CanAttachFiles() =>
-        CanSendMessage() && _session.HasPermission("UPLOAD_FILES") &&
-        _session.Settings?.StorageUploadEnabled != false && _editingMessage is null &&
-        (_session.SelectedChannelId is not { } id || _session.Channel(id)?.IsDm != true ||
-         _session.Settings?.StorageFileSharingInDirectMessages != false);
+        CanSendMessage() && _editingMessage is null && _session.SelectedChannelId is { } id && CanAttachToChannel(id);
 
     private bool CanUseComposer() => _editingMessage is null ? CanSendMessage() : CanEditMessage(_editingMessage);
 
@@ -40,8 +36,10 @@ public sealed partial class MainWindow
     {
         var allowed = CanUseComposer() && !_sendingComposer;
         ComposerBox.IsEnabled = allowed;
-        SendButton.IsEnabled = allowed && !_uploadingAttachments;
+        SendButton.IsEnabled = allowed && !_uploadingAttachments && _removingAttachments.Count == 0;
         ComposerEmojiButton.IsEnabled = allowed;
+        ComposerFormatButton.IsEnabled = allowed;
+        LabelControl(ComposerFormatButton, L10n.T("formatMessage", ns: "windows"));
         AttachButton.IsEnabled = allowed && CanAttachFiles() && !_uploadingAttachments;
         PendingAttachmentList.Visibility = _editingMessage is null ? Visibility.Visible : Visibility.Collapsed;
         ComposerBox.PlaceholderText = allowed
@@ -74,7 +72,7 @@ public sealed partial class MainWindow
         CancelComposerContext();
         _textBeforeEdit = ComposerBox.Text;
         _editingMessage = message;
-        _originalEditText = MessageHtml.ToPlainText(message.Content ?? "");
+        _originalEditText = MessageHtml.ToComposerText(message.Content ?? "");
         ComposerBox.Text = _originalEditText;
         ComposerBox.SelectionStart = ComposerBox.Text.Length;
         ComposerContextText.Text = $"{L10n.T("editMessage")} · {L10n.T("pressEnterToSave")}";
@@ -115,7 +113,7 @@ public sealed partial class MainWindow
     {
         if (_displayedChannelId is { } id)
         {
-            _channelDrafts[(id, _displayedThreadParentId)] = new ChannelDraft(ComposerBox.Text, _pendingAttachments.ToArray());
+            _channelDrafts[(id, _displayedThreadParentId)] = new ChannelDraft(_editingMessage is null ? ComposerBox.Text : _textBeforeEdit, _pendingAttachments.ToArray());
         }
     }
 
@@ -137,9 +135,19 @@ public sealed partial class MainWindow
 
     private async Task SendDesktopComposerAsync()
     {
-        if (!CanUseComposer() || _sendingComposer || _uploadingAttachments || _session.SelectedChannelId is not { } channelId)
+        if (!CanUseComposer() || _sendingComposer || _uploadingAttachments || _removingAttachments.Count > 0 || _session.SelectedChannelId is not { } channelId)
         {
             return;
+        }
+        if (_editingMessage is null && _pendingAttachments.Count > 0)
+        {
+            if (!CanAttachToChannel(channelId)) { ChatErrorText.Text = L10n.T("uploadsDisabled"); return; }
+            var maximum = _session.Settings?.StorageMaxFilesPerMessage ?? int.MaxValue;
+            if (_pendingAttachments.Count > maximum)
+            {
+                ChatErrorText.Text = L10n.T("attachmentLimit", ns: "windows", ("count", maximum));
+                return;
+            }
         }
         var text = ComposerBox.Text;
         var generation = _composerGeneration;
@@ -149,7 +157,7 @@ public sealed partial class MainWindow
         {
             return;
         }
-        if (MessageHtml.FromPlainText(text.Trim()).Length > ProtocolDefaults.MessageMaxLength)
+        if (FormatComposerText(text.Trim()).Length > ProtocolDefaults.MessageMaxLength)
         {
             ChatErrorText.Text = L10n.T("messageTooLong", ns: "common", ("max", ProtocolDefaults.MessageMaxLength));
             return;
@@ -165,12 +173,12 @@ public sealed partial class MainWindow
                 // opening and saving a rich message unchanged must not discard its original markup.
                 if (text != _originalEditText)
                 {
-                    await _session.EditMessageAsync(editing.Id, text);
+                    await _session.EditFormattedMessageAsync(editing.Id, FormatComposerText(text));
                 }
             }
             else
             {
-                await _session.SendMessageAsync(channelId, text, _replyToMessageId,
+                await _session.SendFormattedMessageAsync(channelId, FormatComposerText(text), _replyToMessageId,
                     _pendingAttachments.Select(file => file.Id).ToArray(), parentMessageId: parentId);
             }
 
@@ -207,105 +215,24 @@ public sealed partial class MainWindow
 
     private async void OnAttachClick(object sender, RoutedEventArgs e)
     {
-        if (!CanAttachFiles() || _uploadingAttachments || _session.SelectedChannelId is not { } channelId)
-        {
-            return;
-        }
+        if (!CanAttachFiles() || _uploadingAttachments) { return; }
+        var channelId = _session.SelectedChannelId;
         var parentId = _threadParent?.Id;
-        var picker = new FileOpenPicker();
         var generation = _composerGeneration;
+        var picker = new FileOpenPicker();
         picker.FileTypeFilter.Add("*");
         InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
-        _uploadingAttachments = true;
-        RefreshComposerPermissions();
-        ChatErrorText.Text = "";
         try
         {
             var files = await picker.PickMultipleFilesAsync();
-            var maximumFiles = _session.Settings?.StorageMaxFilesPerMessage ?? int.MaxValue;
-            if (files.Count + _pendingAttachments.Count > maximumFiles)
-            {
-                ChatErrorText.Text = L10n.T("attachmentLimit", ns: "windows", ("count", maximumFiles));
-                return;
-            }
-            foreach (var file in files)
-            {
-                if (_session.SelectedChannelId != channelId || generation != _composerGeneration)
-                {
-                    return;
-                }
-                var properties = await file.GetBasicPropertiesAsync();
-                if (_session.Settings?.StorageUploadMaxFileSize is > 0 and var maximumSize && properties.Size > (ulong)maximumSize)
-                {
-                    ChatErrorText.Text = L10n.T("attachmentSizeLimit", ns: "windows", ("size", maximumSize / 1024d / 1024d));
-                    return;
-                }
-                var id = await _session.UploadAttachmentAsync(
-                    await File.ReadAllBytesAsync(file.Path), file.Name, file.ContentType
-                );
-                var pending = new PendingAttachment(id, file.Name);
-                if (generation != _composerGeneration)
-                {
-                    return;
-                }
-                if (_displayedChannelId == channelId && _displayedThreadParentId == parentId)
-                {
-                    _pendingAttachments.Add(pending);
-                }
-                else if (_channelDrafts.TryGetValue((channelId, parentId), out var draft))
-                {
-                    _channelDrafts[(channelId, parentId)] = draft with { Attachments = [.. draft.Attachments, pending] };
-                }
-            }
+            if (_session.SelectedChannelId != channelId || _threadParent?.Id != parentId || generation != _composerGeneration) { return; }
+            await AddStorageFilesAsync(files);
         }
-        catch (Exception exception)
-        {
-            ClientLogStore.Shared.RecordError("chat.attachment_upload.failed", exception);
-            ChatErrorText.Text = exception.Message;
-        }
-        finally
-        {
-            _uploadingAttachments = false;
-            RefreshComposerPermissions();
-        }
-    }
-
-    private void OnRemoveAttachmentClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button { DataContext: PendingAttachment attachment } && !_sendingComposer)
-        {
-            _pendingAttachments.Remove(attachment);
-        }
-    }
-
-    private void OnComposerEmojiClick(object sender, RoutedEventArgs e)
-    {
-        var panel = new VariableSizedWrapGrid { MaximumRowsOrColumns = 6, Orientation = Orientation.Horizontal, Margin = new Thickness(8) };
-        foreach (var glyph in ReactionGlyphs.Values.Concat(new[] { "😀", "😊", "😎", "🥳", "😭", "🔥", "✅", "🙌", "💯", "👋", "🚀", "🤝" }))
-        {
-            var button = new Button { Content = glyph, Tag = glyph, FontSize = 22, Width = 44, Height = 44 };
-            button.Click += OnInsertEmojiClick;
-            panel.Children.Add(button);
-        }
-        _composerEmojiFlyout = new Flyout { Content = panel };
-        _composerEmojiFlyout.ShowAt(ComposerEmojiButton);
-    }
-
-    private void OnInsertEmojiClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button { Tag: string glyph })
-        {
-            var selectionStart = ComposerBox.SelectionStart;
-            ComposerBox.SelectedText = glyph;
-            _composerEmojiFlyout?.Hide();
-            ComposerBox.Focus(FocusState.Programmatic);
-            ComposerBox.SelectionStart = selectionStart + glyph.Length;
-            ComposerBox.SelectionLength = 0;
-        }
+        catch (Exception exception) { ChatErrorText.Text = exception.Message; }
     }
 
     [Microsoft.UI.Xaml.Data.Bindable]
-    public sealed record PendingAttachment(string Id, string Name)
+    public sealed record PendingAttachment(string Id, string Name, Microsoft.UI.Xaml.Media.Imaging.BitmapImage? Preview = null)
     {
         public string RemoveLabel => L10n.T("removeAttachment", ns: "windows", ("name", Name));
     }

@@ -47,5 +47,16 @@
   "attachmentLimit": "Du kannst höchstens {{count}} Dateien anhängen.",
   "attachmentSizeLimit": "Diese Datei überschreitet das Uploadlimit von {{size}} MB.",
   "removeAttachment": "{{name}} entfernen",
-  "loadMoreReplies": "Weitere Antworten laden"
+  "loadMoreReplies": "Weitere Antworten laden",
+  "recentEmojis": "Zuletzt verwendete Emojis",
+  "revealSpoiler": "Spoiler anzeigen",
+  "formatBold": "Fett",
+  "formatItalic": "Kursiv",
+  "formatCode": "Inline-Code",
+  "formatCodeBlock": "Codeblock",
+  "formatSpoiler": "Spoiler",
+  "formatMention": "Mitglied erwähnen",
+  "formatChannel": "Kanal verlinken",
+  "formatMessage": "Nachricht formatieren",
+  "uploadProgress": "{{name}}: {{percent}}% · {{speed}} KB/s"
 }

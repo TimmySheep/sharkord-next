@@ -47,5 +47,16 @@
   "attachmentLimit": "You can attach at most {{count}} files.",
   "attachmentSizeLimit": "This file exceeds the {{size}} MB upload limit.",
   "removeAttachment": "Remove {{name}}",
-  "loadMoreReplies": "Load more replies"
+  "loadMoreReplies": "Load more replies",
+  "recentEmojis": "Recent emojis",
+  "revealSpoiler": "Reveal spoiler",
+  "formatBold": "Bold",
+  "formatItalic": "Italic",
+  "formatCode": "Inline code",
+  "formatCodeBlock": "Code block",
+  "formatSpoiler": "Spoiler",
+  "formatMention": "Mention a member",
+  "formatChannel": "Reference a channel",
+  "formatMessage": "Format message",
+  "uploadProgress": "{{name}}: {{percent}}% · {{speed}} KB/s"
 }

@@ -47,5 +47,16 @@
   "attachmentLimit": "最多可添加 {{count}} 个附件。",
   "attachmentSizeLimit": "此文件超过 {{size}} MB 的上传限制。",
   "removeAttachment": "移除 {{name}}",
-  "loadMoreReplies": "加载更多回复"
+  "loadMoreReplies": "加载更多回复",
+  "recentEmojis": "最近使用的表情",
+  "revealSpoiler": "显示隐藏内容",
+  "formatBold": "粗体",
+  "formatItalic": "斜体",
+  "formatCode": "行内代码",
+  "formatCodeBlock": "代码块",
+  "formatSpoiler": "隐藏内容",
+  "formatMention": "提及成员",
+  "formatChannel": "引用频道",
+  "formatMessage": "设置消息格式",
+  "uploadProgress": "{{name}}：{{percent}}% · {{speed}} KB/s"
 }

@@ -135,7 +135,7 @@ public sealed partial class MainWindow
                     message, author, avatarUrl, continuation, divider, reply,
                     BuildReactionItems(message), _session.OwnUserId,
                     (message.Files ?? []).Select(file => new AttachmentItem(
-                        file.OriginalName, _session.PublicFileUrl(file)
+                        file.OriginalName, _session.PublicFileUrl(file), file.MimeType, file.Size
                     )).ToArray(), _session.CanManageMessage(message), _session.ReplyCount(message)
                 ));
             }
@@ -425,5 +425,5 @@ public sealed partial class MainWindow
     }
 
     [Microsoft.UI.Xaml.Data.Bindable]
-    public sealed record AttachmentItem(string Name, Uri? Url);
+    public sealed record AttachmentItem(string Name, Uri? Url, string MimeType = "", long Size = 0);
 }

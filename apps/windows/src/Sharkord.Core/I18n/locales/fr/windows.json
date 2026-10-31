@@ -47,5 +47,16 @@
   "attachmentLimit": "Vous pouvez joindre au maximum {{count}} fichiers.",
   "attachmentSizeLimit": "Ce fichier dépasse la limite de {{size}} Mo.",
   "removeAttachment": "Retirer {{name}}",
-  "loadMoreReplies": "Charger plus de réponses"
+  "loadMoreReplies": "Charger plus de réponses",
+  "recentEmojis": "Émojis récents",
+  "revealSpoiler": "Révéler le contenu masqué",
+  "formatBold": "Gras",
+  "formatItalic": "Italique",
+  "formatCode": "Code en ligne",
+  "formatCodeBlock": "Bloc de code",
+  "formatSpoiler": "Contenu masqué",
+  "formatMention": "Mentionner un membre",
+  "formatChannel": "Référencer un salon",
+  "formatMessage": "Mettre en forme le message",
+  "uploadProgress": "{{name}} : {{percent}} % · {{speed}} Ko/s"
 }
