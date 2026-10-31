@@ -3,6 +3,21 @@ import XCTest
 
 @MainActor
 final class ComposerDraftsTests: XCTestCase {
+    func testThreadPanelIdentityIncludesTheThreadMessageId() throws {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let source = try String(
+            contentsOf: packageRoot.appendingPathComponent("Sources/SharkordMac/MainWindow.swift"),
+            encoding: .utf8
+        )
+        let threadPanel = try XCTUnwrap(source.range(of: "ThreadSidebarView(messageId: threadMessageId)"))
+        let followingSource = source[threadPanel.upperBound...]
+        let frame = try XCTUnwrap(followingSource.range(of: ".frame(minWidth: 300"))
+        XCTAssertTrue(followingSource[..<frame.lowerBound].contains(".id(threadMessageId)"))
+    }
+
     func testDraftsKeepChannelAndThreadContextsSeparate() {
         let drafts = ComposerDrafts()
         drafts.save(text: "channel", attachments: [], channelId: 7, parentMessageId: nil)

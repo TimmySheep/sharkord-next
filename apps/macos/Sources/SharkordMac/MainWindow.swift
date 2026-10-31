@@ -33,6 +33,7 @@ struct MainWindow: View {
                 ThreadSidebarView(messageId: threadMessageId) {
                     self.threadMessageId = nil
                 }
+                .id(threadMessageId)
                 .frame(minWidth: 300, idealWidth: 360, maxWidth: 420)
             }
 
