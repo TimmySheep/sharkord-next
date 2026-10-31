@@ -65,6 +65,22 @@ public sealed class SharkordSession : IAsyncDisposable
 
     public IReadOnlyDictionary<int, List<SharkordMessage>> MessagesByChannel => _messagesByChannel;
 
+    public IReadOnlyList<SharkordMessage> GetMessagesSnapshot(int channelId)
+    {
+        lock (_gate)
+        {
+            return _messagesByChannel.TryGetValue(channelId, out var messages) ? messages.ToArray() : [];
+        }
+    }
+
+    public bool HasOlderMessages(int channelId)
+    {
+        lock (_gate)
+        {
+            return _cursors.ContainsKey(channelId);
+        }
+    }
+
     public SharkordUser? OwnUser => Users.FirstOrDefault(user => user.Id == OwnUserId);
 
     public IEnumerable<SharkordChannel> TextChannels => Channels.Where(c => c.IsText && !c.IsDm);
@@ -299,6 +315,18 @@ public sealed class SharkordSession : IAsyncDisposable
         Settings = join.PublicSettings;
         OwnUserId = join.OwnUserId;
         ServerName = join.ServerName;
+
+        lock (_gate)
+        {
+            _unreadByChannel.Clear();
+            foreach (var (channel, count) in join.ReadStates ?? [])
+            {
+                if (int.TryParse(channel, out var channelId))
+                {
+                    _unreadByChannel[channelId] = (int)Math.Clamp(count, 0, int.MaxValue);
+                }
+            }
+        }
 
         if (SelectedChannelId is null)
         {
@@ -762,7 +790,13 @@ public sealed class SharkordSession : IAsyncDisposable
 
     private readonly Dictionary<int, int> _unreadByChannel = [];
 
-    public int UnreadCount(int channelId) => _unreadByChannel.GetValueOrDefault(channelId);
+    public int UnreadCount(int channelId)
+    {
+        lock (_gate)
+        {
+            return _unreadByChannel.GetValueOrDefault(channelId);
+        }
+    }
 
     // MARK: - channel selection + history
 
@@ -896,9 +930,13 @@ public sealed class SharkordSession : IAsyncDisposable
 
     public async Task LoadOlderAsync(int channelId, CancellationToken cancellationToken = default)
     {
-        if (!_cursors.TryGetValue(channelId, out var cursor))
+        MessagesCursor? cursor;
+        lock (_gate)
         {
-            return;
+            if (!_cursors.TryGetValue(channelId, out cursor))
+            {
+                return;
+            }
         }
 
         await LoadAsync(channelId, cursor, cancellationToken).ConfigureAwait(false);
@@ -940,15 +978,14 @@ public sealed class SharkordSession : IAsyncDisposable
                 var existingIds = existing.Select(m => m.Id).ToHashSet();
                 _messagesByChannel[channelId] = ascending.Where(m => !existingIds.Contains(m.Id)).Concat(existing).ToList();
             }
-        }
-
-        if (page.NextCursor is not null)
-        {
-            _cursors[channelId] = page.NextCursor;
-        }
-        else
-        {
-            _cursors.Remove(channelId);
+            if (page.NextCursor is not null)
+            {
+                _cursors[channelId] = page.NextCursor;
+            }
+            else
+            {
+                _cursors.Remove(channelId);
+            }
         }
 
         Notify();
