@@ -415,12 +415,12 @@ struct ReactionBar: View {
                 if case .success(let image) = phase {
                     image.resizable().scaledToFit()
                 } else {
-                    Text(group.emoji).font(.system(size: 12))
+                    Text(EmojiCatalog.glyph(for: group.emoji)).font(.system(size: 12))
                 }
             }
             .frame(width: 15, height: 15)
         } else {
-            Text(group.emoji)
+            Text(EmojiCatalog.glyph(for: group.emoji))
                 .font(.system(size: 12))
         }
     }
