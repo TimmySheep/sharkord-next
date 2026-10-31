@@ -337,6 +337,7 @@ public sealed partial class MainWindow : Window
 
     private void Refresh()
     {
+        RefreshSoundEvents();
         ConnectButton.IsEnabled = _session.Phase != SessionPhase.Connecting;
         ConnectProgress.IsActive = _session.Phase == SessionPhase.Connecting;
         ConnectError.Text = _session.Phase == SessionPhase.Failed ? _session.LastError ?? "" : "";

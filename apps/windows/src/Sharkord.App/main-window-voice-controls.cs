@@ -109,6 +109,7 @@ public sealed partial class MainWindow
 
     private void RefreshNativeVoiceControls()
     {
+        RefreshSoundEvents();
         var channelId = _session.SelectedChannelId;
         var connected = channelId is not null && channelId == _session.CurrentVoiceChannelId && _voiceMediaStatus == "connected";
         ((Button)_voiceExtras.Children[0]).Content = L10n.T("devicesTab", ns: "settings");

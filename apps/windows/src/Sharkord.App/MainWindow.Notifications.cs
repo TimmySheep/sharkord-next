@@ -13,6 +13,7 @@ public sealed partial class MainWindow
         DispatcherQueue.TryEnqueue(() =>
         {
             TrackNewMessage(message);
+            if (message.UserId == _session.OwnUserId) { _ = PlayEventSoundAsync("message_sent"); }
             ShowNotificationIfNeeded(message);
         });
     }
@@ -43,6 +44,7 @@ public sealed partial class MainWindow
         var title = channel.IsDm
             ? L10n.T("notificationDirectMessageTitle", ns: "macos", ("author", author))
             : L10n.T("notificationChannelTitle", ns: "macos", ("author", author), ("channel", channel.Name));
+        _ = PlayEventSoundAsync("message_received");
         var body = DesktopNotificationPolicy.PlainText(message.Content ?? "");
         if (body.Length == 0)
         {
