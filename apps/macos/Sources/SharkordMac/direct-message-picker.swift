@@ -7,6 +7,7 @@ struct DirectMessagePicker: View {
     @State private var query = ""
     @State private var openingId: Int?
     @State private var errorMessage: String?
+    @State private var openTask: Task<Void, Never>?
 
     private var users: [SharkordUser] {
         session.users.filter {
@@ -24,10 +25,13 @@ struct DirectMessagePicker: View {
             List(users) { user in
                 Button {
                     openingId = user.id
-                    Task {
+                    openTask = Task {
                         defer { openingId = nil }
                         do { try await session.openDirectMessage(userId: user.id); dismiss() }
-                        catch { errorMessage = SharkordSession.describe(error) }
+                        catch {
+                            guard !Task.isCancelled, !(error is CancellationError) else { return }
+                            errorMessage = SharkordSession.describe(error)
+                        }
                     }
                 } label: {
                     HStack {
@@ -41,5 +45,6 @@ struct DirectMessagePicker: View {
             }
             HStack { Spacer(); Button(L10n.t("cancel", ns: "common")) { dismiss() } }
         }.padding(18).frame(width: 380, height: 420)
+        .onDisappear { openTask?.cancel() }
     }
 }

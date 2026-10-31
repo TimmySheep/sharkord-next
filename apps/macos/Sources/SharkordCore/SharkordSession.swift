@@ -1196,14 +1196,15 @@ public final class SharkordSession: ObservableObject {
         return navigationRequestId
     }
 
-    public func select(channelId: Int) async {
+    public func select(channelId: Int, requestId: UUID? = nil) async {
         guard !Task.isCancelled else { return }
+        if let requestId, navigationRequestId != requestId { return }
         // the channel view can select again while its sidebar selection is still loading
         if isLoadingInitialMessagesByChannel.contains(channelId) || isLoadingMore.contains(channelId) {
             selectedChannelId = channelId
             return
         }
-        let requestId = beginNavigation()
+        let requestId = requestId ?? beginNavigation()
         if selectedChannelId != channelId {
             unreadBoundaryByChannel[channelId] = nil
             messageJumpByChannel[channelId] = nil

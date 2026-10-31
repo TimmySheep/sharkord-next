@@ -29,6 +29,8 @@ extension SharkordSession {
     /// Opens (or reuses) the direct message with `userId` and selects it.
     @discardableResult
     public func openDirectMessage(userId: Int) async throws -> Int {
+        try Task.checkCancellation()
+        let requestId = beginNavigation()
         guard let client else {
             throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
         }
@@ -39,8 +41,10 @@ extension SharkordSession {
         )
 
         let result = try value.decode(OpenDirectMessageResult.self)
+        try Task.checkCancellation()
+        guard navigationRequestId == requestId else { throw CancellationError() }
 
-        await select(channelId: result.channelId)
+        await select(channelId: result.channelId, requestId: requestId)
 
         return result.channelId
     }

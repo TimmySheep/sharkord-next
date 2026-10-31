@@ -73,6 +73,7 @@ struct MessageTimelineTests {
             try session.applyMessagesPage(stale, channelId: 7, cursor: nil, targetMessageId: 1, requestId: earlier)
         }
         await session.jumpTo(messageId: 1, channelId: 8, requestId: earlier)
+        await session.select(channelId: 8, requestId: earlier)
         #expect(session.selectedChannelId == 7)
         #expect(session.messagesByChannel[7]?.map(\.id) == [3])
         #expect(session.hasNewerByChannel[7] == false)
