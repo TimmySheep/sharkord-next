@@ -438,6 +438,9 @@ public struct SearchMessage: Codable, Sendable, Identifiable, Hashable {
     public let channelIsDm: Bool
     public let createdAt: Int
     public let files: [SharkordFile]?
+    public let parentMessageId: Int?
+
+    public var navigationMessageId: Int { parentMessageId ?? id }
 }
 
 public struct SearchFile: Codable, Sendable, Hashable {
@@ -966,6 +969,7 @@ public struct JoinResult: Codable, Sendable {
     public let pluginsMetadata: [PluginMetadata]?
     public let externalStreamsMap: ExternalStreamsMap?
     public let showWelcomeDialog: Bool?
+    public let directMessages: [DirectMessageConversation]?
 }
 
 public struct DirectMessageConversation: Codable, Sendable, Identifiable, Hashable {
@@ -975,6 +979,20 @@ public struct DirectMessageConversation: Codable, Sendable, Identifiable, Hashab
     public let userId: Int
     public let unreadCount: Int
     public let lastMessageAt: Int
+    public let closedAt: Int?
+
+    private enum CodingKeys: String, CodingKey {
+        case channelId, userId, unreadCount, lastMessageAt, closedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        channelId = try values.decode(Int.self, forKey: .channelId)
+        userId = try values.decode(Int.self, forKey: .userId)
+        unreadCount = try values.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
+        lastMessageAt = try values.decodeIfPresent(Int.self, forKey: .lastMessageAt) ?? 0
+        closedAt = try values.decodeIfPresent(Int.self, forKey: .closedAt)
+    }
 }
 
 public struct ReadStateUpdate: Codable, Sendable {

@@ -49,14 +49,21 @@ extension SharkordSession {
         let page = try await call("messages.getThread", method: .query, input: .object(input))
             .decode(ThreadPage.self)
 
-        let ascending = page.messages.sorted { $0.createdAt < $1.createdAt }
-        let existing = threadMessages[parentMessageId] ?? []
-        let existingIds = Set(existing.map(\.id))
-        let merged = existing + ascending.filter { !existingIds.contains($0.id) }
-
-        threadMessages[parentMessageId] = merged.sorted { $0.createdAt < $1.createdAt }
+        applyThreadPage(page, parentMessageId: parentMessageId)
 
         return page
+    }
+
+    func applyThreadPage(_ page: ThreadPage, parentMessageId: Int) {
+        var byId = Dictionary(uniqueKeysWithValues: (threadMessages[parentMessageId] ?? []).map { ($0.id, $0) })
+        for message in page.messages where message.parentMessageId == parentMessageId {
+            byId[message.id] = message
+        }
+        threadMessages[parentMessageId] = byId.values.sorted {
+            if $0.createdAt == $1.createdAt { return $0.id < $1.id }
+            return $0.createdAt < $1.createdAt
+        }
+        threadNextCursor[parentMessageId] = page.nextCursor
     }
 
     @discardableResult

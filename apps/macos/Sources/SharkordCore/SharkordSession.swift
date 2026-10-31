@@ -34,6 +34,7 @@ public final class SharkordSession: ObservableObject {
     @Published public internal(set) var emojis: [SharkordEmoji] = []
     @Published public internal(set) var settings: SharkordSettings?
     @Published public internal(set) var directMessages: [DirectMessageConversation] = []
+    public internal(set) var usesJoinedDirectMessages = false
     @Published public internal(set) var ownUserId: Int = 0
     @Published public internal(set) var ownUserPasswordSet = false
     @Published public internal(set) var showWelcomeDialog = false
@@ -62,6 +63,7 @@ public final class SharkordSession: ObservableObject {
     @Published public internal(set) var replyCounts: [Int: Int] = [:]
     @Published public internal(set) var pinnedByChannel: [Int: [SharkordMessage]] = [:]
     @Published public internal(set) var threadMessages: [Int: [SharkordMessage]] = [:]
+    @Published public internal(set) var threadNextCursor: [Int: MessagesCursor] = [:]
     @Published public internal(set) var voiceReactions: [VoiceReactionEvent] = []
     @Published public internal(set) var producersByChannel: [Int: [VoiceProducerEvent]] = [:]
     @Published public internal(set) var pluginPushes: [PluginPushEvent] = []
@@ -119,8 +121,9 @@ public final class SharkordSession: ObservableObject {
     }
 
     public var directMessageChannels: [SharkordChannel] {
-        channels
-            .filter(\.isDm)
+        let openIds = Set(directMessages.map(\.channelId))
+        return channels
+            .filter { $0.isDm && (!usesJoinedDirectMessages || openIds.contains($0.id)) }
             .sorted { $0.createdAt < $1.createdAt }
     }
 
@@ -515,6 +518,7 @@ public final class SharkordSession: ObservableObject {
         emojis = []
         settings = nil
         directMessages = []
+        usesJoinedDirectMessages = false
         ownUserId = 0
         ownUserPasswordSet = false
         showWelcomeDialog = false
@@ -541,6 +545,7 @@ public final class SharkordSession: ObservableObject {
         replyCounts = [:]
         pinnedByChannel = [:]
         threadMessages = [:]
+        threadNextCursor = [:]
         cursors = [:]
         loadedChannels = []
         phase = .disconnected
@@ -602,7 +607,7 @@ public final class SharkordSession: ObservableObject {
         }
     }
 
-    private func apply(_ join: JoinResult) {
+    func apply(_ join: JoinResult) {
         categories = join.categories.sorted { $0.position < $1.position }
         channels = join.channels
         users = join.users.sorted { $0.name.lowercased() < $1.name.lowercased() }
@@ -621,6 +626,8 @@ public final class SharkordSession: ObservableObject {
         pluginIdsWithComponents = join.pluginIdsWithComponents ?? []
         pluginCapabilityAccess = join.pluginCapabilityAccess ?? []
         pluginsMetadata = join.pluginsMetadata ?? []
+        usesJoinedDirectMessages = join.directMessages != nil
+        directMessages = (join.directMessages ?? []).filter { $0.closedAt == nil }
 
         if let readStates = join.readStates {
             unreadByChannel = readStates.reduce(into: [:]) { result, entry in
@@ -788,8 +795,15 @@ public final class SharkordSession: ObservableObject {
         }
 
         // dms
-        subscribe(client, "dms.onConversationOpen") { [weak self] value in
-            Task { await self?.loadDirectMessagesQuietly() }
+        if usesJoinedDirectMessages {
+            subscribe(client, "dms.onConversationUpdate") { [weak self] value in
+                guard let conversation = try? value.decode(DirectMessageConversation.self) else { return }
+                self?.applyConversation(conversation)
+            }
+        } else {
+            subscribe(client, "dms.onConversationOpen") { [weak self] _ in
+                Task { await self?.loadDirectMessagesQuietly() }
+            }
         }
 
         // voice
@@ -977,10 +991,13 @@ public final class SharkordSession: ObservableObject {
         pinnedByChannel[message.channelId] = list
     }
 
-    private func removeMessage(id: Int, channelId: Int) {
-        guard var list = messagesByChannel[channelId] else { return }
-        list.removeAll { $0.id == id }
-        messagesByChannel[channelId] = list
+    func removeMessage(id: Int, channelId: Int) {
+        messagesByChannel[channelId]?.removeAll { $0.id == id }
+        threadMessages[id] = nil
+        threadNextCursor[id] = nil
+        for parentId in Array(threadMessages.keys) {
+            threadMessages[parentId]?.removeAll { $0.id == id && $0.channelId == channelId }
+        }
 
         if var pinned = pinnedByChannel[channelId] {
             pinned.removeAll { $0.id == id }
