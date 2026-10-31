@@ -8,19 +8,41 @@ struct DesktopParityTests {
         try JSONDecoder().decode(JSONValue.self, from: Data(source.utf8))
     }
 
+    @Test func liveRepliesAreIsolatedAndUnpinRemovesCachedPin() throws {
+        let session = SharkordSession()
+        let root = try parse("""
+        {"id":1,"channelId":7,"createdAt":10,"pinned":true}
+        """).decode(SharkordMessage.self)
+        let reply = try parse("""
+        {"id":2,"channelId":7,"createdAt":11,"parentMessageId":1}
+        """).decode(SharkordMessage.self)
+        session.upsert(root, markUnread: false)
+        session.upsert(reply, markUnread: false)
+        #expect(session.messagesByChannel[7]?.map(\.id) == [1])
+        #expect(session.threadMessages(for: 1).map(\.id) == [2])
+        #expect(session.pinnedMessages(in: 7).map(\.id) == [1])
+        let unpinned = try parse("""
+        {"id":1,"channelId":7,"createdAt":10,"pinned":false}
+        """).decode(SharkordMessage.self)
+        session.upsert(unpinned, markUnread: false)
+        #expect(session.pinnedMessages(in: 7).isEmpty)
+        session.removeMessage(id: 1, channelId: 7)
+        #expect(session.threadMessages(for: 1).isEmpty)
+    }
+
     @Test func threadPagesKeepCursorAndDoNotEnterChannelTimeline() throws {
         let session = SharkordSession()
         let first = try parse("""
-        {"messages":[{"id":12,"channelId":7,"parentMessageId":1,"createdAt":100}],
-         "nextCursor":{"id":12,"createdAt":100}}
+        {"messages":[{"id":11,"channelId":7,"parentMessageId":1,"createdAt":100}],
+         "nextCursor":{"id":11,"createdAt":100}}
         """).decode(ThreadPage.self)
         session.applyThreadPage(first, parentMessageId: 1)
-        #expect(session.threadNextCursor[1]?.id == 12)
-        let older = try parse("""
+        #expect(session.threadNextCursor[1]?.id == 11)
+        let next = try parse("""
         {"messages":[{"id":11,"channelId":7,"parentMessageId":1,"createdAt":100},
                      {"id":12,"channelId":7,"parentMessageId":1,"createdAt":100}],"nextCursor":null}
         """).decode(ThreadPage.self)
-        session.applyThreadPage(older, parentMessageId: 1)
+        session.applyThreadPage(next, parentMessageId: 1)
         #expect(session.threadMessages(for: 1).map(\.id) == [11, 12])
         #expect(session.threadNextCursor[1] == nil)
         #expect(session.messagesByChannel[7] == nil)
@@ -38,9 +60,11 @@ struct DesktopParityTests {
         let session = SharkordSession()
         session.apply(legacy)
         #expect(!session.usesJoinedDirectMessages)
+        session.threadMessages[7] = []
         session.apply(modern)
         #expect(session.usesJoinedDirectMessages)
         #expect(session.directMessages.isEmpty)
+        #expect(session.threadMessages.isEmpty)
     }
 
     @Test func dmEntriesDecodeOldUnreadCountAndNewClosedState() throws {
@@ -55,10 +79,16 @@ struct DesktopParityTests {
         #expect(modern.unreadCount == 0)
         #expect(modern.closedAt == 200)
         let session = SharkordSession()
+        session.usesJoinedDirectMessages = true
+        session.channels = try parse("""
+        [{"id":7,"name":"DM - 1:2","type":"VOICE","private":true,"isDm":true,"position":0,"createdAt":0}]
+        """).decode([SharkordChannel].self)
         session.applyConversation(old)
         #expect(session.directMessages.map(\.channelId) == [7])
+        #expect(session.directMessageChannels.map(\.id) == [7])
         session.applyConversation(modern)
         #expect(session.directMessages.isEmpty)
+        #expect(session.directMessageChannels.isEmpty)
     }
 
     @Test func searchRetainsThreadParentForNavigation() throws {

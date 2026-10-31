@@ -59,10 +59,7 @@ extension SharkordSession {
         for message in page.messages where message.parentMessageId == parentMessageId {
             byId[message.id] = message
         }
-        threadMessages[parentMessageId] = byId.values.sorted {
-            if $0.createdAt == $1.createdAt { return $0.id < $1.id }
-            return $0.createdAt < $1.createdAt
-        }
+        threadMessages[parentMessageId] = byId.values.sorted(by: MessageTimeline.precedes)
         threadNextCursor[parentMessageId] = page.nextCursor
     }
 

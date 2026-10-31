@@ -628,6 +628,9 @@ public final class SharkordSession: ObservableObject {
         pluginsMetadata = join.pluginsMetadata ?? []
         usesJoinedDirectMessages = join.directMessages != nil
         directMessages = (join.directMessages ?? []).filter { $0.closedAt == nil }
+        // replies can have been edited or deleted while the socket was offline
+        threadMessages = [:]
+        threadNextCursor = [:]
 
         if let readStates = join.readStates {
             unreadByChannel = readStates.reduce(into: [:]) { result, entry in
@@ -938,7 +941,7 @@ public final class SharkordSession: ObservableObject {
 
     // MARK: - state mutators
 
-    private func upsert(_ message: SharkordMessage, markUnread: Bool) {
+    func upsert(_ message: SharkordMessage, markUnread: Bool) {
         if let parentMessageId = message.parentMessageId {
             var thread = threadMessages[parentMessageId] ?? []
 
@@ -946,7 +949,7 @@ public final class SharkordSession: ObservableObject {
                 thread[index] = message
             } else {
                 thread.append(message)
-                thread.sort { $0.createdAt < $1.createdAt }
+                thread.sort(by: MessageTimeline.precedes)
             }
 
             threadMessages[parentMessageId] = thread
@@ -964,13 +967,15 @@ public final class SharkordSession: ObservableObject {
             list[index] = message
         } else {
             list.append(message)
-            list.sort { $0.createdAt < $1.createdAt }
+            list.sort(by: MessageTimeline.precedes)
         }
 
         messagesByChannel[message.channelId] = list
 
         if message.pinned == true {
             upsertPinned(message)
+        } else {
+            pinnedByChannel[message.channelId]?.removeAll { $0.id == message.id }
         }
 
         if markUnread, message.channelId != selectedChannelId {

@@ -124,9 +124,7 @@ public actor TRPCWebSocketClient {
                 openDeadline = Task { [weak self] in
                     do {
                         try await Task.sleep(nanoseconds: UInt64(max(0, self?.configuration.connectTimeout ?? 15) * 1_000_000_000))
-                        await self?.handleCompletion(task, error: TRPCClientError(
-                            code: "CONNECT_TIMEOUT", message: "Connection timed out"
-                        ))
+                        await self?.handleOpeningTimeout(task)
                     } catch { }
                 }
                 task.resume()
@@ -300,7 +298,7 @@ public actor TRPCWebSocketClient {
             do {
                 message = try await task.receive()
             } catch {
-                await handleDisconnect(code: nil, reason: nil, error: error)
+                await handleCompletion(task, error: error)
                 return
             }
 
@@ -462,6 +460,13 @@ public actor TRPCWebSocketClient {
         // an old URLSession may finish after a replacement connection has opened
         guard task === completedTask else { return }
         await handleDisconnect(code: nil, reason: nil, error: error)
+    }
+
+    private func handleOpeningTimeout(_ openingTask: URLSessionWebSocketTask) async {
+        guard openContinuation != nil else { return }
+        await handleCompletion(openingTask, error: TRPCClientError(
+            code: "CONNECT_TIMEOUT", message: "Connection timed out"
+        ))
     }
 
     private func handleDisconnect(
