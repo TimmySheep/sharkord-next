@@ -27,6 +27,20 @@ type TBridgeWindow = Window & {
     kind: string,
     added: boolean
   ) => void;
+  // the Windows shell injects media options through media-controls.js; the
+  // macOS shell never sets this object, so every read has to fall back safely.
+  coveMediaOptions?: TMediaOptions;
+  videoProduceOptions?: (
+    track: MediaStreamTrack,
+    kind: string,
+    bitrate: number
+  ) => {
+    track: MediaStreamTrack;
+    appData: Record<string, unknown>;
+    encodings?: Array<Record<string, unknown>>;
+    codec?: Record<string, unknown>;
+    codecOptions?: Record<string, unknown>;
+  };
   webkit?: {
     messageHandlers?: {
       coveVoice?: {
@@ -45,11 +59,34 @@ type TBridgeWindow = Window & {
   };
 };
 
+type TMediaOptions = {
+  microphoneId?: string;
+  cameraId?: string;
+  speakerId?: string;
+  height?: number;
+  frameRate?: number;
+  screenHeight?: number;
+  screenFrameRate?: number;
+  echoCancellation?: boolean;
+  autoGainControl?: boolean;
+  noiseMode?: TNoiseMode;
+  noiseGateEnabled?: boolean;
+  noiseGateThresholdDb?: number;
+  mirrorOwnVideo?: boolean;
+  screenBitrate?: number;
+  screenCursor?: string;
+  externalStreams?: Record<
+    number,
+    { audio?: boolean; video?: boolean } | undefined
+  >;
+};
+
 type TConsumeResult = {
   producerId: string;
   consumerId: string;
   consumerKind: string;
   consumerRtpParameters: unknown;
+  qualityLayers?: string[];
 };
 
 type TRemoteProducerIds = {
@@ -57,6 +94,7 @@ type TRemoteProducerIds = {
   remoteAudioIds?: number[];
   remoteScreenIds?: number[];
   remoteScreenAudioIds?: number[];
+  remoteExternalStreamIds?: number[];
 };
 
 type TMediaLabels = {
@@ -81,7 +119,11 @@ const bridgeWindow = window as TBridgeWindow;
 const pending = new Map<string, (response: TNativeResponse) => void>();
 const consumers = new Map<
   string,
-  { consumer: Consumer; element: TMediaElement }
+  {
+    consumer: Consumer;
+    element: TMediaElement;
+    qualityLayers?: string[];
+  }
 >();
 const remoteAudioVolumes = new Map<string, number>();
 let device: Device | undefined;
@@ -91,10 +133,13 @@ let microphoneStream: MediaStream | undefined;
 let microphoneInputStream: MediaStream | undefined;
 let microphoneAudioContext: AudioContext | undefined;
 let microphoneNoiseNode: AudioWorkletNode | undefined;
+let microphoneGateNode: AudioWorkletNode | undefined;
+let microphoneGateEnabled = false;
+let microphoneGateThresholdDb = -48;
 let microphoneProducer: Producer | undefined;
 let microphoneTrack: MediaStreamTrack | undefined;
 let microphoneNoiseMix = 1;
-type TNoiseMode = 'off' | 'standard' | 'rnnoise';
+type TNoiseMode = 'off' | 'standard' | 'rnnoise' | 'dtln';
 let microphoneNoiseMode: TNoiseMode = 'rnnoise';
 let canSpeak = false;
 let canPublishAudio = false;
@@ -133,6 +178,35 @@ const getNoiseMixParameter = (node: AudioWorkletNode) => {
   });
   return parameter;
 };
+
+// windows-only option channel; every field falls back when the object is absent
+const mediaOptions = (): TMediaOptions => bridgeWindow.coveMediaOptions ?? {};
+
+const waitForDtlnReady = (node: AudioWorkletNode) =>
+  new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            'The DTLN noise suppression processor did not start in time.'
+          )
+        ),
+      10_000
+    );
+    node.port.onmessage = (event: MessageEvent) => {
+      if (
+        typeof event.data === 'string' &&
+        event.data.startsWith('ready:')
+      ) {
+        clearTimeout(timer);
+        resolve();
+      }
+    };
+    node.onprocessorerror = (error: Event) => {
+      clearTimeout(timer);
+      reject(error);
+    };
+  });
 
 const setGalleryVisible = (visible: boolean) => {
   document.body.classList.toggle('has-video', visible);
@@ -242,19 +316,27 @@ const consume = async (remoteId: number, kind: string) => {
     });
 
     if (!receiveTransport || consumers.has(key)) return;
+    const transport = receiveTransport;
 
-    const consumer = await receiveTransport.consume({
+    const consumer = await transport.consume({
       id: parameters.consumerId,
       producerId: parameters.producerId,
-      kind:
-        parameters.consumerKind === 'audio' ||
-        parameters.consumerKind === 'screen_audio'
-          ? 'audio'
-          : 'video',
+      kind: [
+        'audio',
+        'screen_audio',
+        'external_audio'
+      ].includes(parameters.consumerKind)
+        ? 'audio'
+        : 'video',
       rtpParameters: parameters.consumerRtpParameters as Parameters<
         Transport['consume']
       >[0]['rtpParameters']
     });
+
+    if (receiveTransport !== transport) {
+      consumer.close();
+      return;
+    }
 
     if (consumer.track.kind === 'audio') {
       const audio = document.createElement('audio');
@@ -263,6 +345,11 @@ const consume = async (remoteId: number, kind: string) => {
       audio.muted = outputMuted;
       audio.volume = remoteAudioVolumes.get(key) ?? 1;
       applyPlaybackSink(audio);
+      if (receiveTransport !== transport) {
+        consumer.close();
+        audio.srcObject = null;
+        return;
+      }
       document.body.append(audio);
       consumers.set(key, { consumer, element: audio });
       await audio.play();
@@ -282,7 +369,11 @@ const consume = async (remoteId: number, kind: string) => {
     label.textContent = `${mediaLabel} ${remoteId}`;
     tile.append(video, label);
     document.getElementById('video-grid')?.append(tile);
-    consumers.set(key, { consumer, element: video });
+    consumers.set(key, {
+      consumer,
+      element: video,
+      qualityLayers: parameters.qualityLayers ?? []
+    });
     remoteVideoCount += 1;
     setGalleryVisible(true);
     await video.play();
@@ -341,6 +432,10 @@ const updateLocalPreview = () => {
 
   preview.srcObject = cameraStream ?? null;
   preview.hidden = cameraStream === undefined;
+  // mirroring only affects the local view, the published track stays untouched.
+  preview.style.transform = mediaOptions().mirrorOwnVideo
+    ? 'scaleX(-1)'
+    : '';
   const tile = preview.closest('.video-tile');
   tile?.classList.toggle('hidden', cameraStream === undefined);
   setGalleryVisible(remoteVideoCount > 0 || cameraStream !== undefined);
@@ -352,6 +447,7 @@ const closeMedia = () => {
   microphoneProducer = undefined;
   microphoneTrack = undefined;
   microphoneNoiseNode = undefined;
+  microphoneGateNode = undefined;
   microphoneAudioContext?.close().catch(() => {});
   microphoneAudioContext = undefined;
   canSpeak = false;
@@ -419,6 +515,8 @@ const configureTransport = (transport: Transport, isProducer: boolean) => {
         callNative<string>('voice.produce', {
           transportId: transport.id,
           kind: streamKind,
+          qualityLayers: (appData as { qualityLayers?: string[] })
+            .qualityLayers,
           rtpParameters
         })
           .then((id) => callback({ id }))
@@ -441,20 +539,30 @@ const openMicrophone = async () => {
 
   const transport = sendTransport;
   const generation = mediaGeneration;
+  const options = mediaOptions();
+  const gateEnabled = options.noiseGateEnabled ?? false;
+  const gateThresholdDb = Math.min(
+    0,
+    Math.max(-70, options.noiseGateThresholdDb ?? -48)
+  );
+  const useDtln = microphoneNoiseMode === 'dtln';
   let inputStream: MediaStream | undefined;
   let outputStream: MediaStream | undefined;
   let audioContext: AudioContext | undefined;
   let producer: Producer | undefined;
+  let gateNode: AudioWorkletNode | undefined;
 
   try {
+    const microphoneId = deviceMicrophoneId ?? options.microphoneId;
     inputStream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        autoGainControl: deviceAutoGainControl,
-        echoCancellation: deviceEchoCancellation,
+        autoGainControl: options.autoGainControl ?? deviceAutoGainControl,
+        echoCancellation:
+          options.echoCancellation ?? deviceEchoCancellation,
         noiseSuppression: microphoneNoiseMode === 'standard',
-        ...(deviceMicrophoneId
-          ? { deviceId: { exact: deviceMicrophoneId } }
-          : {})
+        // dtln models are trained on 16khz mono, ask the device for exactly that.
+        ...(useDtln ? { sampleRate: 16000, channelCount: 1 } : {}),
+        ...(microphoneId ? { deviceId: { exact: microphoneId } } : {})
       },
       video: false
     });
@@ -466,25 +574,61 @@ const openMicrophone = async () => {
 
     let noiseNode: AudioWorkletNode | undefined;
     outputStream = inputStream;
-    if (microphoneNoiseMode === 'rnnoise') {
-      audioContext = new AudioContext({ sampleRate: 48000 });
-      await audioContext.audioWorklet.addModule(
-        new URL('./rnnoise-bundle.js', document.baseURI)
-      );
-      const source = audioContext.createMediaStreamSource(inputStream);
-      noiseNode = new AudioWorkletNode(audioContext, 'RnnoiseProcessor', {
-        outputChannelCount: [1]
+    const needsWorklet =
+      microphoneNoiseMode === 'rnnoise' || useDtln || gateEnabled;
+    if (needsWorklet) {
+      audioContext = new AudioContext({
+        sampleRate: useDtln ? 16000 : 48000
       });
+      const source = audioContext.createMediaStreamSource(inputStream);
       const destination = audioContext.createMediaStreamDestination();
-      const mixParameter = getNoiseMixParameter(noiseNode);
+      let chain: AudioNode = source;
 
-      if (!mixParameter) {
-        throw new Error('The noise suppression control is unavailable.');
+      if (gateEnabled) {
+        await audioContext.audioWorklet.addModule(
+          new URL('./noise-gate-processor.js', document.baseURI)
+        );
+        gateNode = new AudioWorkletNode(audioContext, 'sharkord-noise-gate');
+        gateNode.port.postMessage({
+          type: 'config',
+          enabled: true,
+          thresholdDb: gateThresholdDb,
+          holdMs: 100
+        });
+        chain.connect(gateNode);
+        chain = gateNode;
       }
 
-      mixParameter.setValueAtTime(microphoneNoiseMix, audioContext.currentTime);
-      source.connect(noiseNode);
-      noiseNode.connect(destination);
+      if (microphoneNoiseMode === 'rnnoise') {
+        await audioContext.audioWorklet.addModule(
+          new URL('./rnnoise-bundle.js', document.baseURI)
+        );
+        noiseNode = new AudioWorkletNode(audioContext, 'RnnoiseProcessor', {
+          outputChannelCount: [1]
+        });
+        const mixParameter = getNoiseMixParameter(noiseNode);
+
+        if (!mixParameter) {
+          throw new Error('The noise suppression control is unavailable.');
+        }
+
+        mixParameter.setValueAtTime(
+          microphoneNoiseMix,
+          audioContext.currentTime
+        );
+        chain.connect(noiseNode);
+        chain = noiseNode;
+      } else if (useDtln) {
+        await audioContext.audioWorklet.addModule(
+          new URL('./dtln-processor.js', document.baseURI)
+        );
+        noiseNode = new AudioWorkletNode(audioContext, 'dtln-process');
+        await waitForDtlnReady(noiseNode);
+        chain.connect(noiseNode);
+        chain = noiseNode;
+      }
+
+      chain.connect(destination);
 
       if (audioContext.state === 'suspended') {
         await audioContext.resume();
@@ -519,6 +663,9 @@ const openMicrophone = async () => {
     microphoneStream = outputStream;
     microphoneAudioContext = audioContext;
     microphoneNoiseNode = noiseNode;
+    microphoneGateNode = gateNode;
+    microphoneGateEnabled = gateEnabled;
+    microphoneGateThresholdDb = gateThresholdDb;
     microphoneProducer = producer;
     microphoneTrack = track;
     microphoneMuted = true;
@@ -539,7 +686,7 @@ const start = async (
   canPublishScreen = false,
   labels: TMediaLabels = defaultMediaLabels,
   initialNoiseMix = 1,
-  initialNoiseMode: TNoiseMode = 'rnnoise'
+  initialNoiseMode: TNoiseMode = mediaOptions().noiseMode ?? 'rnnoise'
 ) => {
   if (activeChannelId === channelId) return;
   closeMedia();
@@ -615,7 +762,13 @@ const start = async (
       ...(remoteProducers.remoteScreenAudioIds ?? []).map((remoteId) => ({
         remoteId,
         kind: 'screen_audio'
-      }))
+      })),
+      ...(remoteProducers.remoteExternalStreamIds ?? []).flatMap(
+        (remoteId) =>
+          (['audio', 'video'] as const)
+            .filter((kind) => mediaOptions().externalStreams?.[remoteId]?.[kind])
+            .map((kind) => ({ remoteId, kind: `external_${kind}` }))
+      )
     ];
 
     await Promise.all(
@@ -634,19 +787,45 @@ const start = async (
   }
 };
 
+// windows-only: media-controls.js installs a global encoder helper that knows
+// about simulcast/codec selection; other platforms use plain encodings.
+const produceVideoOptions = (
+  track: MediaStreamTrack,
+  kind: string,
+  bitrate: number
+): Parameters<Transport['produce']>[0] => {
+  const external = bridgeWindow.videoProduceOptions;
+
+  if (typeof external === 'function') {
+    const options = external(track, kind, bitrate);
+    return options as Parameters<Transport['produce']>[0];
+  }
+
+  return {
+    track,
+    appData: { kind },
+    encodings: [{ maxBitrate: bitrate }]
+  } as unknown as Parameters<Transport['produce']>[0];
+};
+
 const setWebcamEnabled = async (enabled: boolean) => {
   if (!sendTransport) throw new Error('Voice media is not connected.');
   if ((cameraProducer !== undefined) === enabled) return;
 
   if (enabled) {
+    const options = mediaOptions();
+    const cameraId = deviceWebcamId ?? options.cameraId;
     cameraStream = await navigator.mediaDevices.getUserMedia({
       audio: false,
       video: {
         facingMode: 'user',
         width: { ideal: 1280 },
-        height: { ideal: 720 },
-        frameRate: { ideal: 30, max: 30 },
-        ...(deviceWebcamId ? { deviceId: { exact: deviceWebcamId } } : {})
+        height: { ideal: options.height ?? 720 },
+        frameRate: {
+          ideal: options.frameRate ?? 30,
+          max: options.frameRate ?? 30
+        },
+        ...(cameraId ? { deviceId: { exact: cameraId } } : {})
       }
     });
     const track = cameraStream.getVideoTracks()[0];
@@ -658,11 +837,9 @@ const setWebcamEnabled = async (enabled: boolean) => {
     }
 
     try {
-      cameraProducer = await sendTransport.produce({
-        track,
-        appData: { kind: 'video' },
-        encodings: [{ maxBitrate: 1_500_000 }]
-      });
+      cameraProducer = await sendTransport.produce(
+        produceVideoOptions(track, 'video', 1_500_000)
+      );
       updateLocalPreview();
       await callNative('voice.updateState', { webcamEnabled: true });
     } catch (error) {
@@ -749,10 +926,18 @@ const setScreenShareEnabled = async (enabled: boolean) => {
   let audioProducer: Producer | undefined;
 
   try {
+    const options = mediaOptions();
     stream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        frameRate: { ideal: 30, max: 30 }
-      },
+        height: { ideal: options.screenHeight ?? 1080 },
+        frameRate: {
+          ideal: options.screenFrameRate ?? 30,
+          max: options.screenFrameRate ?? 30
+        },
+        // cursor is a real display-media constraint but missing from the
+        // bundled TS lib, so it is asserted rather than typed.
+        cursor: (options.screenCursor ?? 'always') as string
+      } as MediaTrackConstraints,
       audio: true
     });
 
@@ -767,11 +952,13 @@ const setScreenShareEnabled = async (enabled: boolean) => {
     }
     videoTrack.contentHint = 'detail';
 
-    videoProducer = await sendTransport.produce({
-      track: videoTrack,
-      appData: { kind: 'screen' },
-      encodings: [{ maxBitrate: 2_500_000 }]
-    });
+    videoProducer = await sendTransport.produce(
+      produceVideoOptions(
+        videoTrack,
+        'screen',
+        (options.screenBitrate ?? 6000) * 1000
+      )
+    );
 
     const audioTrack = stream.getAudioTracks()[0];
     if (audioTrack) {
@@ -857,13 +1044,48 @@ const setMicrophoneMuted = async (muted: boolean) => {
 };
 
 const setNoiseSuppressionMode = async (mode: TNoiseMode) => {
-  if (!['off', 'standard', 'rnnoise'].includes(mode)) {
+  if (!['off', 'standard', 'rnnoise', 'dtln'].includes(mode)) {
     throw new Error('Unknown noise suppression mode.');
   }
   if (microphoneNoiseMode === mode) return;
   const wasMuted = microphoneMuted;
   await releaseMicrophoneProducer();
   microphoneNoiseMode = mode;
+  if (!wasMuted) await setMicrophoneMuted(false);
+};
+
+const setNoiseGate = async (enabled: boolean, thresholdDb?: number) => {
+  const nextEnabled = enabled === true;
+  const nextThresholdDb = Math.min(
+    0,
+    Math.max(-70, thresholdDb ?? microphoneGateThresholdDb)
+  );
+
+  if (
+    microphoneGateEnabled === nextEnabled &&
+    microphoneGateThresholdDb === nextThresholdDb
+  ) {
+    return;
+  }
+
+  microphoneGateEnabled = nextEnabled;
+  microphoneGateThresholdDb = nextThresholdDb;
+
+  // a live gate node takes the new config directly, the chain shape does not change.
+  if (microphoneGateNode) {
+    microphoneGateNode.port.postMessage({
+      type: 'config',
+      enabled: nextEnabled,
+      thresholdDb: nextThresholdDb,
+      holdMs: 100
+    });
+    return;
+  }
+
+  // without a gate node only adding one needs a rebuild, so an open mic is reopened once.
+  if (!nextEnabled || !microphoneProducer) return;
+  const wasMuted = microphoneMuted;
+  await releaseMicrophoneProducer();
   if (!wasMuted) await setMicrophoneMuted(false);
 };
 
@@ -888,7 +1110,8 @@ const applyPlaybackSink = (element: HTMLAudioElement) => {
     setSinkId?: (deviceId: string) => Promise<void>;
   };
   if (typeof sinkable.setSinkId !== 'function') return;
-  sinkable.setSinkId(devicePlaybackId ?? '').catch(() => undefined);
+  const target = devicePlaybackId ?? mediaOptions().speakerId ?? '';
+  sinkable.setSinkId(target).catch(() => undefined);
 };
 
 const applyPlaybackDevice = () => {
@@ -924,6 +1147,7 @@ const releaseMicrophoneProducer = async () => {
   await microphoneAudioContext?.close();
   microphoneAudioContext = undefined;
   microphoneNoiseNode = undefined;
+  microphoneGateNode = undefined;
 };
 
 const reopenMicrophone = async () => {
@@ -1107,6 +1331,8 @@ const reportActionError = async (
   stopMicrophoneTest,
   setMicrophoneMuted: (muted: boolean) =>
     reportActionError(() => setMicrophoneMuted(muted), 'microphone'),
+  setNoiseGate: (enabled: boolean, thresholdDb?: number) =>
+    reportActionError(() => setNoiseGate(enabled, thresholdDb), 'microphone'),
   setOutputMuted: (muted: boolean) =>
     reportActionError(() => setOutputMuted(muted), 'audio'),
   setWebcamEnabled: (enabled: boolean) =>
