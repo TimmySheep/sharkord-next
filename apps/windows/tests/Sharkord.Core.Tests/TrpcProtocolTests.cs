@@ -108,7 +108,7 @@ public class TrpcProtocolTests
     {
         Assert.Equal("<p>hello</p>", MessageHtml.FromPlainText("hello"));
         Assert.Equal(
-            "<p>a</p><br class=\"hard-break\"><p>b</p>",
+            "<p>a<br class=\"hard-break\">b</p>",
             MessageHtml.FromPlainText("a\nb")
         );
         Assert.Equal("<p>&lt;b&gt;</p>", MessageHtml.FromPlainText("<b>"));

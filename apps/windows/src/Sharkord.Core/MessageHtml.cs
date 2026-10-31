@@ -1,37 +1,31 @@
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace Sharkord.Core;
 
 /// <summary>
-/// Converts between the plain composer text and the HTML the server stores. The web
-/// editor sends HTML; a native field only has to escape and keep the line structure,
-/// which the server's sanitizer allows as <c>&lt;p&gt;</c> and
-/// <c>&lt;br class="hard-break"&gt;</c>.
+/// converts plain composer text to the web editor's block and hard-break vocabulary.
+/// the Windows renderer currently uses a plain-text fallback for incoming rich HTML.
 /// </summary>
 public static partial class MessageHtml
 {
     public static string FromPlainText(string text)
     {
-        var lines = text.Replace("\r\n", "\n").Split('\n');
-
-        return string.Join(
-            "<br class=\"hard-break\">",
-            lines.Select(line => $"<p>{Escape(line)}</p>")
-        );
+        return $"<p>{Escape(text.ReplaceLineEndings("\n")).Replace("\n", "<br class=\"hard-break\">")}</p>";
     }
 
     public static string ToPlainText(string html)
     {
-        var output = html
-            .Replace("<br class=\"hard-break\">", "\n")
-            .Replace("<br>", "\n")
-            .Replace("</p><p>", "\n")
-            .Replace("<p>", "")
-            .Replace("</p>", "");
-
+        var output = BlockBoundaryRegex().Replace(html, "\n");
+        output = BreakRegex().Replace(output, "\n");
+        output = ImageRegex().Replace(output, match =>
+        {
+            var alt = AltRegex().Match(match.Value);
+            return alt.Success ? alt.Groups[2].Value : "";
+        });
         output = TagRegex().Replace(output, "");
-
-        return DecodeEntities(output);
+        // decode only after removing tags, so escaped literal markup stays visible text
+        return WebUtility.HtmlDecode(output);
     }
 
     private static string Escape(string text) => text
@@ -39,12 +33,17 @@ public static partial class MessageHtml
         .Replace("<", "&lt;")
         .Replace(">", "&gt;");
 
-    private static string DecodeEntities(string text) => text
-        .Replace("&lt;", "<")
-        .Replace("&gt;", ">")
-        .Replace("&quot;", "\"")
-        .Replace("&#39;", "'")
-        .Replace("&amp;", "&");
+    [GeneratedRegex(@"</(?:p|pre)>\s*<(?:p|pre)\b[^>]*>", RegexOptions.IgnoreCase)]
+    private static partial Regex BlockBoundaryRegex();
+
+    [GeneratedRegex(@"<br\b[^>]*>", RegexOptions.IgnoreCase)]
+    private static partial Regex BreakRegex();
+
+    [GeneratedRegex(@"<img\b[^>]*>", RegexOptions.IgnoreCase)]
+    private static partial Regex ImageRegex();
+
+    [GeneratedRegex("\\balt\\s*=\\s*([\"'])(.*?)\\1", RegexOptions.IgnoreCase)]
+    private static partial Regex AltRegex();
 
     [GeneratedRegex("<[^>]+>")]
     private static partial Regex TagRegex();
