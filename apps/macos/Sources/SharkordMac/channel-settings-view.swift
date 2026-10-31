@@ -68,8 +68,9 @@ struct ChannelSettingsView: View {
             let name = name.trimmingCharacters(in: .whitespaces)
             if let channel {
                 try await session.updateChannel(channelId: channel.id, name: name, topic: topic, isPrivate: isPrivate)
-                if categoryId != 0, categoryId != channel.categoryId {
-                    let ids = session.channels.filter { $0.categoryId == categoryId && !$0.isDm }.map(\.id)
+                if categoryId != channel.categoryId,
+                   let category = session.categories.first(where: { $0.id == categoryId }) {
+                    let ids = session.channels(in: category).filter { !$0.isDm && $0.id != channel.id }.map(\.id)
                     try await session.reorderChannels(categoryId: categoryId, channelIds: ids + [channel.id])
                 }
             } else {

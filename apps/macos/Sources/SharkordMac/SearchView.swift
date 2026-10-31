@@ -80,6 +80,8 @@ struct SearchView: View {
 
                 ForEach(result.messages) { message in
                     Button {
+                        task?.cancel()
+                        requestId = UUID()
                         onJump(message.navigationMessageId, message.channelId)
                     } label: {
                         VStack(alignment: .leading, spacing: 3) {
@@ -113,12 +115,7 @@ struct SearchView: View {
                 ForEach(result.files, id: \.file.id) { entry in
                     HStack {
                         Button {
-                            Task {
-                                do {
-                                    let message = try await session.getMessage(messageId: entry.messageId)
-                                    onJump(message.parentMessageId ?? message.id, entry.channelId)
-                                } catch { errorMessage = SharkordSession.describe(error) }
-                            }
+                            jumpToFile(entry)
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "doc.fill")
@@ -149,6 +146,30 @@ struct SearchView: View {
                 }
             }
             .padding(12)
+        }
+    }
+
+    private func jumpToFile(_ entry: SearchFile) {
+        task?.cancel()
+        let id = UUID()
+        requestId = id
+        let serverId = session.serverId
+        let ownerId = session.ownUserId
+        searching = true
+        errorMessage = nil
+        task = Task {
+            do {
+                let message = try await session.getMessage(messageId: entry.messageId)
+                guard !Task.isCancelled, requestId == id,
+                      session.serverId == serverId, session.ownUserId == ownerId else { return }
+                searching = false
+                onJump(message.parentMessageId ?? message.id, entry.channelId)
+            } catch {
+                guard !Task.isCancelled, requestId == id,
+                      session.serverId == serverId, session.ownUserId == ownerId else { return }
+                searching = false
+                errorMessage = SharkordSession.describe(error)
+            }
         }
     }
 

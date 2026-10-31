@@ -21,6 +21,7 @@ struct MessageRowView: View {
     @State private var showsReactions = false
     @State private var showsProfile = false
     @State private var errorMessage: String?
+    @State private var navigationTask: Task<Void, Never>?
 
     private var author: SharkordUser? {
         message.userId.flatMap { session.user(for: $0) }
@@ -126,6 +127,7 @@ struct MessageRowView: View {
         } message: {
             Text(L10n.t("deleteMessageConfirm", ns: "common"))
         }
+        .onDisappear { navigationTask?.cancel() }
     }
 
     private var mentionHighlight: Color {
@@ -225,12 +227,7 @@ struct MessageRowView: View {
         let author = preview.userId.flatMap { session.user(for: $0) }
 
         return Button {
-            Task {
-                do {
-                    let target = try await session.getMessage(messageId: preview.id)
-                    await session.jumpTo(messageId: target.parentMessageId ?? target.id, channelId: target.channelId)
-                } catch { errorMessage = SharkordSession.describe(error) }
-            }
+            jumpToReply(preview.id)
         } label: { HStack(spacing: 5) {
             Image(systemName: "arrowshape.turn.up.left.fill")
                 .font(.system(size: 9))
@@ -250,6 +247,28 @@ struct MessageRowView: View {
         .buttonStyle(.plain)
         .help(L10n.t("jumpToMessage", ns: "macos"))
         .padding(.leading, 40)
+    }
+
+    private func jumpToReply(_ messageId: Int) {
+        navigationTask?.cancel()
+        let channelId = session.selectedChannelId
+        let jumpId = channelId.flatMap { session.messageJumpByChannel[$0] }
+        let serverId = session.serverId
+        let ownerId = session.ownUserId
+        navigationTask = Task {
+            do {
+                let target = try await session.getMessage(messageId: messageId)
+                guard !Task.isCancelled, session.selectedChannelId == channelId,
+                      channelId.flatMap({ session.messageJumpByChannel[$0] }) == jumpId,
+                      session.serverId == serverId, session.ownUserId == ownerId else { return }
+                await session.jumpTo(messageId: target.parentMessageId ?? target.id, channelId: target.channelId)
+            } catch {
+                guard !Task.isCancelled, session.selectedChannelId == channelId,
+                      channelId.flatMap({ session.messageJumpByChannel[$0] }) == jumpId,
+                      session.serverId == serverId, session.ownUserId == ownerId else { return }
+                errorMessage = SharkordSession.describe(error)
+            }
+        }
     }
 
     private var actions: some View {
