@@ -25,7 +25,7 @@ apps/windows/
     I18n/L10n.cs                 # locale lookup, embedded tables, {{placeholder}} interpolation
     I18n/locales/<lang>/         # windows.json + connect.json, 10 languages
   src/Sharkord.App/              # WinUI 3 shell, WebView2 media worker and cove.ico (Windows-only)
-  tests/Sharkord.Core.Tests/     # wire-format + i18n unit tests, a gated integration test
+  tests/Sharkord.Core.Tests/     # wire-format, session, presentation + i18n tests
 ```
 
 ## Build
@@ -70,64 +70,71 @@ The integration test is gated so it is a no-op without a target:
 SHARKORD_IT_HOST=127.0.0.1:4992 dotnet test --filter LoginJoinSendAndReceive
 ```
 
-## What works today (verified)
+## Desktop workspace
 
-`Sharkord.Core` builds clean and its tests pass with `dotnet test` on macOS (53 tests, two of
-them end to end against a real server):
+The native dark workspace uses Discord-like chat, sidebar and deep-panel surfaces with a
+blurple accent. Collapsible categories retain their expansion state, text channels carry
+`#` markers, and voice channels carry speaker markers. The bottom-left user panel keeps
+avatar, name, microphone, deafen and settings controls together. The member panel is optional.
 
-- tRPC WebSocket framing: `connectionParams` first frame, `?connectionParams=1`, one
-  envelope per request, `PING`/`PONG` keepalive.
-- `POST /login`, `GET /info`.
-- `others.handshake` -> `others.joinServer` and the join payload (categories, channels,
-  users, roles, emojis, settings).
-- `messages.get` (cursor pagination), `messages.send` (replies + attachments), `messages.edit`,
-  `messages.delete`, `messages.toggleReaction`, `messages.signalTyping`,
-  `channels.markAsRead`, `dms.get` / `dms.open`, `POST /upload`.
-- Live subscriptions for messages, users, channels, categories, emojis, roles, server
-  settings, read states and DM conversation opens.
-- Reconnect with the `[1, 2, 4, 8, 8]s` backoff.
-- Localisation: 10 languages (`en`, `de`, `es`, `fr`, `it`, `cs`, `ru`, `zh`, `zh-Hant`,
-  `pt-BR`) with the same key layout the macOS client uses. The `windows` namespace holds ten
-  WinUI-only labels, including the language picker, system-default option and reaction action;
-  `identityLabel`, `passwordLabel` and `connectBtn` are
-  read from the shared `connect` namespace instead of being copied. The tables are embedded
-  in `Sharkord.Core.dll`. The picker stays available in the connect and chat views, offers
-  system language plus all ten locales, and persists explicit choices in
-  `%LOCALAPPDATA%\Sharkord\language`. `L10nTests` scans the window source so a hardcoded
-  english label or a renamed key fails the suite instead of surfacing as raw text at runtime.
+Messages group consecutive authors within a minute, with separate reply and unread boundaries.
+Rows show avatars, muted timestamps, reaction chips, attachment links and actions on hover or
+keyboard focus. Own editable messages can be edited, and own messages have a confirmed delete
+action. Replies, unread/new-message dividers and loading older history use existing server routes.
 
-`cove` is a WinUI 3 shell (connect form, grouped channel tree, message list, composer,
-reactions, voice controls and language picker) wired to `SharkordSession`. The source before
-the current voice and TreeView changes compiled and published on Windows 11 x64 in Release
-configuration with 0 warnings and 0 errors. It renders reaction chips, toggles existing
-reactions and offers six common reactions; other reaction shortcodes remain visible as
-`:shortcode:` text. The app has not been launched or visually reviewed, and the shell only
-exposes a slice of what `SharkordSession` supports.
+The rounded composer supports attachments, a built-in emoji picker and a typing indicator.
+Enter sends by default, Shift+Enter inserts a newline, ArrowUp in an empty composer edits the
+last own editable message, and Escape cancels reply/edit. Existing configurable send shortcuts
+remain available. Channel drafts survive channel changes and automatic reconnects; a new login
+clears the previous session's local drafts and history. Upload count and size checks use the
+server settings, and failed sends retain the draft.
 
-## What is not here yet
+Existing language, diagnostic export, account/server settings, notification, global shortcut
+and voice surfaces remain native. Localized UI labels are embedded for all ten supported
+languages and checked by the Windows test suite.
 
-- **The current WinUI 3 source has not been rebuilt, launched or visually reviewed.** The
-  earlier Release build predates the voice media and grouped TreeView changes, and compilation
-  alone would not verify runtime interactions.
-  `Microsoft.WindowsAppSDK` is pinned at `1.6.240923002` and
-  `Microsoft.Windows.SDK.BuildTools` at `10.0.26100.1742`; both restore and build as
-  declared, so they are not placeholders needing replacement.
-- **Voice runtime acceptance.** The WinUI voice controls, C# signaling bridge and bundled
-  WebView2 mediasoup worker are present in source, including audio, webcam and screen sharing.
-  This version still needs a Windows build, permission check and real media test.
-- **Plugins.** The WebView2 surface is restricted to bundled media assets and does not load
-  server-provided plugin UI.
-- **The WinUI views do not yet surface** edit/delete, reply, typing, attachments or DMs,
-  even though the session layer supports them.
-- **The admin and settings surface is macOS-only for now.** Categories/channels management,
-  roles, emojis, invites, user administration, server settings, pins, threads, search and
-  the voice control plane are implemented in `SharkordCore` (Swift) and not in
-  `Sharkord.Core` (C#). Porting them is mechanical: the routes and payload shapes are
-  recorded in the macOS `SharkordSession+*.swift` files and in `docs/` .
-- **Token persistence** is not implemented on the Windows side (no DPAPI yet); Core only
-  carries the token in memory.
+The message list uses the native virtualized `ListView`/`ItemsStackPanel`. Message revisions
+skip unchanged history, changed rows retain existing identities, and a single deletion does
+not move every surviving row. A 5,000-row regression test verifies one collection removal.
+Queued session refreshes coalesce, while unchanged channel trees and member rosters are reused.
+Core inserts new messages in order, snapshots history under its existing lock, and decodes
+JSON without intermediate strings. The media WebView is created when the voice view is first
+opened or voice is joined; text chat startup does not initialize WebView2. These are structural
+improvements, not measured startup or frame-rate benchmarks.
 
-The full, per-feature status and limitation list is in [`../README.md`](../README.md).
+## Verification and compatibility
+
+The Windows build and offline tests are run with the commands above. Exact results for this
+change are recorded in [the taskbook](../../taskbook/2026-10-desktop-native-discord-ui.md).
+The suite includes message grouping/reconciliation, stable session snapshots, unread state,
+locale parity, HTTP requests and real loopback WebSocket framing. Source-contract UI checks
+verify wiring, not rendered appearance or native input behavior. The two live-server test
+bodies remain gated without `SHARKORD_IT_HOST`; a passing offline run does not exercise them.
+
+The protocol audit retains the tRPC `connectionParams` first frame, its query flag, one envelope
+per request, batched/fragmented response decoding, `PING`/`PONG`, server error messages and the
+`[1, 2, 4, 8, 8]` second reconnect schedule. PONG replies now keep an idle connection alive.
+Login uses the existing JSON payload. Uploads use raw bytes with a matching `content-length`,
+percent-encoded filenames and the existing token/type headers. Public-file URLs retain their
+signed query fields when supplied by the server. No server routes or shared packages changed.
+
+Known differences and remaining acceptance:
+
+- **Message HTML:** Windows deliberately renders a plain-text fallback. It retains paragraph,
+  hard-break and code-block line structure, decoded entities, mention/reference text and image
+  alt text. Rich emphasis, inline media, custom emoji images and hyperlink destinations whose
+  labels differ from their URL are not rendered like the web client. New text uses the web
+  editor's paragraph/hard-break structure. Saving an unchanged edit preserves the original
+  HTML; changing the text replaces rich markup with plain composer markup. macOS retains its
+  richer native renderer. This is not full web-client rendering parity.
+- **Emoji:** the Windows picker offers a small built-in Unicode set. Other reaction shortcodes
+  remain visible as text; it is not the web client's full emoji catalog.
+- **GUI and media:** native keyboard/focus behavior, scroll anchoring, screen readers, real
+  uploads and voice/camera/screen capture still need device-level testing. No GUI or real
+  server acceptance is claimed by a successful build or offline test run.
+- **Feature coverage:** existing DM conversations are listed; Windows still does not surface
+  the complete web-client search, pins, threads or plugin-provided React UI. The media WebView
+  remains restricted to bundled worker assets. Authentication tokens remain in memory only.
 
 ## Notes
 
