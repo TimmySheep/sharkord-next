@@ -32,4 +32,46 @@
 - Status: Air ready (opencode 1.18.31); Windows PC waking via WOL.
 - This session: repo cloned on both machines, tasks dispatched, results TBD.
 
+### 2026-10-31 Windows device options (gaming PC, OpenCode mimo-v2.6-flash)
+
+What changed (branch `feat/windows-parity`, apps/windows only, 6 commits):
+
+- Voice worker: DTLN noise-suppression mode wired through the bundled
+  `dtln-processor.js` worklet (16 kHz mono capture, single AudioContext,
+  readiness handshake with timeout and processor-error reporting); optional
+  noise gate via the web `noise-gate-processor.js` worklet (hold 100 ms,
+  live threshold updates, clamp -70..0 dB, default off at -48 dB); screen
+  share now honors the cursor mode and bitrate options (default "always",
+  6000 kbps with Google codec bitrate hints); own-video preview mirroring
+  (`scaleX(-1)`).
+- Media bridge: `setNoiseGate` API, `level` meter API (RMS to dB, -70..0 dB
+  window mapped to 0..100%), screen codec resolution by mimeType with router
+  fallback, and the matching option defaults.
+- Device dialog: DTLN entry in the noise-mode box, noise-gate toggle with a
+  threshold slider, screen codec/cursor combo boxes, screen bitrate slider
+  capped by the server's WebRtcMaxBitrate, mirror toggle, and a live level
+  meter that only runs while the dialog owns the media webview.
+- i18n: one new key, `noiseGateThresholdLabel`, translated in all 10 media
+  locale tables; every other label reuses the shared `settings`/`media` keys.
+- Deferred: `restrictOwnAudio`/`suppressLocalAudioPlayback` (experimental
+  Chromium-only display-capture constraints), documented in the taskbook.
+
+Verification (headless, no GUI launched):
+
+- `dotnet build src/Sharkord.App/Sharkord.App.csproj -p:Platform=x64`:
+  succeeded, 0 warnings, 0 errors (SDK 10.0.403, installed user-local to
+  `~/.dotnet` because no .NET 10 SDK was present on this machine).
+- `dotnet test tests/Sharkord.Core.Tests/Sharkord.Core.Tests.csproj`:
+  217 passed, 0 failed (was 206; +10 locale theory cases, +1 source-contract
+  test asserting the dialog/worker wiring and worklet asset presence).
+- `node --test apps/windows/tests/media-controls.test.cjs`: 12 passed, 0
+  failed (was 7; new cases cover setNoiseGate/mirror on options, screen
+  codec resolution and bitrate hints, the level meter lifecycle and video
+  preview mirroring).
+- `node --check` on both media scripts: exit 0.
+
+Remaining gaps: macOS side of phase 3 untouched in this session; GUI/device
+acceptance still deferred per the phase-2 rule; the deferred experimental
+display-capture constraints above.
+
 <!-- Hermes appends below as work lands. -->
