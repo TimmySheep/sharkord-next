@@ -55,6 +55,8 @@ public final class SharkordSession: ObservableObject {
     @Published public internal(set) var messageHistoryErrorsByChannel: [Int: String] = [:]
     @Published public internal(set) var isLoadingMore: Set<Int> = []
     @Published public internal(set) var unreadByChannel: [Int: Int] = [:]
+    @Published public internal(set) var unreadBoundaryByChannel: [Int: Int] = [:]
+    @Published public internal(set) var messageJumpByChannel: [Int: Int] = [:]
     @Published public internal(set) var typingByChannel: [Int: [Int: Date]] = [:]
     @Published public internal(set) var typingByThread: [Int: [Int: Date]] = [:]
     @Published public internal(set) var replyCounts: [Int: Int] = [:]
@@ -532,6 +534,8 @@ public final class SharkordSession: ObservableObject {
         isLoadingInitialMessagesByChannel = []
         messageHistoryErrorsByChannel = [:]
         unreadByChannel = [:]
+        unreadBoundaryByChannel = [:]
+        messageJumpByChannel = [:]
         typingByChannel = [:]
         typingByThread = [:]
         replyCounts = [:]
@@ -1026,6 +1030,8 @@ public final class SharkordSession: ObservableObject {
         isLoadingInitialMessagesByChannel.remove(channelId)
         messageHistoryErrorsByChannel[channelId] = nil
         unreadByChannel[channelId] = nil
+        unreadBoundaryByChannel[channelId] = nil
+        messageJumpByChannel[channelId] = nil
         pinnedByChannel[channelId] = nil
 
         if selectedChannelId == channelId {
@@ -1141,7 +1147,15 @@ public final class SharkordSession: ObservableObject {
     // MARK: - channel selection + history
 
     public func select(channelId: Int) async {
+        if selectedChannelId != channelId {
+            unreadBoundaryByChannel[channelId] = nil
+            messageJumpByChannel[channelId] = nil
+        }
         selectedChannelId = channelId
+
+        // the channel view can select again while its sidebar selection is still loading
+        guard !isLoadingInitialMessagesByChannel.contains(channelId),
+              !isLoadingMore.contains(channelId) else { return }
 
         guard !loadedChannels.contains(channelId) else {
             markAsRead(channelId)
@@ -1195,12 +1209,23 @@ public final class SharkordSession: ObservableObject {
 
         do {
             try await load(channelId: channelId, cursor: nil, targetMessageId: messageId)
+            messageJumpByChannel[channelId] = messageId
         } catch {
             lastError = Self.describe(error)
         }
     }
 
-    private func load(channelId: Int, cursor: MessagesCursor?, targetMessageId: Int?) async throws {
+    public func returnToPresent(channelId: Int) async {
+        do {
+            try await load(channelId: channelId, cursor: nil, targetMessageId: nil, replaceHistory: true)
+            messageJumpByChannel[channelId] = nil
+            markAsRead(channelId)
+        } catch {
+            lastError = Self.describe(error)
+        }
+    }
+
+    private func load(channelId: Int, cursor: MessagesCursor?, targetMessageId: Int?, replaceHistory: Bool = false) async throws {
         guard let client else {
             throw TRPCClientError(code: "DISCONNECTED", message: "Not connected")
         }
@@ -1225,7 +1250,7 @@ public final class SharkordSession: ObservableObject {
         let page = try value.decode(MessagesPage.self)
         let ascending = page.messages.sorted { $0.createdAt < $1.createdAt }
 
-        if targetMessageId != nil {
+        if targetMessageId != nil || replaceHistory {
             messagesByChannel[channelId] = ascending
         } else if cursor == nil {
             let existing = messagesByChannel[channelId] ?? []

@@ -104,5 +104,21 @@
   "logsExportSuccessTitle": "Registros exportados",
   "logsExportSuccessMessage": "Los registros de diagnóstico se guardaron en la ubicación seleccionada.",
   "logsExportFailureTitle": "No se pudieron exportar los registros",
-  "logsExportFailureMessage": "Cove no pudo guardar los registros de diagnóstico. Comprueba el acceso al archivo e inténtalo de nuevo."
+  "logsExportFailureMessage": "Cove no pudo guardar los registros de diagnóstico. Comprueba el acceso al archivo e inténtalo de nuevo.",
+  "botBadge": "bot",
+  "unreadMessages": "Mensajes sin leer",
+  "newMessages": "Mensajes nuevos",
+  "typingSingle": "{{names}} está escribiendo",
+  "typingMultiple": "{{names}} están escribiendo",
+  "editingMessage": "Editando mensaje",
+  "attachFiles": "Adjuntar archivos",
+  "sendMessage": "Enviar",
+  "moveTo": "Mover a",
+  "editCategoryTitle": "Editar categoría",
+  "editChannelTitle": "Editar canal",
+  "connectedStatus": "Conectado",
+  "closeMembers": "Cerrar panel de miembros",
+  "openMembers": "Abrir panel de miembros",
+  "assignRole": "Asignar rol",
+  "messageActions": "Acciones del mensaje"
 }

@@ -135,7 +135,9 @@ final class LocaleParityTests: XCTestCase {
                 }
 
                 XCTAssertTrue(
-                    roots[namespace]?.contains(key) == true,
+                    roots[namespace]?.contains(key) == true
+                        || (roots[namespace]?.contains("\(key)_one") == true
+                            && roots[namespace]?.contains("\(key)_other") == true),
                     "\(url.lastPathComponent) references missing key \(namespace).\(key)"
                 )
                 checked += 1

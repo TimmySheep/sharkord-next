@@ -104,5 +104,21 @@
   "logsExportSuccessTitle": "Log esportati",
   "logsExportSuccessMessage": "I log diagnostici sono stati salvati nella posizione selezionata.",
   "logsExportFailureTitle": "Impossibile esportare i log",
-  "logsExportFailureMessage": "Cove non è riuscito a salvare i log diagnostici. Controlla l’accesso al file e riprova."
+  "logsExportFailureMessage": "Cove non è riuscito a salvare i log diagnostici. Controlla l’accesso al file e riprova.",
+  "botBadge": "bot",
+  "unreadMessages": "Messaggi non letti",
+  "newMessages": "Nuovi messaggi",
+  "typingSingle": "{{names}} sta scrivendo",
+  "typingMultiple": "{{names}} stanno scrivendo",
+  "editingMessage": "Modifica del messaggio",
+  "attachFiles": "Allega file",
+  "sendMessage": "Invia",
+  "moveTo": "Sposta in",
+  "editCategoryTitle": "Modifica categoria",
+  "editChannelTitle": "Modifica canale",
+  "connectedStatus": "Connesso",
+  "closeMembers": "Chiudi pannello membri",
+  "openMembers": "Apri pannello membri",
+  "assignRole": "Assegna ruolo",
+  "messageActions": "Azioni del messaggio"
 }

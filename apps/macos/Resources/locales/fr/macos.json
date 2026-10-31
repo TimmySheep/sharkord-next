@@ -104,5 +104,21 @@
   "logsExportSuccessTitle": "Journaux exportés",
   "logsExportSuccessMessage": "Les journaux de diagnostic ont été enregistrés à l’emplacement choisi.",
   "logsExportFailureTitle": "Impossible d’exporter les journaux",
-  "logsExportFailureMessage": "Cove n’a pas pu enregistrer les journaux de diagnostic. Vérifiez l’accès au fichier et réessayez."
+  "logsExportFailureMessage": "Cove n’a pas pu enregistrer les journaux de diagnostic. Vérifiez l’accès au fichier et réessayez.",
+  "botBadge": "bot",
+  "unreadMessages": "Messages non lus",
+  "newMessages": "Nouveaux messages",
+  "typingSingle": "{{names}} écrit",
+  "typingMultiple": "{{names}} écrivent",
+  "editingMessage": "Modification du message",
+  "attachFiles": "Joindre des fichiers",
+  "sendMessage": "Envoyer",
+  "moveTo": "Déplacer vers",
+  "editCategoryTitle": "Modifier la catégorie",
+  "editChannelTitle": "Modifier le salon",
+  "connectedStatus": "Connecté",
+  "closeMembers": "Fermer le panneau des membres",
+  "openMembers": "Ouvrir le panneau des membres",
+  "assignRole": "Attribuer un rôle",
+  "messageActions": "Actions du message"
 }

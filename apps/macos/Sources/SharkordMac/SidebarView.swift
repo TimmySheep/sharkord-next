@@ -73,8 +73,8 @@ struct SidebarView: View {
             if session.canManageCategories {
                 Button(L10n.t("addCategory", ns: "sidebar")) {
                     prompt = SidebarPrompt(
-                        title: "Create category",
-                        placeholder: "Category name",
+                        title: L10n.t("createCategoryTitle", ns: "dialogs"),
+                        placeholder: L10n.t("categoryNamePlaceholder", ns: "dialogs"),
                         initial: ""
                     ) { name in
                         Task { try? await session.addCategory(name: name) }
@@ -124,8 +124,8 @@ struct SidebarView: View {
                 trailing: {
                     Button {
                         prompt = SidebarPrompt(
-                            title: "New direct message",
-                            placeholder: "User name",
+                            title: L10n.t("startNewConversation", ns: "sidebar"),
+                            placeholder: L10n.t("searchUser", ns: "sidebar"),
                             initial: ""
                         ) { name in
                             openDirectMessage(named: name)
@@ -135,7 +135,7 @@ struct SidebarView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .help("Start new conversation")
+                    .help(L10n.t("startNewConversation", ns: "sidebar"))
                 }
             )
 
@@ -187,8 +187,8 @@ struct SidebarView: View {
                     if session.canManageChannels {
                         Button {
                             prompt = SidebarPrompt(
-                                title: "Create channel",
-                                placeholder: "Channel name",
+                                title: L10n.t("createChannelTitle", ns: "dialogs"),
+                                placeholder: L10n.t("channelNamePlaceholder", ns: "dialogs"),
                                 initial: ""
                             ) { name in
                                 Task {
@@ -200,7 +200,7 @@ struct SidebarView: View {
                         }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
-                        .help("Create channel")
+                        .help(L10n.t("createChannel", ns: "sidebar"))
                     }
                 }
             )
@@ -309,7 +309,7 @@ struct SidebarView: View {
                     .padding(.vertical, 1)
                     .contextMenu {
                         if session.hasPermission(.moveMembers) {
-                            Menu("Move to") {
+                            Menu(L10n.t("moveTo", ns: "macos")) {
                                 ForEach(session.voiceChannels.filter { $0.id != channel.id }) { target in
                                     Button(target.name) {
                                         Task {
@@ -332,8 +332,8 @@ struct SidebarView: View {
         if session.canManageCategories {
             Button(L10n.t("editLabel", ns: "sidebar")) {
                 prompt = SidebarPrompt(
-                    title: "Edit category",
-                    placeholder: "Category name",
+                    title: L10n.t("editCategoryTitle", ns: "macos"),
+                    placeholder: L10n.t("categoryNamePlaceholder", ns: "dialogs"),
                     initial: category.name
                 ) { name in
                     Task { try? await session.updateCategory(categoryId: category.id, name: name) }
@@ -342,8 +342,8 @@ struct SidebarView: View {
 
             Button(L10n.t("deleteLabel", ns: "sidebar"), role: .destructive) {
                 confirmDelete = SidebarConfirm(
-                    title: "Delete category",
-                    message: "Delete #\(category.name)?"
+                    title: L10n.t("deleteCategoryTitle", ns: "sidebar"),
+                    message: L10n.t("deleteCategoryMsg", ns: "sidebar")
                 ) {
                     Task { try? await session.deleteCategory(categoryId: category.id) }
                 }
@@ -366,8 +366,8 @@ struct SidebarView: View {
         if session.canManageChannels, !channel.isDm {
             Button(L10n.t("editLabel", ns: "sidebar")) {
                 prompt = SidebarPrompt(
-                    title: "Edit channel",
-                    placeholder: "Channel name",
+                    title: L10n.t("editChannelTitle", ns: "macos"),
+                    placeholder: L10n.t("channelNamePlaceholder", ns: "dialogs"),
                     initial: channel.name
                 ) { name in
                     Task { try? await session.updateChannel(channelId: channel.id, name: name) }
@@ -376,8 +376,8 @@ struct SidebarView: View {
 
             Button(L10n.t("deleteLabel", ns: "sidebar"), role: .destructive) {
                 confirmDelete = SidebarConfirm(
-                    title: "Delete channel",
-                    message: "Delete #\(channel.name)?"
+                    title: L10n.t("deleteChannelTitle", ns: "sidebar"),
+                    message: L10n.t("deleteChannelMsg", ns: "sidebar")
                 ) {
                     Task { try? await session.deleteChannel(channelId: channel.id) }
                 }
@@ -402,7 +402,7 @@ struct SidebarView: View {
             AvatarView(user: session.ownUser, size: 30, showsPresence: true)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(session.ownUser?.name ?? "You")
+                Text(session.ownUser?.name ?? L10n.t("mediaLocalUser", ns: "macos"))
                     .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
 
@@ -414,15 +414,41 @@ struct SidebarView: View {
 
             Spacer()
 
-            if session.currentVoiceChannelId != nil {
-                Button {
-                    Task { try? await session.updateVoiceState(micMuted: true) }
-                } label: {
-                    Image(systemName: "mic.slash")
+            Button {
+                Task {
+                    do {
+                        try await voiceMedia.setMicrophoneMuted(ownVoiceState?.micMuted != true)
+                    } catch {
+                        voiceMedia.presentError(error, context: "microphone")
+                    }
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
+            } label: {
+                Image(systemName: ownVoiceState?.micMuted == false ? "mic.fill" : "mic.slash.fill")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help(L10n.t(ownVoiceState?.micMuted == false ? "muteMic" : "unmuteMic", ns: "macos"))
+            .accessibilityLabel(L10n.t(ownVoiceState?.micMuted == false ? "muteMic" : "unmuteMic", ns: "macos"))
+            .disabled(!canSpeak || voiceMedia.status != "connected" || ownVoiceState?.soundMuted == true)
 
+            Button {
+                Task {
+                    do {
+                        try await voiceMedia.setOutputMuted(ownVoiceState?.soundMuted != true)
+                    } catch {
+                        voiceMedia.presentError(error, context: "audio")
+                    }
+                }
+            } label: {
+                Image(systemName: ownVoiceState?.soundMuted == true ? "speaker.slash.fill" : "headphones")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help(L10n.t(ownVoiceState?.soundMuted == true ? "keyboardShortcutUnmuteVoiceAudioTitle" : "keyboardShortcutMuteVoiceAudioTitle", ns: "macos"))
+            .accessibilityLabel(L10n.t(ownVoiceState?.soundMuted == true ? "keyboardShortcutUnmuteVoiceAudioTitle" : "keyboardShortcutMuteVoiceAudioTitle", ns: "macos"))
+            .disabled(voiceMedia.status != "connected")
+
+            if session.currentVoiceChannelId != nil {
                 Button {
                     Task { try? await session.leaveVoice() }
                 } label: {
@@ -430,6 +456,8 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.red)
+                .help(L10n.t("disconnectVoice", ns: "sidebar"))
+                .accessibilityLabel(L10n.t("disconnectVoice", ns: "sidebar"))
             }
 
             Button(action: onOpenSettings) {
@@ -437,18 +465,30 @@ struct SidebarView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("User settings")
+            .help(L10n.t("userSettings", ns: "sidebar"))
+            .accessibilityLabel(L10n.t("userSettings", ns: "sidebar"))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .background(Theme.deep)
+    }
+
+    private var ownVoiceState: VoiceUserState? {
+        guard let channelId = session.currentVoiceChannelId else { return nil }
+        return session.voiceMap[channelId]?.users[String(session.ownUserId)]
+    }
+
+    private var canSpeak: Bool {
+        guard let channelId = session.currentVoiceChannelId else { return false }
+        return session.hasChannelPermission(channelId, .speak)
     }
 
     private var voiceStatus: String {
         if let channelId = session.currentVoiceChannelId {
-            return session.channel(for: channelId)?.name ?? "Voice connected"
+            return session.channel(for: channelId)?.name ?? L10n.t("voiceConnected", ns: "sidebar")
         }
 
-        return "Connected"
+        return L10n.t("connectedStatus", ns: "macos")
     }
 
     // MARK: - actions
@@ -608,12 +648,7 @@ struct ChannelRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
-        .background(
-            session.selectedChannelId == channel.id
-                ? Theme.elevated
-                : .clear,
-            in: RoundedRectangle(cornerRadius: 5)
-        )
+        .modifier(WorkspaceRowBackground(isSelected: session.selectedChannelId == channel.id))
         .padding(.horizontal, 6)
     }
 }
@@ -630,7 +665,7 @@ struct DirectMessageRow: View {
         HStack(spacing: 8) {
             AvatarView(user: partner, size: 20, showsPresence: true)
 
-            Text(partner?.name ?? "Direct message")
+            Text(partner?.name ?? L10n.t("directMessage", ns: "common"))
                 .font(.system(size: 14, weight: unread > 0 ? .semibold : .regular))
                 .foregroundStyle(unread > 0 ? .primary : .secondary)
                 .lineLimit(1)
@@ -648,12 +683,7 @@ struct DirectMessageRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
-        .background(
-            session.selectedChannelId == channel.id
-                ? Theme.elevated
-                : .clear,
-            in: RoundedRectangle(cornerRadius: 5)
-        )
+        .modifier(WorkspaceRowBackground(isSelected: session.selectedChannelId == channel.id))
         .padding(.horizontal, 6)
     }
 }

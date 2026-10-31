@@ -268,6 +268,20 @@ public sealed partial class MainWindow
 
     private async void OnComposerKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (e.Key == Windows.System.VirtualKey.Escape && (_replyToMessageId is not null || _editingMessage is not null))
+        {
+            e.Handled = true;
+            CancelComposerContext();
+            return;
+        }
+
+        if (e.Key == Windows.System.VirtualKey.Up && ReadShortcutModifiers() == KeyboardShortcutModifiers.None && ComposerBox.Text.Length == 0)
+        {
+            e.Handled = true;
+            EditLastOwnMessage();
+            return;
+        }
+
         var action = _keyboardShortcutPreferences.ActionFor((int)e.Key, ReadShortcutModifiers());
         if (action is null || !CanPerformKeyboardShortcut(action.Value))
         {

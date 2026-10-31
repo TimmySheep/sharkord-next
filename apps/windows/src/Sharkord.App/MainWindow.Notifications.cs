@@ -10,7 +10,11 @@ public sealed partial class MainWindow
 {
     private void OnIncomingMessage(SharkordMessage message)
     {
-        DispatcherQueue.TryEnqueue(() => ShowNotificationIfNeeded(message));
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            TrackNewMessage(message);
+            ShowNotificationIfNeeded(message);
+        });
     }
 
     private void ShowNotificationIfNeeded(SharkordMessage message)

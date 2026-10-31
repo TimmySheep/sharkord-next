@@ -6,6 +6,63 @@ import Testing
 @Suite
 struct MessageHTMLTests {
     @Test
+    func linkificationPreservesUntouchedNamedEntitiesAndNonbreakingSpaces() {
+        let prepared = MessageHTML.prepare(
+            "<p>&copy;&nbsp; https://example.test/?a=1&amp;b=2 &trade;</p>"
+        )
+        #expect(prepared.hasPrefix("<p>&copy;&nbsp; "))
+        #expect(prepared.hasSuffix(" &trade;</p>"))
+        #expect(prepared.contains("href=\"https://example.test/?a=1&amp;b=2\""))
+        #expect(MessageHTML.prepare("<p>&copy;&nbsp;</p>") == "<p>&copy;&nbsp;</p>")
+    }
+
+    @Test
+    func literalEntityTextIsDecodedOnlyOnceInTextAndURLs() {
+        #expect(MessageHTML.decodeEntities("&amp;#65;") == "&#65;")
+        #expect(MessageHTML.decodeEntities("&#38;lt;") == "&lt;")
+        #expect(MessageHTML.decodeEntities("&#38;amp;") == "&amp;")
+
+        for url in ["https://example.test/?q=&#65;", "https://example.test/?q=a&"] {
+            let prepared = MessageHTML.prepare(MessageHTML.fromPlainText(url))
+            #expect(MessageHTML.toPlainText(prepared) == url)
+            #expect(MessageHTML.parse(prepared).blocks.first?.spans.first?.href == url)
+        }
+
+        let incoming = MessageHTML.parse("<p><a href=\"https://example.test/?q=&amp;#65;\">literal &amp;#65;</a></p>")
+        #expect(incoming.blocks.first?.spans.first?.href == "https://example.test/?q=&#65;")
+        #expect(incoming.blocks.first?.spans.first?.content == .text("literal &#65;"))
+
+        let text = "literal <tag> & &#65; https://example.test/?q=a&"
+        let prepared = MessageHTML.prepare(MessageHTML.fromPlainText(text))
+        #expect(!prepared.contains("<tag>"))
+        #expect(MessageHTML.toPlainText(prepared) == text)
+    }
+
+    @Test
+    func linksAtTheStartOfARunKeepQueryEntitiesExactlyOnce() {
+        let url = "https://example.test/path?a=1&b=2"
+        let prepared = MessageHTML.prepare(MessageHTML.fromPlainText(url))
+        #expect(prepared.contains("href=\"https://example.test/path?a=1&amp;b=2\""))
+        #expect(!prepared.contains("&amp;amp;"))
+        #expect(MessageHTML.toPlainText(prepared) == url)
+        #expect(MessageHTML.parse(prepared).blocks.first?.spans.first?.href == url)
+    }
+
+    @Test
+    func incomingLinkAndMediaAttributesDecodeHTMLEntities() {
+        let document = MessageHTML.parse("<p><a href=\"https://example.test/?a=1&amp;b=2\">link</a><img src=\"/public/image.png?accessToken=x&amp;expires=3\" alt=\"a &amp; b\"></p>")
+        #expect(document.blocks.first?.spans.first?.href == "https://example.test/?a=1&b=2")
+        #expect(document.blocks.first?.spans.last?.content == .media(src: "/public/image.png?accessToken=x&expires=3", alt: "a & b"))
+    }
+
+    @Test
+    func normalizingVisibleURLLabelsDoesNotDoubleEscapeTheQuery() {
+        let prepared = MessageHTML.prepare("<p><a href=\"https://wrong.test\">https://example.test/?a=1&amp;b=2</a></p>")
+        #expect(prepared.contains("href=\"https://example.test/?a=1&amp;b=2\""))
+        #expect(!prepared.contains("&amp;amp;"))
+    }
+
+    @Test
     func plainTextEscapesAndKeepsLineStructure() {
         #expect(MessageHTML.fromPlainText("hello") == "<p>hello</p>")
         #expect(MessageHTML.fromPlainText("<b>") == "<p>&lt;b&gt;</p>")

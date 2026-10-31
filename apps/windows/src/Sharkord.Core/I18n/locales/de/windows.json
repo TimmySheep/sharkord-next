@@ -36,5 +36,15 @@
   "logsExportSuccessMessage": "Die Diagnoseprotokolle wurden am ausgewählten Speicherort gespeichert.",
   "logsExportFailureTitle": "Protokolle konnten nicht exportiert werden",
   "logsExportFailureMessage": "Cove konnte die Diagnoseprotokolle nicht speichern. Prüfe den Dateizugriff und versuche es erneut.",
-  "close": "Schließen"
+  "close": "Schließen",
+  "typingUsers": "Schreiben: {{names}}…",
+  "unreadMessages": "Ungelesene Nachrichten",
+  "newMessages": "Neue Nachrichten",
+  "attachFiles": "Dateien anhängen",
+  "messageActions": "Nachrichtenaktionen",
+  "online": "Online",
+  "offline": "Offline",
+  "attachmentLimit": "Du kannst höchstens {{count}} Dateien anhängen.",
+  "attachmentSizeLimit": "Diese Datei überschreitet das Uploadlimit von {{size}} MB.",
+  "removeAttachment": "{{name}} entfernen"
 }

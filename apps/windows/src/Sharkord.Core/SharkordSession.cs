@@ -26,6 +26,14 @@ public sealed class SharkordSession : IAsyncDisposable
     ];
 
     private readonly Dictionary<int, List<SharkordMessage>> _messagesByChannel = [];
+    private readonly Dictionary<int, long> _messageRevisions = [];
+    private long _nextMessageRevision;
+    private long _unreadRevision;
+    private static readonly IComparer<SharkordMessage> MessageOrder = Comparer<SharkordMessage>.Create((left, right) =>
+    {
+        var time = left.CreatedAt.CompareTo(right.CreatedAt);
+        return time == 0 ? left.Id.CompareTo(right.Id) : time;
+    });
     private readonly Dictionary<int, MessagesCursor> _cursors = [];
     private readonly Dictionary<int, Dictionary<int, DateTime>> _typingByChannel = [];
     private readonly Dictionary<int, int> _replyCounts = [];
@@ -64,6 +72,44 @@ public sealed class SharkordSession : IAsyncDisposable
     public int? CurrentVoiceChannelId { get; private set; }
 
     public IReadOnlyDictionary<int, List<SharkordMessage>> MessagesByChannel => _messagesByChannel;
+
+    public long GetMessagesRevision(int channelId)
+    {
+        lock (_gate)
+        {
+            return _messageRevisions.GetValueOrDefault(channelId);
+        }
+    }
+
+    public IReadOnlyList<SharkordMessage> GetMessagesSnapshot(int channelId) => GetMessagesSnapshot(channelId, out _);
+
+    public IReadOnlyList<SharkordMessage> GetMessagesSnapshot(int channelId, out long revision)
+    {
+        lock (_gate)
+        {
+            revision = _messageRevisions.GetValueOrDefault(channelId);
+            return _messagesByChannel.TryGetValue(channelId, out var messages) ? messages.ToArray() : [];
+        }
+    }
+
+    public long UnreadRevision
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _unreadRevision;
+            }
+        }
+    }
+
+    public bool HasOlderMessages(int channelId)
+    {
+        lock (_gate)
+        {
+            return _cursors.ContainsKey(channelId);
+        }
+    }
 
     public SharkordUser? OwnUser => Users.FirstOrDefault(user => user.Id == OwnUserId);
 
@@ -218,6 +264,7 @@ public sealed class SharkordSession : IAsyncDisposable
             return;
         }
 
+        await DisconnectAsync().ConfigureAwait(false);
         ClientLogStore.Shared.RecordInfo("session.connect.started");
         _stopping = false;
         _reconnectAttempt = 0;
@@ -299,6 +346,19 @@ public sealed class SharkordSession : IAsyncDisposable
         Settings = join.PublicSettings;
         OwnUserId = join.OwnUserId;
         ServerName = join.ServerName;
+
+        lock (_gate)
+        {
+            _unreadByChannel.Clear();
+            _unreadRevision++;
+            foreach (var (channel, count) in join.ReadStates ?? [])
+            {
+                if (int.TryParse(channel, out var channelId))
+                {
+                    _unreadByChannel[channelId] = (int)Math.Clamp(count, 0, int.MaxValue);
+                }
+            }
+        }
 
         if (SelectedChannelId is null)
         {
@@ -553,35 +613,49 @@ public sealed class SharkordSession : IAsyncDisposable
 
             if (index >= 0)
             {
+                if (ReferenceEquals(list[index], message))
+                {
+                    return;
+                }
                 list[index] = message;
             }
             else if (message.ParentMessageId is null)
             {
-                list.Add(message);
-                list.Sort((a, b) => a.CreatedAt.CompareTo(b.CreatedAt));
+                if (list.Count == 0 || MessageOrder.Compare(list[^1], message) < 0)
+                {
+                    list.Add(message);
+                }
+                else
+                {
+                    list.Insert(~list.BinarySearch(message, MessageOrder), message);
+                }
             }
             else
             {
                 return;
             }
+            _messageRevisions[message.ChannelId] = ++_nextMessageRevision;
         }
 
         if (markUnread && message.ChannelId != SelectedChannelId)
         {
             ApplyUnreadDelta(message.ChannelId, 1);
         }
-
-        Notify();
+        else
+        {
+            Notify();
+        }
     }
 
     private void RemoveMessage(int messageId, int channelId)
     {
         lock (_gate)
         {
-            if (_messagesByChannel.TryGetValue(channelId, out var list))
+            if (!_messagesByChannel.TryGetValue(channelId, out var list) || list.RemoveAll(m => m.Id == messageId) == 0)
             {
-                list.RemoveAll(m => m.Id == messageId);
+                return;
             }
+            _messageRevisions[channelId] = ++_nextMessageRevision;
         }
 
         Notify();
@@ -654,6 +728,7 @@ public sealed class SharkordSession : IAsyncDisposable
         lock (_gate)
         {
             _messagesByChannel.Remove(channelId);
+            _messageRevisions.Remove(channelId);
         }
 
         if (SelectedChannelId == channelId)
@@ -745,6 +820,7 @@ public sealed class SharkordSession : IAsyncDisposable
         {
             var current = _unreadByChannel.GetValueOrDefault(channelId);
             _unreadByChannel[channelId] = Math.Max(0, current + delta);
+            _unreadRevision++;
         }
 
         Notify();
@@ -754,7 +830,12 @@ public sealed class SharkordSession : IAsyncDisposable
     {
         lock (_gate)
         {
+            if (_unreadByChannel.GetValueOrDefault(channelId) == count)
+            {
+                return;
+            }
             _unreadByChannel[channelId] = count;
+            _unreadRevision++;
         }
 
         Notify();
@@ -762,7 +843,13 @@ public sealed class SharkordSession : IAsyncDisposable
 
     private readonly Dictionary<int, int> _unreadByChannel = [];
 
-    public int UnreadCount(int channelId) => _unreadByChannel.GetValueOrDefault(channelId);
+    public int UnreadCount(int channelId)
+    {
+        lock (_gate)
+        {
+            return _unreadByChannel.GetValueOrDefault(channelId);
+        }
+    }
 
     // MARK: - channel selection + history
 
@@ -896,9 +983,13 @@ public sealed class SharkordSession : IAsyncDisposable
 
     public async Task LoadOlderAsync(int channelId, CancellationToken cancellationToken = default)
     {
-        if (!_cursors.TryGetValue(channelId, out var cursor))
+        MessagesCursor? cursor;
+        lock (_gate)
         {
-            return;
+            if (!_cursors.TryGetValue(channelId, out cursor))
+            {
+                return;
+            }
         }
 
         await LoadAsync(channelId, cursor, cancellationToken).ConfigureAwait(false);
@@ -926,7 +1017,7 @@ public sealed class SharkordSession : IAsyncDisposable
         var node = await client.QueryAsync("messages.get", input, cancellationToken).ConfigureAwait(false);
         var page = node.DeserializeObject<MessagesPage>() ?? new MessagesPage();
 
-        var ascending = page.Messages.OrderBy(m => m.CreatedAt).ToList();
+        var ascending = page.Messages.OrderBy(m => m, MessageOrder).ToList();
 
         lock (_gate)
         {
@@ -940,15 +1031,15 @@ public sealed class SharkordSession : IAsyncDisposable
                 var existingIds = existing.Select(m => m.Id).ToHashSet();
                 _messagesByChannel[channelId] = ascending.Where(m => !existingIds.Contains(m.Id)).Concat(existing).ToList();
             }
-        }
-
-        if (page.NextCursor is not null)
-        {
-            _cursors[channelId] = page.NextCursor;
-        }
-        else
-        {
-            _cursors.Remove(channelId);
+            _messageRevisions[channelId] = ++_nextMessageRevision;
+            if (page.NextCursor is not null)
+            {
+                _cursors[channelId] = page.NextCursor;
+            }
+            else
+            {
+                _cursors.Remove(channelId);
+            }
         }
 
         Notify();
@@ -1174,6 +1265,7 @@ public sealed class SharkordSession : IAsyncDisposable
 
     private void Reset()
     {
+        _token = null;
         ServerInfo = null;
         ServerName = "";
         Categories = [];
@@ -1191,11 +1283,13 @@ public sealed class SharkordSession : IAsyncDisposable
         lock (_gate)
         {
             _messagesByChannel.Clear();
+            _messageRevisions.Clear();
             _cursors.Clear();
             _typingByChannel.Clear();
             _replyCounts.Clear();
             _loadedChannels.Clear();
             _unreadByChannel.Clear();
+            _unreadRevision++;
         }
     }
 

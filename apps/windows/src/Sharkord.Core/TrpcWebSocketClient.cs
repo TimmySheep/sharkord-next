@@ -159,7 +159,7 @@ public sealed class TrpcWebSocketClient : IAsyncDisposable
     private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
     {
         var buffer = new byte[16 * 1024];
-        var messageBuffer = new MemoryStream();
+        using var messageBuffer = new MemoryStream();
 
         try
         {
@@ -181,7 +181,7 @@ public sealed class TrpcWebSocketClient : IAsyncDisposable
                     continue;
                 }
 
-                var text = Encoding.UTF8.GetString(messageBuffer.ToArray());
+                var text = Encoding.UTF8.GetString(messageBuffer.GetBuffer(), 0, (int)messageBuffer.Length);
                 messageBuffer.SetLength(0);
 
                 await HandleFrameAsync(text).ConfigureAwait(false);
@@ -202,6 +202,8 @@ public sealed class TrpcWebSocketClient : IAsyncDisposable
 
     private async Task HandleFrameAsync(string text)
     {
+        _lastInbound = DateTime.UtcNow;
+
         if (text == "PING")
         {
             await TrySendRawAsync("PONG").ConfigureAwait(false);
@@ -212,8 +214,6 @@ public sealed class TrpcWebSocketClient : IAsyncDisposable
         {
             return;
         }
-
-        _lastInbound = DateTime.UtcNow;
 
         JsonNode? value;
         try

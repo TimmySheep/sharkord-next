@@ -169,6 +169,13 @@ extension SharkordSession {
     // MARK: read receipts
 
     public func markAsRead(_ channelId: Int) {
+        if unreadBoundaryByChannel[channelId] == nil {
+            unreadBoundaryByChannel[channelId] = MessageTimeline.firstUnreadId(
+                in: messagesByChannel[channelId] ?? [],
+                count: unreadByChannel[channelId] ?? 0,
+                ownUserId: ownUserId
+            )
+        }
         clearUnread(channelId)
 
         guard let client else {

@@ -15,11 +15,8 @@ internal static class JsonExtensions
         PropertyNameCaseInsensitive = true
     };
 
-    /// <summary>
-    /// net8 has no `JsonNode.Deserialize`, so round-trips through the node's JSON text.
-    /// </summary>
     public static T? DeserializeObject<T>(this JsonNode? node)
-        => node is null ? default : JsonSerializer.Deserialize<T>(node.ToJsonString(), DefaultOptions);
+        => node is null ? default : node.Deserialize<T>(DefaultOptions);
 
     public static int? AsInt(this JsonNode? node)
     {

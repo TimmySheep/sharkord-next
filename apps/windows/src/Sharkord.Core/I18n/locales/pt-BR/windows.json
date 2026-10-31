@@ -36,5 +36,15 @@
   "logsExportSuccessMessage": "Os registros de diagnóstico foram salvos no local escolhido.",
   "logsExportFailureTitle": "Não foi possível exportar os registros",
   "logsExportFailureMessage": "O Cove não conseguiu salvar os registros de diagnóstico. Verifique o acesso ao arquivo e tente novamente.",
-  "close": "Fechar"
+  "close": "Fechar",
+  "typingUsers": "Digitando: {{names}}…",
+  "unreadMessages": "Mensagens não lidas",
+  "newMessages": "Novas mensagens",
+  "attachFiles": "Anexar arquivos",
+  "messageActions": "Ações da mensagem",
+  "online": "Online",
+  "offline": "Offline",
+  "attachmentLimit": "Você pode anexar no máximo {{count}} arquivos.",
+  "attachmentSizeLimit": "Este arquivo excede o limite de envio de {{size}} MB.",
+  "removeAttachment": "Remover {{name}}"
 }

@@ -104,5 +104,21 @@
   "logsExportSuccessTitle": "記錄已匯出",
   "logsExportSuccessMessage": "診斷記錄已儲存至所選位置。",
   "logsExportFailureTitle": "無法匯出記錄",
-  "logsExportFailureMessage": "Cove 無法儲存診斷記錄。請檢查檔案存取權限後再試一次。"
+  "logsExportFailureMessage": "Cove 無法儲存診斷記錄。請檢查檔案存取權限後再試一次。",
+  "botBadge": "機器人",
+  "unreadMessages": "未讀訊息",
+  "newMessages": "新訊息",
+  "typingSingle": "{{names}} 正在輸入",
+  "typingMultiple": "{{names}} 正在輸入",
+  "editingMessage": "正在編輯訊息",
+  "attachFiles": "加入附件",
+  "sendMessage": "傳送",
+  "moveTo": "移動到",
+  "editCategoryTitle": "編輯分類",
+  "editChannelTitle": "編輯頻道",
+  "connectedStatus": "已連線",
+  "closeMembers": "關閉成員側欄",
+  "openMembers": "開啟成員側欄",
+  "assignRole": "指派角色",
+  "messageActions": "訊息操作"
 }
