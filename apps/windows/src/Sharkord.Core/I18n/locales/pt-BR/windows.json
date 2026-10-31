@@ -46,5 +46,6 @@
   "offline": "Offline",
   "attachmentLimit": "Você pode anexar no máximo {{count}} arquivos.",
   "attachmentSizeLimit": "Este arquivo excede o limite de envio de {{size}} MB.",
-  "removeAttachment": "Remover {{name}}"
+  "removeAttachment": "Remover {{name}}",
+  "loadMoreReplies": "Carregar mais respostas"
 }

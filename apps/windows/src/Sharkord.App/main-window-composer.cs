@@ -11,7 +11,7 @@ namespace Sharkord.App;
 public sealed partial class MainWindow
 {
     private readonly ObservableCollection<PendingAttachment> _pendingAttachments = [];
-    private readonly Dictionary<int, ChannelDraft> _channelDrafts = [];
+    private readonly Dictionary<(int ChannelId, int? ParentId), ChannelDraft> _channelDrafts = [];
     private int? _replyToMessageId;
     private SharkordMessage? _editingMessage;
     private string _textBeforeEdit = "";
@@ -21,6 +21,7 @@ public sealed partial class MainWindow
     private Flyout? _composerEmojiFlyout;
     private int _composerGeneration;
     private int? _lastTypingChannelId;
+    private int? _lastTypingParentId;
     private long _lastTypingSignalAt;
 
     private bool CanSendMessage() =>
@@ -33,7 +34,7 @@ public sealed partial class MainWindow
         (_session.SelectedChannelId is not { } id || _session.Channel(id)?.IsDm != true ||
          _session.Settings?.StorageFileSharingInDirectMessages != false);
 
-    private bool CanUseComposer() => MessagePresentation.CanCompose(_editingMessage, _session.OwnUserId, CanSendMessage());
+    private bool CanUseComposer() => _editingMessage is null ? CanSendMessage() : CanEditMessage(_editingMessage);
 
     private void RefreshComposerPermissions()
     {
@@ -53,19 +54,20 @@ public sealed partial class MainWindow
         if (_session.SelectedChannelId is { } id && _editingMessage is null && ComposerBox.Text.Length > 0 && CanSendMessage())
         {
             var now = Environment.TickCount64;
-            if (_lastTypingChannelId == id && now - _lastTypingSignalAt < 2000)
+            if (_lastTypingChannelId == id && _lastTypingParentId == _threadParent?.Id && now - _lastTypingSignalAt < 2000)
             {
                 return;
             }
             _lastTypingChannelId = id;
+            _lastTypingParentId = _threadParent?.Id;
             _lastTypingSignalAt = now;
-            _session.SignalTyping(id);
+            _session.SignalTyping(id, _threadParent?.Id);
         }
     }
 
     private void BeginEdit(SharkordMessage message)
     {
-        if (!MessagePresentation.CanEdit(message, _session.OwnUserId) || message.ChannelId != _session.SelectedChannelId || _sendingComposer)
+        if (!CanEditMessage(message) || message.ChannelId != _session.SelectedChannelId || _sendingComposer)
         {
             return;
         }
@@ -87,7 +89,7 @@ public sealed partial class MainWindow
         {
             return;
         }
-        var last = _session.GetMessagesSnapshot(channelId).LastOrDefault(message =>
+        var last = _messages.Select(row => row.Source).LastOrDefault(message =>
             MessagePresentation.CanEdit(message, _session.OwnUserId));
         if (last is not null)
         {
@@ -113,7 +115,7 @@ public sealed partial class MainWindow
     {
         if (_displayedChannelId is { } id)
         {
-            _channelDrafts[id] = new ChannelDraft(ComposerBox.Text, _pendingAttachments.ToArray());
+            _channelDrafts[(id, _displayedThreadParentId)] = new ChannelDraft(ComposerBox.Text, _pendingAttachments.ToArray());
         }
     }
 
@@ -122,7 +124,7 @@ public sealed partial class MainWindow
         CancelComposerContext();
         _pendingAttachments.Clear();
         ComposerBox.Text = "";
-        if (_displayedChannelId is { } id && _channelDrafts.TryGetValue(id, out var draft))
+        if (_displayedChannelId is { } id && _channelDrafts.TryGetValue((id, _displayedThreadParentId), out var draft))
         {
             ComposerBox.Text = draft.Text;
             foreach (var attachment in draft.Attachments)
@@ -141,6 +143,7 @@ public sealed partial class MainWindow
         }
         var text = ComposerBox.Text;
         var generation = _composerGeneration;
+        var parentId = _threadParent?.Id;
         var editing = _editingMessage;
         if (string.IsNullOrWhiteSpace(text) && (_pendingAttachments.Count == 0 || editing is not null))
         {
@@ -168,7 +171,7 @@ public sealed partial class MainWindow
             else
             {
                 await _session.SendMessageAsync(channelId, text, _replyToMessageId,
-                    _pendingAttachments.Select(file => file.Id).ToArray());
+                    _pendingAttachments.Select(file => file.Id).ToArray(), parentMessageId: parentId);
             }
 
             if (generation != _composerGeneration)
@@ -177,9 +180,9 @@ public sealed partial class MainWindow
             }
             if (editing is null)
             {
-                _channelDrafts.Remove(channelId);
+                _channelDrafts.Remove((channelId, parentId));
             }
-            if (_displayedChannelId == channelId)
+            if (_displayedChannelId == channelId && _displayedThreadParentId == parentId)
             {
                 CancelComposerContext();
                 if (editing is null)
@@ -208,6 +211,7 @@ public sealed partial class MainWindow
         {
             return;
         }
+        var parentId = _threadParent?.Id;
         var picker = new FileOpenPicker();
         var generation = _composerGeneration;
         picker.FileTypeFilter.Add("*");
@@ -244,13 +248,13 @@ public sealed partial class MainWindow
                 {
                     return;
                 }
-                if (_displayedChannelId == channelId)
+                if (_displayedChannelId == channelId && _displayedThreadParentId == parentId)
                 {
                     _pendingAttachments.Add(pending);
                 }
-                else if (_channelDrafts.TryGetValue(channelId, out var draft))
+                else if (_channelDrafts.TryGetValue((channelId, parentId), out var draft))
                 {
-                    _channelDrafts[channelId] = draft with { Attachments = [.. draft.Attachments, pending] };
+                    _channelDrafts[(channelId, parentId)] = draft with { Attachments = [.. draft.Attachments, pending] };
                 }
             }
         }

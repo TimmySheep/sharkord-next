@@ -17,6 +17,7 @@ public sealed partial class MainWindow
     private bool _loadingOlder;
     private long _renderedMessagesRevision = -1;
     private IReadOnlyList<SharkordUser>? _renderedMessageUsers;
+    private IReadOnlyList<SharkordRole>? _renderedMessageRoles;
     private string? _renderedMessageLanguage;
     private int? _renderedUnreadMarker;
     private int? _renderedNewMarker;
@@ -36,19 +37,22 @@ public sealed partial class MainWindow
 
     private void SyncMessageRows(SharkordChannel? channel)
     {
-        var channelChanged = _displayedChannelId != channel?.Id;
+        var channelChanged = _displayedChannelId != channel?.Id || _displayedThreadParentId != _threadParent?.Id;
         if (channelChanged)
         {
             SaveChannelDraft();
             _displayedChannelId = channel?.Id;
+            _displayedThreadParentId = _threadParent?.Id;
             RestoreChannelDraft();
         }
 
         var users = _session.Users;
         var language = L10n.Language;
         var revision = channel is null ? 0 : _session.GetMessagesRevision(channel.Id);
-        var usersUnchanged = ReferenceEquals(users, _renderedMessageUsers);
-        LoadOlderButton.Visibility = channel is not null && _session.HasOlderMessages(channel.Id)
+        if (_threadParent is not null) { revision = _session.ThreadRevision; }
+        var usersUnchanged = ReferenceEquals(users, _renderedMessageUsers) && ReferenceEquals(_session.Roles, _renderedMessageRoles);
+        LoadOlderButton.Content = _threadParent is null ? L10n.T("loadEarlierMessages", ns: "macos") : L10n.T("loadMoreReplies", ns: "windows");
+        LoadOlderButton.Visibility = channel is not null && (_threadParent is { } thread ? _session.HasMoreThreadMessages(thread.Id) : _session.HasOlderMessages(channel.Id))
             ? Visibility.Visible : Visibility.Collapsed;
         if (!channelChanged && _pendingUnreadCount == 0 && revision == _renderedMessagesRevision &&
             usersUnchanged && language == _renderedMessageLanguage &&
@@ -60,7 +64,13 @@ public sealed partial class MainWindow
         IReadOnlyList<SharkordMessage> source = [];
         if (channel is not null)
         {
-            source = _session.GetMessagesSnapshot(channel.Id, out revision);
+            if (_threadParent is { } parent)
+            {
+                var updatedParent = _session.GetMessagesSnapshot(channel.Id).FirstOrDefault(message => message.Id == parent.Id) ?? parent;
+                source = new[] { updatedParent }.Concat(_session.GetThreadMessagesSnapshot(parent.Id)).ToArray();
+                revision = _session.ThreadRevision;
+            }
+            else { source = _session.GetMessagesSnapshot(channel.Id, out revision); }
         }
         if (_pendingUnreadCount > 0 && source.Count > 0)
         {
@@ -100,7 +110,8 @@ public sealed partial class MainWindow
                 existing.TryGetValue(message.Id, out row);
             }
             if (row is not null && ReferenceEquals(row.Source, message) && usersUnchanged &&
-                row.Language == language && row.Continuation == continuation && row.DividerText == divider)
+                row.Language == language && row.Continuation == continuation && row.DividerText == divider &&
+                row.Replies == _session.ReplyCount(message) && row.CanManage == _session.CanManageMessage(message))
             {
                 desired.Add(row);
                 previous = message;
@@ -114,7 +125,7 @@ public sealed partial class MainWindow
             if (row is not null && ReferenceEquals(row.Source, message) &&
                 row.Language == language && row.Continuation == continuation &&
                 row.DividerText == divider && row.Author == author && row.AvatarUrl == avatarUrl &&
-                row.ReplyText == reply)
+                row.ReplyText == reply && row.Replies == _session.ReplyCount(message) && row.CanManage == _session.CanManageMessage(message))
             {
                 desired.Add(row);
             }
@@ -125,7 +136,7 @@ public sealed partial class MainWindow
                     BuildReactionItems(message), _session.OwnUserId,
                     (message.Files ?? []).Select(file => new AttachmentItem(
                         file.OriginalName, _session.PublicFileUrl(file)
-                    )).ToArray()
+                    )).ToArray(), _session.CanManageMessage(message), _session.ReplyCount(message)
                 ));
             }
             previous = message;
@@ -135,6 +146,7 @@ public sealed partial class MainWindow
         MessagePresentation.Reconcile(_messages, desired, row => row.Id);
         _renderedMessagesRevision = revision;
         _renderedMessageUsers = users;
+        _renderedMessageRoles = _session.Roles;
         _renderedMessageLanguage = language;
         _renderedUnreadMarker = _unreadMessageId;
         _renderedNewMarker = _newMessageId;
@@ -174,7 +186,8 @@ public sealed partial class MainWindow
         LoadOlderButton.IsEnabled = false;
         try
         {
-            await _session.LoadOlderAsync(channelId);
+            if (_threadParent is { } parent) { await _session.LoadThreadAsync(parent.Id, more: true); }
+            else { await _session.LoadOlderAsync(channelId); }
         }
         catch (Exception exception)
         {
@@ -284,14 +297,30 @@ public sealed partial class MainWindow
 
     private void OnMessageMoreClick(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button || button.DataContext is not MessageItem row || row.Source.UserId != _session.OwnUserId)
+        if (sender is not Button button || button.DataContext is not MessageItem row)
         {
             return;
         }
         var menu = new MenuFlyout();
         var delete = new MenuFlyoutItem { Text = L10n.T("deleteLabel"), Icon = new SymbolIcon(Symbol.Delete) };
         delete.Click += async (_, _) => await DeleteMessageWithConfirmationAsync(row.Source);
-        menu.Items.Add(delete);
+        if (_session.CanManageMessage(row.Source)) { menu.Items.Add(delete); }
+        if (_session.HasPermission("PIN_MESSAGES"))
+        {
+            var pin = new MenuFlyoutItem { Text = L10n.T(row.Source.Pinned == true ? "unpinMessage" : "pinMessage") };
+            pin.Click += async (_, _) =>
+            {
+                try { await _session.TogglePinAsync(row.Id); }
+                catch (Exception exception) { ChatErrorText.Text = exception.Message; }
+            };
+            menu.Items.Add(pin);
+        }
+        if (row.Source.ParentMessageId is null)
+        {
+            var thread = new MenuFlyoutItem { Text = L10n.T("replyInThread") };
+            thread.Click += async (_, _) => await OpenThreadAsync(row.Source);
+            menu.Items.Add(thread);
+        }
         menu.ShowAt(button);
     }
 
@@ -360,6 +389,10 @@ public sealed partial class MainWindow
         public Visibility EditedVisibility => Source.EditedAt is null ? Visibility.Collapsed : Visibility.Visible;
         public Visibility EditVisibility { get; }
         public Visibility OwnVisibility { get; }
+        public int Replies { get; }
+        public bool CanManage { get; }
+        public string ThreadLabel { get; }
+        public Visibility ThreadVisibility { get; }
         public string AddReactionLabel { get; } = L10n.T("addReaction", ns: "windows");
         public string ReplyLabel { get; } = L10n.T("replyToMessage");
         public string EditLabel { get; } = L10n.T("editMessage");
@@ -368,9 +401,11 @@ public sealed partial class MainWindow
 
         public MessageItem(SharkordMessage message, string author, Uri? avatarUrl, bool continuation,
             string divider, string reply, IReadOnlyList<ReactionItem> reactions, int ownUserId,
-            IReadOnlyList<AttachmentItem> attachments)
+            IReadOnlyList<AttachmentItem> attachments, bool canManage = false, int replies = 0)
         {
             Source = message;
+            Replies = replies;
+            CanManage = canManage;
             Author = author;
             AvatarUrl = avatarUrl;
             Avatar = avatarUrl is null ? null : new BitmapImage(avatarUrl);
@@ -382,7 +417,9 @@ public sealed partial class MainWindow
             ShortTimestamp = DateTimeOffset.FromUnixTimeMilliseconds(message.CreatedAt).LocalDateTime.ToString("t");
             Reactions = reactions;
             Attachments = attachments;
-            EditVisibility = MessagePresentation.CanEdit(message, ownUserId) ? Visibility.Visible : Visibility.Collapsed;
+            ThreadLabel = L10n.T(replies == 1 ? "reply_one" : "reply_other", ns: "common", ("count", replies));
+            ThreadVisibility = message.ParentMessageId is null && replies > 0 ? Visibility.Visible : Visibility.Collapsed;
+            EditVisibility = message.Editable == true && canManage ? Visibility.Visible : Visibility.Collapsed;
             OwnVisibility = message.UserId == ownUserId ? Visibility.Visible : Visibility.Collapsed;
         }
     }

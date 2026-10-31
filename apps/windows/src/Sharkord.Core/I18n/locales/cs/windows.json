@@ -46,5 +46,6 @@
   "offline": "Offline",
   "attachmentLimit": "Můžete připojit nejvýše {{count}} souborů.",
   "attachmentSizeLimit": "Tento soubor překračuje limit nahrávání {{size}} MB.",
-  "removeAttachment": "Odebrat {{name}}"
+  "removeAttachment": "Odebrat {{name}}",
+  "loadMoreReplies": "Načíst další odpovědi"
 }

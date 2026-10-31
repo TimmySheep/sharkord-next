@@ -168,7 +168,7 @@
                     <RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Border BorderBrush="#1E1F22" BorderThickness="0,0,0,1" Padding="20,0">
-                    <TextBlock x:Name="ChannelTitle" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" MaxWidth="260" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Spacing="8"><Button x:Name="CloseThreadButton" Click="OnCloseThreadClick" Visibility="Collapsed"><FontIcon Glyph="&#xE72B;" /></Button><Button x:Name="ReturnToPresentButton" Click="OnReturnToPresentClick" Visibility="Collapsed"><FontIcon Glyph="&#xE74B;" /></Button><TextBlock x:Name="ChannelTitle" FontWeight="SemiBold" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Left" MaxWidth="260" TextTrimming="CharacterEllipsis" /></StackPanel>
                 </Border>
                 <Grid Grid.Row="1">
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
@@ -190,10 +190,10 @@
                                         <TextBlock Text="{Binding ShortTimestamp}" Visibility="{Binding ContinuationTimestampVisibility}" Foreground="#949BA4" FontSize="10" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                         <StackPanel Grid.Column="1" Spacing="3">
                                             <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{Binding GroupHeaderVisibility}">
-                                                <TextBlock Text="{Binding Author}" FontWeight="SemiBold" FontSize="15" />
+                                                <HyperlinkButton Content="{Binding Author}" Click="OnMessageProfileClick" Padding="0" />
                                                 <TextBlock Text="{Binding Timestamp}" Foreground="#949BA4" FontSize="11" VerticalAlignment="Center" />
                                             </StackPanel>
-                                            <TextBlock Text="{Binding ReplyText}" Visibility="{Binding ReplyVisibility}" Foreground="#B5BAC1" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                            <HyperlinkButton Content="{Binding ReplyText}" Visibility="{Binding ReplyVisibility}" Click="OnReplyPreviewClick" Padding="0" HorizontalAlignment="Left" />
                                             <TextBlock Text="{Binding Text}" FontSize="15" LineHeight="22" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
                                             <TextBlock Text="{Binding EditedLabel}" Visibility="{Binding EditedVisibility}" Foreground="#949BA4" FontSize="11" />
                                             <ItemsControl ItemsSource="{Binding Attachments}"><ItemsControl.ItemTemplate><DataTemplate><HyperlinkButton Content="{Binding Name}" Tag="{Binding Url}" Click="OnAttachmentOpenClick" HorizontalAlignment="Left" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
@@ -207,7 +207,8 @@
                                                 <Button Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding AddReactionLabel}" ToolTipService.ToolTip="{Binding AddReactionLabel}" Click="OnAddReactionClick"><FontIcon Glyph="&#xE76E;" FontSize="16" /></Button>
                                                 <Button Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding ReplyLabel}" ToolTipService.ToolTip="{Binding ReplyLabel}" Click="OnReplyMessageClick"><FontIcon Glyph="&#xE97A;" FontSize="16" /></Button>
                                                 <Button Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding EditLabel}" ToolTipService.ToolTip="{Binding EditLabel}" Visibility="{Binding EditVisibility}" Click="OnEditMessageClick"><FontIcon Glyph="&#xE70F;" FontSize="16" /></Button>
-                                                <Button Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding MoreLabel}" ToolTipService.ToolTip="{Binding MoreLabel}" Visibility="{Binding OwnVisibility}" Click="OnMessageMoreClick"><FontIcon Glyph="&#xE712;" FontSize="16" /></Button>
+                                                <Button Content="{Binding ThreadLabel}" Click="OnThreadClick" Visibility="{Binding ThreadVisibility}" />
+                                                <Button Style="{StaticResource IconButtonStyle}" AutomationProperties.Name="{Binding MoreLabel}" ToolTipService.ToolTip="{Binding MoreLabel}" Click="OnMessageMoreClick"><FontIcon Glyph="&#xE712;" FontSize="16" /></Button>
                                             </StackPanel>
                                         </Border>
                                     </Grid>
@@ -271,7 +272,7 @@
             <Grid x:Name="MemberPanel" Grid.Column="2" Background="#2B2D31" Margin="0,48,0,0" Visibility="Collapsed">
                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                 <TextBlock x:Name="MembersTitle" Margin="16,20,12,8" FontSize="12" Foreground="#B5BAC1" FontWeight="SemiBold" />
-                <ListView x:Name="MemberList" Grid.Row="1" SelectionMode="None">
+                <ListView x:Name="MemberList" Grid.Row="1" SelectionMode="None" IsItemClickEnabled="True" ItemClick="OnMemberProfileClick">
                     <ListView.ItemTemplate><DataTemplate>
                         <Grid Padding="4,6" ColumnSpacing="10"><Grid.ColumnDefinitions><ColumnDefinition Width="32" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <PersonPicture DisplayName="{Binding Name}" ProfilePicture="{Binding Avatar}" Width="32" Height="32" />
@@ -293,6 +294,7 @@
                 x:Name="LanguageBox"
                 Width="150"
                 SelectionChanged="OnLanguageSelectionChanged" />
+            <Button x:Name="NavigationButton" Click="OnNavigationClick"><FontIcon Glyph="&#xE721;" /></Button>
             <Button x:Name="MembersButton" Click="OnMembersClick" />
             <Button
                 x:Name="ExportLogsButton"

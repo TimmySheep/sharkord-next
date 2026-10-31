@@ -383,11 +383,14 @@ public sealed partial class MainWindow : Window
         RefreshDesktopControls();
 
         var selected = _session.SelectedChannelId is { } id ? _session.Channel(id) : null;
-        var selectedVoice = selected?.IsVoice == true;
+        var selectedVoice = selected?.IsVoice == true || (selected?.IsDm == true && _showDmVoice);
         TextChannelPanel.Visibility = selectedVoice ? Visibility.Collapsed : Visibility.Visible;
         VoiceChannelPanel.Visibility = selectedVoice ? Visibility.Visible : Visibility.Collapsed;
         VoiceChannelTitle.Text = selectedVoice ? $"🔊  {selected!.Name}" : "";
         ChannelTitle.Text = selected is null || selectedVoice ? "" : $"# {selected.Name}";
+        if (selected?.IsDm == true) { ChannelTitle.Text = _session.DirectMessagePartner(selected)?.Name ?? selected.Name; }
+        if (_threadParent is not null) { ChannelTitle.Text = $"{L10n.T("thread")} · {ChannelTitle.Text}"; }
+        RefreshNavigationControls();
 
         if (selectedVoice)
         {
@@ -433,12 +436,12 @@ public sealed partial class MainWindow : Window
         AddChannelSection(
             "text",
             L10n.T("textChannels", ns: "windows"),
-            _session.TextChannels.OrderBy(channel => channel.Position).ToList()
+            _session.TextChannels.Where(_session.CanViewChannel).OrderBy(channel => channel.Position).ToList()
         );
         AddChannelSection(
             "voice",
             L10n.T("voiceChannels", ns: "windows"),
-            _session.Channels.Where(channel => channel.IsVoice && !channel.IsDm)
+            _session.Channels.Where(channel => channel.IsVoice && !channel.IsDm && _session.CanViewChannel(channel))
                 .OrderBy(channel => channel.Position)
                 .ToList()
         );
@@ -552,7 +555,8 @@ public sealed partial class MainWindow : Window
             var restored = await RestoreLastSelectedChannelAsync();
             if (!restored && _session.SelectedChannelId is { } channelId)
             {
-                PrepareChannelSelection(channelId);
+                CloseThread();
+            PrepareChannelSelection(channelId);
                 await _session.SelectChannelAsync(channelId);
             }
         }
@@ -656,6 +660,7 @@ public sealed partial class MainWindow : Window
     {
         if (e.InvokedItem is TreeViewNode { Content: ChannelTreeItem { ChannelId: { } channelId } })
         {
+            CloseThread();
             PrepareChannelSelection(channelId);
             RememberLastSelectedChannel(channelId);
             await _session.SelectChannelAsync(channelId);
@@ -850,7 +855,7 @@ public sealed partial class MainWindow : Window
 
     private async void OnJoinVoiceClick(object sender, RoutedEventArgs e)
     {
-        if (_session.SelectedChannelId is not { } channelId || _session.Channel(channelId) is not { IsVoice: true })
+        if (_session.SelectedChannelId is not { } channelId || _session.Channel(channelId) is not { SupportsVoice: true })
         {
             return;
         }
@@ -994,7 +999,7 @@ public sealed partial class MainWindow : Window
     private void RefreshVoiceControls()
     {
         var selected = _session.SelectedChannelId is { } id ? _session.Channel(id) : null;
-        var inSelectedVoice = selected?.IsVoice == true && _session.CurrentVoiceChannelId == selected.Id;
+        var inSelectedVoice = selected?.SupportsVoice == true && _session.CurrentVoiceChannelId == selected.Id;
         var mediaConnected = inSelectedVoice && _voiceMediaStatus == "connected";
 
         JoinVoiceButton.Visibility = !inSelectedVoice || _voiceMediaStatus == "failed"
@@ -1014,8 +1019,8 @@ public sealed partial class MainWindow : Window
         MicrophoneButton.Content = L10n.T(_microphoneMuted ? "unmuteMic" : "muteMic", ns: "windows");
         DeafenButton.Content = L10n.T(_deafened ? "undeafen" : "deafen", ns: "windows");
         RefreshUserVoiceControls();
-        VoiceChannelTitle.Text = selected?.IsVoice == true ? $"🔊  {selected.Name}" : "";
-        if (selected?.IsVoice != true)
+        VoiceChannelTitle.Text = selected?.SupportsVoice == true ? $"🔊  {selected.Name}" : "";
+        if (selected?.SupportsVoice != true)
         {
             return;
         }
@@ -1046,6 +1051,7 @@ public sealed partial class MainWindow : Window
 
     private void OnAddReactionClick(object sender, RoutedEventArgs e)
     {
+        if (!_session.HasPermission("REACT_TO_MESSAGES")) { return; }
         if (sender is not Button button || button.DataContext is not MessageItem message)
         {
             return;
@@ -1071,6 +1077,7 @@ public sealed partial class MainWindow : Window
 
     private async Task ToggleReactionAsync(int messageId, string emoji)
     {
+        if (!_session.HasPermission("REACT_TO_MESSAGES")) { Refresh(); return; }
         ChatErrorText.Text = "";
 
         try

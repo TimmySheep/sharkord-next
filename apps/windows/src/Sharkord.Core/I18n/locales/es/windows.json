@@ -46,5 +46,6 @@
   "offline": "Desconectado",
   "attachmentLimit": "Puedes adjuntar como máximo {{count}} archivos.",
   "attachmentSizeLimit": "Este archivo supera el límite de carga de {{size}} MB.",
-  "removeAttachment": "Eliminar {{name}}"
+  "removeAttachment": "Eliminar {{name}}",
+  "loadMoreReplies": "Cargar más respuestas"
 }

@@ -251,6 +251,14 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (e.Key == Windows.System.VirtualKey.K && ReadShortcutModifiers() == KeyboardShortcutModifiers.Control &&
+            _session.Phase == SessionPhase.Connected && _session.Settings?.EnableSearch == true)
+        {
+            e.Handled = true;
+            if (!e.KeyStatus.WasKeyDown) { await ShowSearchAsync(); }
+            return;
+        }
+
         var action = _keyboardShortcutPreferences.ActionFor((int)e.Key, ReadShortcutModifiers());
         if (action is null || !CanPerformKeyboardShortcut(action.Value))
         {

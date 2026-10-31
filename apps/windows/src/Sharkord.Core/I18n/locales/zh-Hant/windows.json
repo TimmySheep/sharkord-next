@@ -46,5 +46,6 @@
   "offline": "離線",
   "attachmentLimit": "最多可新增 {{count}} 個附件。",
   "attachmentSizeLimit": "此檔案超過 {{size}} MB 的上傳限制。",
-  "removeAttachment": "移除 {{name}}"
+  "removeAttachment": "移除 {{name}}",
+  "loadMoreReplies": "載入更多回覆"
 }
