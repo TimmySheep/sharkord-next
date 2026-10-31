@@ -11,5 +11,6 @@
   "cameraResolution": "Kameraauflösung",
   "cameraFrameRate": "Kamerabildrate",
   "screenResolution": "Bildschirmauflösung",
-  "screenFrameRate": "Bildschirmbildrate"
+  "screenFrameRate": "Bildschirmbildrate",
+  "noiseGateThresholdLabel": "Schwellwert der Rauschsperre"
 }

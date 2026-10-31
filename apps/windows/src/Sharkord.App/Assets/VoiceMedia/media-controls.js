@@ -1,21 +1,58 @@
 // native controls use only the bundled media worker's tracks and transports.
-window.coveMediaOptions = { cameraId: "", microphoneId: "", speakerId: "", height: 720, frameRate: 30, screenHeight: 1080, screenFrameRate: 30, echoCancellation: true, autoGainControl: true, simulcast: false };
+window.coveMediaOptions = { cameraId: "", microphoneId: "", speakerId: "", height: 720, frameRate: 30, screenHeight: 1080, screenFrameRate: 30, echoCancellation: true, autoGainControl: true, simulcast: false, noiseGateEnabled: false, noiseGateThresholdDb: -48, mirrorOwnVideo: false, screenCodec: "auto", screenBitrate: 6000, screenCursor: "always" };
 let previewStream;
 let previewAudio;
 let previewGeneration = 0;
 let monitoring = false;
 let pinnedMediaKey;
+let previewAnalyser;
+let previewLevelContext;
 const audioDevice = (id) => id ? { exact: id } : undefined;
+// mirrors the web meter: rms to decibels, then the -70..0db window mapped to a percentage.
+const previewLevel = () => {
+  if (!previewAnalyser) return null;
+  const samples = new Float32Array(previewAnalyser.fftSize);
+  previewAnalyser.getFloatTimeDomainData(samples);
+  let sum = 0;
+  for (const sample of samples) { sum += sample * sample; }
+  const decibels = 20 * Math.log10(Math.sqrt(sum / samples.length) + 1e-8);
+  return Math.max(0, Math.min(100, ((Math.max(-70, Math.min(0, decibels)) + 70) / 70) * 100));
+};
+const stopPreviewLevel = () => {
+  previewAnalyser = undefined;
+  previewLevelContext?.close().catch(() => {});
+  previewLevelContext = undefined;
+};
+const applyMirror = () => {
+  const preview = document.getElementById("local-preview");
+  if (preview) preview.style.transform = window.coveMediaOptions.mirrorOwnVideo ? "scaleX(-1)" : "";
+};
 const videoEncodings = (bitrate) => window.coveMediaOptions.simulcast
   ? [{ scaleResolutionDownBy: 4, maxBitrate: Math.round(bitrate / 8) }, { scaleResolutionDownBy: 2, maxBitrate: Math.round(bitrate / 3) }, { scaleResolutionDownBy: 1, maxBitrate: bitrate }]
   : [{ maxBitrate: bitrate }];
+const screenCodec = () => {
+  const wanted = window.coveMediaOptions.screenCodec ?? "auto";
+  if (wanted === "auto") return undefined;
+  // an unavailable codec falls back to the router default rather than failing the share.
+  return device.rtpCapabilities.codecs.find((candidate) => candidate.mimeType.toLowerCase() === wanted.toLowerCase());
+};
 const videoProduceOptions = (track, kind, bitrate) => {
   const encodings = videoEncodings(bitrate);
   const height = track.getSettings().height ?? 720;
   const qualityLayers = encodings.map((encoding, spatialLayer) => ({ spatialLayer, label: `${Math.round(height / (encoding.scaleResolutionDownBy ?? 1))}p` }));
-  const codec = window.coveMediaOptions.simulcast ? device.rtpCapabilities.codecs.find((candidate) => candidate.mimeType.toLowerCase() === "video/vp8") : undefined;
-  if (window.coveMediaOptions.simulcast && !codec) throw new Error("VP8 is unavailable for simulcast.");
-  return { track, encodings, codec, appData: { kind, ...(window.coveMediaOptions.simulcast ? { qualityLayers } : {}) } };
+  const simulcastCodec = window.coveMediaOptions.simulcast ? device.rtpCapabilities.codecs.find((candidate) => candidate.mimeType.toLowerCase() === "video/vp8") : undefined;
+  if (window.coveMediaOptions.simulcast && !simulcastCodec) throw new Error("VP8 is unavailable for simulcast.");
+  // a chosen screen codec only applies to single layer publishing, simulcast stays on vp8.
+  let codec;
+  if (window.coveMediaOptions.simulcast) { codec = simulcastCodec; }
+  else if (kind === "screen") { codec = screenCodec(); }
+  const bitrateKbps = Math.round(bitrate / 1000);
+  const codecOptions = kind === "screen" ? {
+    videoGoogleStartBitrate: Math.min(2000, bitrateKbps),
+    videoGoogleMaxBitrate: bitrateKbps,
+    videoGoogleMinBitrate: Math.min(200, bitrateKbps)
+  } : undefined;
+  return { track, encodings, codec, codecOptions, appData: { kind, ...(window.coveMediaOptions.simulcast ? { qualityLayers } : {}) } };
 };
 const mediaStats = async (key) => {
   const target = key === "local" ? microphoneProducer : consumers.get(key)?.consumer;
@@ -30,6 +67,7 @@ const stopPreview = () => {
   previewStream?.getTracks().forEach((track) => track.stop());
   previewStream = undefined;
   if (previewAudio) { previewAudio.pause(); previewAudio.srcObject = null; previewAudio.remove(); previewAudio = undefined; }
+  stopPreviewLevel();
   updateLocalPreview();
 };
 window.coveMedia = {
@@ -40,6 +78,9 @@ window.coveMedia = {
     await Promise.all([...consumers.values()].filter(({ element }) => element instanceof HTMLAudioElement && element.setSinkId)
       .map(({ element }) => element.setSinkId(selected.speakerId)));
     await setNoiseSuppressionMode(selected.noiseMode ?? "rnnoise");
+    // the gate api only exists once the voice worker has loaded.
+    if (typeof setNoiseGate === "function") { await setNoiseGate(selected.noiseGateEnabled ?? false, selected.noiseGateThresholdDb ?? -48); }
+    applyMirror();
   },
   snapshot: () => ({
     screenSharing: screenShareEnabled,
@@ -47,6 +88,7 @@ window.coveMedia = {
     pictureInPicture: document.pictureInPictureEnabled === true
   }),
   volume: setRemoteAudioVolume,
+  level: previewLevel,
   quality: async (key, layer) => {
     const [remoteId, kind] = key.split(":");
     await callNative("voice.setConsumerQuality", { remoteId: Number(remoteId), kind, quality: layer < 0 ? { mode: "auto" } : { mode: "layer", spatialLayer: layer } });
@@ -80,6 +122,7 @@ window.coveMedia = {
       preview.srcObject = stream;
       preview.hidden = false;
       preview.closest(".video-tile")?.classList.remove("hidden");
+      applyMirror();
       await preview.play();
     } else {
       previewAudio = document.createElement("audio");
@@ -87,6 +130,12 @@ window.coveMedia = {
       if (previewAudio.setSinkId) await previewAudio.setSinkId(options.speakerId);
       document.body.append(previewAudio);
       await previewAudio.play();
+      // the meter reads the raw preview stream, so it works with or without the voice chain.
+      previewLevelContext = new AudioContext();
+      const levelSource = previewLevelContext.createMediaStreamSource(stream);
+      previewAnalyser = previewLevelContext.createAnalyser();
+      previewAnalyser.fftSize = 2048;
+      levelSource.connect(previewAnalyser);
     }
   }
 };

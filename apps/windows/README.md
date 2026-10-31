@@ -136,8 +136,11 @@ Tiptap 3.22.2; its MIT license is included in build output.
 
 Voice surfaces expose participant state, speaking indicators, reactions, per-user volumes,
 receive-quality layers, stream pin/zoom/fullscreen/statistics, device selection and previews,
-capture resolution/frame rate and noise settings. The media worker remains the only WebView
-host. Device and permission behavior requires manual acceptance. Picture-in-picture is
+capture resolution/frame rate and noise settings. The device options cover the noise mode
+including the DTLN worklet, an optional noise gate with a -70..0 dB threshold and a live
+level meter, screen codec/cursor/bitrate and own-video mirroring, matching the web defaults.
+The media worker remains the only WebView host. Device and permission behavior requires
+manual acceptance. Picture-in-picture is
 offered only when the media engine reports support and may reject a native-triggered request.
 
 Account restore is optional and unchecked by default. Passwords are stored only through

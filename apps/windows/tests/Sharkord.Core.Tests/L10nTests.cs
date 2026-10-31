@@ -148,6 +148,15 @@ public class L10nTests
 
     [Theory]
     [MemberData(nameof(Languages))]
+    public void EveryLanguageTranslatesTheNoiseGateThresholdLabel(string language)
+    {
+        L10n.Language = language;
+
+        Assert.NotEqual("noiseGateThresholdLabel", L10n.T("noiseGateThresholdLabel", ns: "media"));
+    }
+
+    [Theory]
+    [MemberData(nameof(Languages))]
     public void EveryLanguageCarriesTheSameKeys(string language)
     {
         Assert.Equal(L10n.Keys("en", "windows").Order().ToArray(), L10n.Keys(language, "windows").Order().ToArray());

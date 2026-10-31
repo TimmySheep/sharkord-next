@@ -11,5 +11,6 @@
   "cameraResolution": "Résolution de la caméra",
   "cameraFrameRate": "Fréquence de la caméra",
   "screenResolution": "Résolution du partage",
-  "screenFrameRate": "Fréquence du partage"
+  "screenFrameRate": "Fréquence du partage",
+  "noiseGateThresholdLabel": "Seuil du gain"
 }

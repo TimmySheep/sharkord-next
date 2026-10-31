@@ -274,7 +274,7 @@ not a platform deferral. The desktop clients do **not** yet have exhaustive web 
 | Voice roster/state/speaking/reactions | `features/server/voice`, `channel-view/voice` | IMPLEMENTED native state/speaking/reaction surfaces; device acceptance deferred | State routes exist; speaking and rendered reactions remain PARTIAL |
 | Receive quality and per-user/share volume | `voice-provider`, `channel-view/voice` | IMPLEMENTED native controls using actual consumer layers; runtime pending | Added actual layer menus to existing volume controls; runtime pending |
 | Camera/screen/remote media | `voice-provider/hooks/use-local-streams.ts` | Existing publish paths retained and corrected; runtime deferred | Existing publish paths retained; runtime pending |
-| Devices, previews, capture preferences | `server-screens/user-settings/devices` | Added device selection, microphone/camera preview, echo/gain/noise, resolution/frame rate/simulcast; codec/noise-gate/meter options remain PARTIAL | Added input/output/webcam selection, echo/gain toggles and a microphone level test, persisted to user defaults and pushed into the worker; worker bundle rebuild pending so runtime pickers stay empty until `bun install && bun run build-desktop-voice`, and resolution/codec/noise-gate options remain PARTIAL |
+| Devices, previews, capture preferences | `server-screens/user-settings/devices` | Added device selection, microphone/camera preview, echo/gain/noise (off/standard/rnnoise/DTLN), noise gate with threshold and level meter, resolution/frame rate/simulcast, screen codec/cursor/bitrate and own-video mirroring; desktop voice-worker bundles rebuilt with the new APIs in 4eb9913f; experimental `restrictOwnAudio`/`suppressLocalPlayback` display-capture constraints remain deferred | Added input/output/webcam selection, echo/gain toggles and a microphone level test, persisted to user defaults and pushed into the worker (runtime active after 4eb9913f rebuild); resolution/codec options remain PARTIAL |
 | Voice moves and external streams | `features/server/voice` | IMPLEMENTED state, moderator move forms and worker consumption; runtime pending | Existing Core paths; native external-stream/reaction presentation remains PARTIAL |
 | Text conversation in ordinary voice channels | `voice-chat-sidebar` | IMPLEMENTED separate text/media navigation and reconnect retention | PARTIAL: ordinary voice channel still lacks a text-mode switch |
 | Stream fullscreen/pin/PiP/zoom/stats | `channel-view/voice` | Added controls; PiP conditional on engine support, native-trigger rejection possible; manual acceptance pending | PARTIAL: these native controls remain incomplete |
@@ -361,8 +361,10 @@ GUI/device acceptance is intentionally DEFERRED by the owner. macOS compilation,
 tests and all Mac runtime acceptance are pending on a Mac. Bun is absent, so `bun run magic`,
 the Bun suite and `synci18n` cannot run here; native locale checks are used without claiming
 those Bun checks passed. The PARTIAL/MISSING table entries above are ordinary implementation
-gaps, especially Mac editor/device/media/admin surfaces and several detailed Windows device
-preferences. They are not labelled platform impossibilities. Plugin React UI and third-party
+gaps, especially Mac editor/device/media/admin surfaces. The Windows device preferences gained
+their remaining detail (DTLN, noise gate with threshold and meter, screen codec/cursor/bitrate,
+own-video mirroring) in phase 3; only the experimental `restrictOwnAudio` and
+`suppressLocalAudioPlayback` display-capture constraints stay deferred as Chromium-only. They are not labelled platform impossibilities. Plugin React UI and third-party
 iframe hosting conflict with the inherited native/media-only WebView scope; group DMs lack
 an upstream protocol. OIDC is disabled on this target, not universally unsupported by the web.
 No exhaustive feature-complete or full end-to-end GUI/media claim is made.

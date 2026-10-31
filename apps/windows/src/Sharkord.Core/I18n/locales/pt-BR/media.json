@@ -11,5 +11,6 @@
   "cameraResolution": "Resolução da câmera",
   "cameraFrameRate": "Taxa de quadros da câmera",
   "screenResolution": "Resolução da tela",
-  "screenFrameRate": "Taxa de quadros da tela"
+  "screenFrameRate": "Taxa de quadros da tela",
+  "noiseGateThresholdLabel": "Limiar do portão de ruído"
 }

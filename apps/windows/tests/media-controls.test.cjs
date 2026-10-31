@@ -97,3 +97,63 @@ test('closing a pinned stream restores the surviving video tiles', () => {
   api.consumerClosed('1:video');
   assert.equal(second.style.display, '');
 });
+
+test('device options push the noise gate and mirror the local preview', async () => {
+  const gates = [];
+  const preview = { style: {} };
+  const { api } = makeWorker({
+    setNoiseGate: async (enabled, thresholdDb) => gates.push({ enabled, thresholdDb }),
+    document: { pictureInPictureEnabled: false, getElementById: (id) => (id === 'local-preview' ? preview : null), createElement: () => ({}), body: { append() {} } }
+  });
+  await api.options({ noiseGateEnabled: true, noiseGateThresholdDb: -52, mirrorOwnVideo: true });
+  assert.deepEqual(gates, [{ enabled: true, thresholdDb: -52 }]);
+  assert.equal(preview.style.transform, 'scaleX(-1)');
+  await api.options({ noiseGateEnabled: false, mirrorOwnVideo: false });
+  assert.deepEqual(gates, [{ enabled: true, thresholdDb: -52 }, { enabled: false, thresholdDb: -52 }]);
+  assert.equal(preview.style.transform, '');
+});
+
+test('a chosen screen codec resolves against the router and carries bitrate options', () => {
+  const { context } = makeWorker({ device: { rtpCapabilities: { codecs: [{ mimeType: 'video/VP8' }, { mimeType: 'video/H264' }] } } });
+  context.window.coveMediaOptions.screenCodec = 'video/h264';
+  const result = vm.runInContext('videoProduceOptions({getSettings:()=>({height:1080})}, "screen", 2500000)', context);
+  assert.equal(result.codec.mimeType, 'video/H264');
+  assert.deepEqual(JSON.parse(JSON.stringify(result.codecOptions)), {
+    videoGoogleStartBitrate: 2000, videoGoogleMaxBitrate: 2500, videoGoogleMinBitrate: 200
+  });
+});
+
+test('the automatic screen codec leaves the router default in place', () => {
+  const { context } = makeWorker();
+  const result = vm.runInContext('videoProduceOptions({getSettings:()=>({height:1080})}, "screen", 2500000)', context);
+  assert.equal(result.codec, undefined);
+});
+
+test('the audio preview exposes a level meter only while it is running', async () => {
+  class FakeAudioContext {
+    createMediaStreamSource() { return { connect() {} }; }
+    createAnalyser() {
+      return { fftSize: 0, getFloatTimeDomainData: (samples) => samples.fill(0.5) };
+    }
+    async close() {}
+  }
+  const { api } = makeWorker({ AudioContext: FakeAudioContext });
+  assert.equal(api.level(), null);
+  await api.preview('audio');
+  const level = api.level();
+  assert.equal(typeof level, 'number');
+  assert.ok(level > 0 && level <= 100);
+  api.stopPreview();
+  assert.equal(api.level(), null);
+});
+
+test('a video preview mirrors the local tile when the option is on', async () => {
+  const preview = { style: {}, hidden: true, closest: () => null, async play() {} };
+  const { api, context } = makeWorker({
+    document: { pictureInPictureEnabled: false, getElementById: (id) => (id === 'local-preview' ? preview : null), createElement: () => ({}), body: { append() {} } }
+  });
+  context.window.coveMediaOptions.mirrorOwnVideo = true;
+  await api.preview('video');
+  assert.equal(preview.hidden, false);
+  assert.equal(preview.style.transform, 'scaleX(-1)');
+});

@@ -11,5 +11,6 @@
   "cameraResolution": "Risoluzione della fotocamera",
   "cameraFrameRate": "Frequenza della fotocamera",
   "screenResolution": "Risoluzione dello schermo",
-  "screenFrameRate": "Frequenza dello schermo"
+  "screenFrameRate": "Frequenza dello schermo",
+  "noiseGateThresholdLabel": "Soglia del noise gate"
 }

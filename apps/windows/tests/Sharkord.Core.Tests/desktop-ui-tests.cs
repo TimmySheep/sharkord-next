@@ -53,6 +53,31 @@ public class DesktopUiTests
                     connect.IndexOf("await _session.ConnectAsync", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void MediaDeviceOptionsExposeTheWebNoiseGateScreenAndMirrorControls()
+    {
+        var dialog = File.ReadAllText(Source("main-window-media-devices.cs"));
+        var worker = File.ReadAllText(Source("Assets/VoiceMedia/voice-worker.js"));
+
+        Assert.Contains("\"noiseGateEnabled\", \"noiseGateLabel\", false", dialog);
+        Assert.Contains("noiseGateThresholdLabel", dialog);
+        Assert.Contains("\"dtln\", L10n.T(\"noiseSuppressionDtlnName\", ns: \"settings\")", dialog);
+        Assert.Contains("\"mirrorOwnVideo\", \"mirrorOwnVideoLabel\", false", dialog);
+        Assert.Contains("\"screenCodec\"", dialog);
+        Assert.Contains("\"screenCursor\"", dialog);
+        Assert.Contains("\"screenBitrate\"", dialog);
+
+        // the worker has to actually consume the options the dialog writes
+        Assert.Contains("setNoiseGate", worker);
+        Assert.Contains("dtln-processor.js", worker);
+        Assert.Contains("noise-gate-processor.js", worker);
+        Assert.Contains("screenCursor", worker);
+        Assert.Contains("screenBitrate", worker);
+        Assert.Contains("mirrorOwnVideo", worker);
+        Assert.True(File.Exists(Source("Assets/VoiceMedia/dtln-processor.js")));
+        Assert.True(File.Exists(Source("Assets/VoiceMedia/noise-gate-processor.js")));
+    }
+
     private static string Source(string file, [CallerFilePath] string source = "") =>
         Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "../../src/Sharkord.App", file));
 }
