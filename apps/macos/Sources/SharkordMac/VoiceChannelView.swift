@@ -28,6 +28,9 @@ struct VoiceChannelView: View {
                 .opacity(joined ? 1 : 0.01)
 
             if joined && voiceMedia.status == "connected" {
+                ForEach(voiceMedia.receiveStreams.values.sorted { $0.id < $1.id }) { stream in
+                    ReceiveQualityMenu(stream: stream)
+                }
                 if let errorMessage = voiceMedia.errorMessage {
                     HStack(spacing: 10) {
                         Text(errorMessage)
@@ -76,7 +79,7 @@ struct VoiceChannelView: View {
 
             Spacer()
 
-            Text("\(participants.count) connected")
+            Text(L10n.t("voiceParticipantCount", ns: "macos", ["count": participants.count]))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }
@@ -191,7 +194,7 @@ struct VoiceChannelView: View {
                     .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 10))
                     .contextMenu {
                         if session.hasPermission(.moveMembers) {
-                            Menu("Move to") {
+                            Menu(L10n.t("moveTo", ns: "macos")) {
                                 ForEach(session.voiceChannels.filter { $0.id != channel.id }) { target in
                                     Button(target.name) {
                                         Task {
@@ -254,7 +257,7 @@ struct VoiceChannelView: View {
             controlButton(
                 deafened ? "speaker.slash.fill" : "speaker.wave.2.fill",
                 active: deafened,
-                help: deafened ? "Undeafen" : "Deafen"
+                help: L10n.t(deafened ? "keyboardShortcutUnmuteVoiceAudioTitle" : "keyboardShortcutMuteVoiceAudioTitle", ns: "macos")
             ) {
                 Task {
                     do {
@@ -279,12 +282,12 @@ struct VoiceChannelView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
-                .help("Send voice reaction")
+                .help(L10n.t("sendVoiceReaction", ns: "macos"))
             }
 
             Spacer()
 
-            controlButton("phone.down.fill", active: true, help: "Leave voice") {
+            controlButton("phone.down.fill", active: true, help: L10n.t("disconnectVoice", ns: "sidebar")) {
                 leaveVoice()
             }
         }
@@ -362,6 +365,45 @@ struct VoiceChannelView: View {
         }
 
         NSWorkspace.shared.open(url)
+    }
+}
+
+private struct ReceiveQualityMenu: View {
+    @EnvironmentObject private var session: SharkordSession
+    let stream: ReceiveStream
+    @State private var selectedLayer: Int?
+    @State private var working = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(session.user(for: stream.remoteId)?.name ?? L10n.t("unknownUser", ns: "common"))
+                Image(systemName: stream.kind == .screen ? "display" : "video")
+                Menu(L10n.t("receiveQuality", ns: "macos")) {
+                    Button(L10n.t("automaticQuality", ns: "macos")) { select(nil) }
+                    ForEach(stream.layers, id: \.spatialLayer) { layer in
+                        Button(layer.label) { select(layer.spatialLayer) }
+                    }
+                }.disabled(working)
+                Text(stream.layers.first { $0.spatialLayer == selectedLayer }?.label ?? L10n.t("automaticQuality", ns: "macos"))
+                    .foregroundStyle(.secondary)
+            }.font(.caption)
+            if let errorMessage { Text(errorMessage).font(.caption).foregroundStyle(.red) }
+        }.padding(.horizontal, 14)
+    }
+
+    private func select(_ layer: Int?) {
+        guard !working else { return }
+        working = true
+        Task {
+            defer { working = false }
+            do {
+                try await session.setConsumerQuality(remoteId: stream.remoteId, kind: stream.kind, spatialLayer: layer)
+                selectedLayer = layer
+                errorMessage = nil
+            } catch { errorMessage = SharkordSession.describe(error) }
+        }
     }
 }
 
