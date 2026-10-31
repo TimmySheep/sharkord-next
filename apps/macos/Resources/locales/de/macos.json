@@ -104,5 +104,21 @@
   "logsExportSuccessTitle": "Protokolle exportiert",
   "logsExportSuccessMessage": "Die Diagnoseprotokolle wurden am ausgewählten Speicherort gespeichert.",
   "logsExportFailureTitle": "Protokolle konnten nicht exportiert werden",
-  "logsExportFailureMessage": "Cove konnte die Diagnoseprotokolle nicht speichern. Prüfe den Dateizugriff und versuche es erneut."
+  "logsExportFailureMessage": "Cove konnte die Diagnoseprotokolle nicht speichern. Prüfe den Dateizugriff und versuche es erneut.",
+  "botBadge": "Bot",
+  "unreadMessages": "Ungelesene Nachrichten",
+  "newMessages": "Neue Nachrichten",
+  "typingSingle": "{{names}} schreibt",
+  "typingMultiple": "{{names}} schreiben",
+  "editingMessage": "Nachricht bearbeiten",
+  "attachFiles": "Dateien anhängen",
+  "sendMessage": "Senden",
+  "moveTo": "Verschieben nach",
+  "editCategoryTitle": "Kategorie bearbeiten",
+  "editChannelTitle": "Kanal bearbeiten",
+  "connectedStatus": "Verbunden",
+  "closeMembers": "Mitgliederleiste schließen",
+  "openMembers": "Mitgliederleiste öffnen",
+  "assignRole": "Rolle zuweisen",
+  "messageActions": "Nachrichtenaktionen"
 }

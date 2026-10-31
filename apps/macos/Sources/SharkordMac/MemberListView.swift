@@ -92,6 +92,7 @@ struct MemberRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 3)
+        .modifier(WorkspaceRowBackground())
     }
 }
 
@@ -253,7 +254,7 @@ struct UserProfileCard: View {
         }
 
         if !assignable.isEmpty {
-            Menu("Assign role") {
+            Menu(L10n.t("assignRole", ns: "macos")) {
                 ForEach(assignable) { role in
                     Button(role.name) {
                         Task {

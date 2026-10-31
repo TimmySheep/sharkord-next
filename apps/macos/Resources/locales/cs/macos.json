@@ -104,5 +104,21 @@
   "logsExportSuccessTitle": "Protokoly byly exportovány",
   "logsExportSuccessMessage": "Diagnostické protokoly byly uloženy do vybraného umístění.",
   "logsExportFailureTitle": "Protokoly se nepodařilo exportovat",
-  "logsExportFailureMessage": "Cove nemohl uložit diagnostické protokoly. Zkontrolujte přístup k souboru a zkuste to znovu."
+  "logsExportFailureMessage": "Cove nemohl uložit diagnostické protokoly. Zkontrolujte přístup k souboru a zkuste to znovu.",
+  "botBadge": "bot",
+  "unreadMessages": "Nepřečtené zprávy",
+  "newMessages": "Nové zprávy",
+  "typingSingle": "{{names}} píše",
+  "typingMultiple": "{{names}} píšou",
+  "editingMessage": "Úprava zprávy",
+  "attachFiles": "Přiložit soubory",
+  "sendMessage": "Odeslat",
+  "moveTo": "Přesunout do",
+  "editCategoryTitle": "Upravit kategorii",
+  "editChannelTitle": "Upravit kanál",
+  "connectedStatus": "Připojeno",
+  "closeMembers": "Zavřít panel členů",
+  "openMembers": "Otevřít panel členů",
+  "assignRole": "Přiřadit roli",
+  "messageActions": "Akce zprávy"
 }

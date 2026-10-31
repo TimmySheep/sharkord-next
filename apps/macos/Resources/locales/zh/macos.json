@@ -104,5 +104,21 @@
   "logsExportSuccessTitle": "日志已导出",
   "logsExportSuccessMessage": "诊断日志已保存到所选位置。",
   "logsExportFailureTitle": "无法导出日志",
-  "logsExportFailureMessage": "Cove 无法保存诊断日志。请检查文件访问权限后重试。"
+  "logsExportFailureMessage": "Cove 无法保存诊断日志。请检查文件访问权限后重试。",
+  "botBadge": "机器人",
+  "unreadMessages": "未读消息",
+  "newMessages": "新消息",
+  "typingSingle": "{{names}} 正在输入",
+  "typingMultiple": "{{names}} 正在输入",
+  "editingMessage": "正在编辑消息",
+  "attachFiles": "添加附件",
+  "sendMessage": "发送",
+  "moveTo": "移动到",
+  "editCategoryTitle": "编辑分类",
+  "editChannelTitle": "编辑频道",
+  "connectedStatus": "已连接",
+  "closeMembers": "关闭成员侧栏",
+  "openMembers": "打开成员侧栏",
+  "assignRole": "分配角色",
+  "messageActions": "消息操作"
 }

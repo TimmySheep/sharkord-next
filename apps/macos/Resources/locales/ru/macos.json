@@ -104,5 +104,21 @@
   "logsExportSuccessTitle": "Журналы экспортированы",
   "logsExportSuccessMessage": "Диагностические журналы сохранены в выбранном месте.",
   "logsExportFailureTitle": "Не удалось экспортировать журналы",
-  "logsExportFailureMessage": "Cove не удалось сохранить диагностические журналы. Проверьте доступ к файлу и повторите попытку."
+  "logsExportFailureMessage": "Cove не удалось сохранить диагностические журналы. Проверьте доступ к файлу и повторите попытку.",
+  "botBadge": "бот",
+  "unreadMessages": "Непрочитанные сообщения",
+  "newMessages": "Новые сообщения",
+  "typingSingle": "{{names}} печатает",
+  "typingMultiple": "{{names}} печатают",
+  "editingMessage": "Редактирование сообщения",
+  "attachFiles": "Прикрепить файлы",
+  "sendMessage": "Отправить",
+  "moveTo": "Переместить в",
+  "editCategoryTitle": "Изменить категорию",
+  "editChannelTitle": "Изменить канал",
+  "connectedStatus": "Подключено",
+  "closeMembers": "Закрыть панель участников",
+  "openMembers": "Открыть панель участников",
+  "assignRole": "Назначить роль",
+  "messageActions": "Действия с сообщением"
 }

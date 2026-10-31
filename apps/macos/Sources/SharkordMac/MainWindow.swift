@@ -105,7 +105,7 @@ struct MainWindow: View {
                     Label(L10n.t("searchButton", ns: "macos"), systemImage: "magnifyingglass")
                 }
                 .keyboardShortcut("k")
-                .help("Search")
+                .help(L10n.t("searchButton", ns: "macos"))
             }
 
             Button {
@@ -113,14 +113,14 @@ struct MainWindow: View {
             } label: {
                 Label(L10n.t("membersButton", ns: "macos"), systemImage: "person.2")
             }
-            .help(showsMembers ? "Close members sidebar" : "Open members sidebar")
+            .help(L10n.t(showsMembers ? "closeMembers" : "openMembers", ns: "macos"))
 
             Button {
                 session.disconnect()
             } label: {
                 Label(L10n.t("disconnect", ns: "sidebar"), systemImage: "rectangle.portrait.and.arrow.right")
             }
-            .help("Disconnect")
+            .help(L10n.t("disconnect", ns: "sidebar"))
         }
     }
 }
@@ -227,7 +227,7 @@ struct TextChannelView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .help("Pinned messages")
+                .help(L10n.t("pinnedMessagesTitle", ns: "common"))
             }
         }
         .padding(.horizontal, 16)
@@ -246,7 +246,7 @@ struct TextChannelView: View {
 
     private var title: String {
         if channel.isDm {
-            return session.directMessagePartner(for: channel)?.name ?? "Direct message"
+            return session.directMessagePartner(for: channel)?.name ?? L10n.t("directMessage", ns: "common")
         }
 
         return channel.name

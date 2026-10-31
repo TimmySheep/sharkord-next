@@ -2,18 +2,19 @@ import AppKit
 import SharkordCore
 import SwiftUI
 
-/// Visual tokens shared by every screen. The accent and avatar palette are taken from the
-/// web client's CSS variables (`--sidebar-primary`, `--chart-*`) so the native app reads as
-/// the same product rather than a different one.
+/// shared dark workspace surfaces, following the desktop taskbook's Discord palette
 enum Theme {
-    static let accent = Color(red: 0x14 / 255, green: 0x47 / 255, blue: 0xE6 / 255)
-    static let sidebar = Color(nsColor: .windowBackgroundColor)
-    static let panel = Color(nsColor: .controlBackgroundColor)
+    static let accent = Color(red: 0x58 / 255, green: 0x65 / 255, blue: 0xF2 / 255)
+    static let sidebar = Color(red: 0x2B / 255, green: 0x2D / 255, blue: 0x31 / 255)
+    static let panel = Color(red: 0x31 / 255, green: 0x33 / 255, blue: 0x38 / 255)
+    static let deep = Color(red: 0x1E / 255, green: 0x1F / 255, blue: 0x22 / 255)
     static let elevated = Color.primary.opacity(0.045)
-    static let input = Color(nsColor: .textBackgroundColor)
+    static let input = Color(red: 0x38 / 255, green: 0x3A / 255, blue: 0x40 / 255)
+    static let hover = Color.white.opacity(0.055)
+    static let selected = Color.white.opacity(0.10)
 
     static let avatarPalette: [Color] = [
-        Color(red: 0x14 / 255, green: 0x47 / 255, blue: 0xE6 / 255),
+        accent,
         Color(red: 0x7C / 255, green: 0x3A / 255, blue: 0xED / 255),
         Color(red: 0xDB / 255, green: 0x27 / 255, blue: 0x77 / 255),
         Color(red: 0xF9 / 255, green: 0x73 / 255, blue: 0x16 / 255),
@@ -30,6 +31,23 @@ enum Theme {
         }
 
         return color
+    }
+}
+
+struct WorkspaceRowBackground: ViewModifier {
+    var isSelected = false
+    @State private var hovering = false
+
+    private var fill: Color {
+        if isSelected { return Theme.selected }
+        if hovering { return Theme.hover }
+        return .clear
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .background(fill, in: RoundedRectangle(cornerRadius: 5))
+            .onHover { hovering = $0 }
     }
 }
 
