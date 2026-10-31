@@ -9,11 +9,14 @@ public sealed partial class SharkordSession
     private readonly Dictionary<(int ChannelId, int ParentId), Dictionary<int, DateTime>> _threadTyping = [];
     private readonly HashSet<int> _hasNewer = [];
     private readonly Dictionary<int, long> _historyRequests = [];
+    private readonly Dictionary<int, long> _threadRequests = [];
     private long _historyGeneration;
+    private long _navigationRequest;
 
     private void InvalidateHistory()
     {
         _historyGeneration++;
+        _navigationRequest++;
         foreach (var channelId in _messagesByChannel.Keys)
         {
             _messageRevisions[channelId] = ++_nextMessageRevision;
@@ -28,6 +31,28 @@ public sealed partial class SharkordSession
         _threadTyping.Clear();
         _hasNewer.Clear();
         _historyRequests.Clear();
+        _threadRequests.Clear();
+    }
+
+    private void InvalidateChannelHistory(int channelId)
+    {
+        var parentIds = _messagesByChannel.GetValueOrDefault(channelId)?.Select(message => message.Id).ToHashSet() ?? [];
+        parentIds.UnionWith(_messagesByThread.Where(entry => entry.Value.Any(message => message.ChannelId == channelId)).Select(entry => entry.Key));
+        _messagesByChannel.Remove(channelId);
+        _cursors.Remove(channelId);
+        _loadedChannels.Remove(channelId);
+        _hasNewer.Remove(channelId);
+        _typingByChannel.Remove(channelId);
+        _historyRequests[channelId] = _historyRequests.GetValueOrDefault(channelId) + 1;
+        _messageRevisions[channelId] = ++_nextMessageRevision;
+        foreach (var parentId in parentIds)
+        {
+            _messagesByThread.Remove(parentId);
+            _threadCursors.Remove(parentId);
+            _replyCounts.Remove(parentId);
+            _threadRequests[parentId] = _threadRequests.GetValueOrDefault(parentId) + 1;
+        }
+        foreach (var key in _threadTyping.Keys.Where(key => key.ChannelId == channelId).ToArray()) { _threadTyping.Remove(key); }
     }
 
     public bool CanViewChannel(SharkordChannel channel) =>
@@ -45,20 +70,46 @@ public sealed partial class SharkordSession
 
     public long ThreadRevision { get { lock (_gate) { return _nextMessageRevision; } } }
 
+    public bool IsVoiceTextSelected { get; private set; }
+
     public bool HasNewerMessages(int channelId)
     {
         lock (_gate) { return _hasNewer.Contains(channelId); }
     }
 
-    public async Task JumpToMessageAsync(int channelId, int messageId, CancellationToken cancellationToken = default)
+    public async Task<SharkordMessage?> JumpToMessageAsync(int channelId, int messageId, CancellationToken cancellationToken = default)
     {
-        SelectedChannelId = channelId;
-        await LoadAsync(channelId, null, cancellationToken, messageId).ConfigureAwait(false);
-        _loadedChannels.Add(channelId);
+        long request;
+        long generation;
+        lock (_gate)
+        {
+            request = ++_navigationRequest;
+            generation = _historyGeneration;
+            SelectedChannelId = channelId;
+            IsVoiceTextSelected = Channel(channelId)?.IsVoice == true;
+        }
+        Notify();
+        var node = await CallQueryAsync("messages.getOne", new JsonObject { ["messageId"] = messageId }, cancellationToken).ConfigureAwait(false);
+        lock (_gate)
+        {
+            if (request != _navigationRequest || generation != _historyGeneration || SelectedChannelId != channelId) { return null; }
+        }
+        var target = node.DeserializeObject<SharkordMessage>() ?? throw new TrpcClientError("NOT_FOUND", I18n.L10n.T("originalMessageUnavailable"));
+        if (target.ChannelId != channelId) { throw new TrpcClientError("NOT_FOUND", I18n.L10n.T("originalMessageUnavailable")); }
+        if (!await LoadAsync(channelId, null, cancellationToken, target.ParentMessageId ?? target.Id).ConfigureAwait(false)) { return null; }
+        lock (_gate)
+        {
+            if (request != _navigationRequest || generation != _historyGeneration || SelectedChannelId != channelId) { return null; }
+            _loadedChannels.Add(channelId);
+        }
+        return target;
     }
 
-    public Task ReturnToPresentAsync(int channelId, CancellationToken cancellationToken = default) =>
-        LoadAsync(channelId, null, cancellationToken);
+    public async Task ReturnToPresentAsync(int channelId, CancellationToken cancellationToken = default)
+    {
+        lock (_gate) { _navigationRequest++; }
+        await LoadAsync(channelId, null, cancellationToken).ConfigureAwait(false);
+    }
 
     public IReadOnlyList<SharkordMessage> GetThreadMessagesSnapshot(int parentMessageId)
     {
@@ -77,6 +128,7 @@ public sealed partial class SharkordSession
     {
         var input = new JsonObject { ["parentMessageId"] = parentMessageId, ["limit"] = ProtocolDefaults.MessagesLimit };
         long generation;
+        long request;
         lock (_gate)
         {
             generation = _historyGeneration;
@@ -85,12 +137,14 @@ public sealed partial class SharkordSession
                 if (!_threadCursors.TryGetValue(parentMessageId, out var cursor)) { return; }
                 input["cursor"] = new JsonObject { ["id"] = cursor.Id, ["createdAt"] = cursor.CreatedAt };
             }
+            request = _threadRequests.GetValueOrDefault(parentMessageId) + 1;
+            _threadRequests[parentMessageId] = request;
         }
         var result = await CallQueryAsync("messages.getThread", input, cancellationToken).ConfigureAwait(false);
         var page = result.DeserializeObject<MessagesPage>() ?? new();
         lock (_gate)
         {
-            if (generation != _historyGeneration) { return; }
+            if (generation != _historyGeneration || request != _threadRequests.GetValueOrDefault(parentMessageId)) { return; }
             var current = more && _messagesByThread.TryGetValue(parentMessageId, out var existing) ? existing : [];
             _messagesByThread[parentMessageId] = current.Concat(page.Messages)
                 .DistinctBy(message => message.Id).OrderBy(message => message, MessageOrder).ToList();
@@ -160,18 +214,9 @@ public sealed partial class SharkordSession
         ChannelPermissions = value.DeserializeObject<Dictionary<int, ChannelPermissionEntry>>() ?? [];
         lock (_gate)
         {
-            _historyGeneration++;
             foreach (var channel in Channels.Where(channel => !CanViewChannel(channel)))
             {
-                _messagesByChannel.Remove(channel.Id);
-                _cursors.Remove(channel.Id);
-                _loadedChannels.Remove(channel.Id);
-                _messageRevisions[channel.Id] = ++_nextMessageRevision;
-                foreach (var parentId in _messagesByThread.Where(entry => entry.Value.Any(message => message.ChannelId == channel.Id)).Select(entry => entry.Key).ToArray())
-                {
-                    _messagesByThread.Remove(parentId);
-                    _threadCursors.Remove(parentId);
-                }
+                InvalidateChannelHistory(channel.Id);
                 if (SelectedChannelId == channel.Id) { SelectedChannelId = null; }
             }
         }

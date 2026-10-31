@@ -14,6 +14,7 @@ public sealed partial class MainWindow
     private int? _displayedThreadParentId;
     private int? _jumpTargetId;
     private int _threadOpenRequest;
+    private int _messageNavigationRequest;
     private long _displayedHistoryGeneration = -1;
 
     private bool CanEditMessage(SharkordMessage message) =>
@@ -29,9 +30,10 @@ public sealed partial class MainWindow
     private void RefreshNavigationControls()
     {
         if (_displayedHistoryGeneration != _session.HistoryGeneration ||
-            (_threadParent is not null && _threadParent.ChannelId != _session.SelectedChannelId))
+            (_threadParent is not null && (_threadParent.ChannelId != _session.SelectedChannelId ||
+             !_session.GetMessagesSnapshot(_threadParent.ChannelId).Any(message => message.Id == _threadParent.Id))))
         {
-            _threadParent = null;
+            CloseThread();
             _displayedHistoryGeneration = _session.HistoryGeneration;
         }
         CloseThreadButton.Visibility = _threadParent is null ? Visibility.Collapsed : Visibility.Visible;
@@ -48,6 +50,8 @@ public sealed partial class MainWindow
     {
         _threadParent = null;
         _threadOpenRequest++;
+        _messageNavigationRequest++;
+        _jumpTargetId = null;
         _showDmVoice = false;
     }
 
@@ -60,10 +64,12 @@ public sealed partial class MainWindow
     private async void OnReturnToPresentClick(object sender, RoutedEventArgs e)
     {
         if (_session.SelectedChannelId is not { } channelId) { return; }
+        var request = ++_messageNavigationRequest;
+        var generation = _session.HistoryGeneration;
         try
         {
             await _session.ReturnToPresentAsync(channelId);
-            if (_session.SelectedChannelId != channelId) { return; }
+            if (request != _messageNavigationRequest || generation != _session.HistoryGeneration || _session.SelectedChannelId != channelId) { return; }
             _jumpTargetId = _session.GetMessagesSnapshot(channelId).LastOrDefault()?.Id;
             Refresh();
             RefreshNavigationControls();
@@ -75,41 +81,51 @@ public sealed partial class MainWindow
     {
         CloseThread();
         PrepareChannelSelection(channelId);
+        var request = _messageNavigationRequest;
+        var generation = _session.HistoryGeneration;
         try
         {
-            var targetNode = await _session.CallQueryAsync("messages.getOne", new JsonObject { ["messageId"] = messageId });
-            var target = targetNode?.Deserialize<SharkordMessage>(new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            var rootId = target?.ParentMessageId ?? messageId;
-            await _session.JumpToMessageAsync(channelId, rootId);
-            if (target?.ParentMessageId is not null)
+            var jump = _session.JumpToMessageAsync(channelId, messageId);
+            Refresh();
+            var target = await jump;
+            if (target is null || request != _messageNavigationRequest || generation != _session.HistoryGeneration || _session.SelectedChannelId != channelId) { return; }
+            if (target.ParentMessageId is { } rootId)
             {
                 var parent = _session.GetMessagesSnapshot(channelId).FirstOrDefault(message => message.Id == rootId);
                 if (parent is not null)
                 {
-                    await OpenThreadAsync(parent);
-                    while (_threadParent?.Id == parent.Id &&
+                    await OpenThreadAsync(parent, navigatingToMessage: true);
+                    while (request == _messageNavigationRequest && generation == _session.HistoryGeneration && _threadParent?.Id == parent.Id &&
                         !_session.GetThreadMessagesSnapshot(parent.Id).Any(message => message.Id == messageId) &&
                         _session.HasMoreThreadMessages(parent.Id))
                     {
                         await _session.LoadThreadAsync(parent.Id, more: true);
                     }
+                    if (_threadParent?.Id != parent.Id) { return; }
                 }
             }
+            if (request != _messageNavigationRequest || generation != _session.HistoryGeneration || _session.SelectedChannelId != channelId) { return; }
             _jumpTargetId = messageId;
             Refresh();
             RefreshNavigationControls();
         }
-        catch (Exception exception) { ChatErrorText.Text = exception.Message; }
+        catch (Exception exception)
+        {
+            if (request == _messageNavigationRequest && generation == _session.HistoryGeneration) { ChatErrorText.Text = exception.Message; }
+        }
     }
 
-    private async Task OpenThreadAsync(SharkordMessage parent)
+    private async Task OpenThreadAsync(SharkordMessage parent, bool navigatingToMessage = false)
     {
         if (parent.ParentMessageId is not null) { return; }
+        if (!navigatingToMessage) { _messageNavigationRequest++; _jumpTargetId = null; }
         var request = ++_threadOpenRequest;
+        var generation = _session.HistoryGeneration;
         try
         {
             await _session.LoadThreadAsync(parent.Id);
-            if (request != _threadOpenRequest || _session.SelectedChannelId != parent.ChannelId) { return; }
+            if (request != _threadOpenRequest || generation != _session.HistoryGeneration || _session.SelectedChannelId != parent.ChannelId ||
+                !_session.GetMessagesSnapshot(parent.ChannelId).Any(message => message.Id == parent.Id)) { return; }
             _threadParent = parent;
             Refresh();
         }
@@ -141,14 +157,17 @@ public sealed partial class MainWindow
         AddNavigationAction(menu, L10n.T("pinnedMessagesTitle"), ShowPinsAsync, _session.SelectedChannelId is not null);
         AddNavigationAction(menu, L10n.T("channelsLabel", ns: "macos"), () => ShowSelectionAsync(false));
         AddNavigationAction(menu, L10n.T("directMessage"), () => ShowSelectionAsync(true), _session.Settings?.DirectMessagesEnabled == true);
-        if (_session.SelectedChannelId is { } selectedId && _session.Channel(selectedId) is { IsDm: true, SupportsVoice: true })
+        if (_session.SelectedChannelId is { } selectedId && _session.Channel(selectedId) is { SupportsVoice: true } selected)
         {
-            var label = _showDmVoice ? L10n.T("messageChannel", ns: "common", ("name", ChannelTitle.Text)) : L10n.T("joinVoice", ns: "windows");
-            AddNavigationAction(menu, label, () =>
+            var showVoice = (selected.IsVoice && !_session.IsVoiceTextSelected) || (selected.IsDm && _showDmVoice);
+            var label = showVoice ? L10n.T("messageChannel", ns: "common", ("name", selected.Name)) : L10n.T("joinVoice", ns: "windows");
+            AddNavigationAction(menu, label, async () =>
             {
-                _showDmVoice = !_showDmVoice;
+                CloseThread();
+                _showDmVoice = selected.IsDm && !showVoice;
+                var selection = _session.SelectChannelAsync(selectedId, includeVoiceText: showVoice);
                 Refresh();
-                return Task.CompletedTask;
+                await selection;
             });
         }
         AddChannelManagement(menu);

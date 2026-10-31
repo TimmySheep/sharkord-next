@@ -339,7 +339,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         if (!_hasDirectMessageSnapshot) { await LoadDirectMessagesQuietlyAsync().ConfigureAwait(false); }
         if (SelectedChannelId is { } selectedChannelId)
         {
-            await SelectChannelAsync(selectedChannelId, cancellationToken).ConfigureAwait(false);
+            await SelectChannelAsync(selectedChannelId, cancellationToken, includeVoiceText: IsVoiceTextSelected).ConfigureAwait(false);
         }
     }
 
@@ -375,10 +375,8 @@ public sealed partial class SharkordSession : IAsyncDisposable
         {
             var first = TextChannels.FirstOrDefault(CanViewChannel) ?? DirectMessageChannels.FirstOrDefault(CanViewChannel);
 
-            if (first is not null)
-            {
-                SelectedChannelId = first.Id;
-            }
+            SelectedChannelId = first?.Id;
+            IsVoiceTextSelected = false;
         }
 
         Notify();
@@ -671,16 +669,17 @@ public sealed partial class SharkordSession : IAsyncDisposable
             var removed = false;
             if (_messagesByChannel.TryGetValue(channelId, out var list) && list.RemoveAll(message => message.Id == messageId) > 0)
             {
-                _messageRevisions[channelId] = ++_nextMessageRevision;
                 removed = true;
             }
             foreach (var thread in _messagesByThread.Values)
             {
                 removed |= thread.RemoveAll(message => message.Id == messageId && message.ChannelId == channelId) > 0;
             }
-            _messagesByThread.Remove(messageId);
+            removed |= _messagesByThread.Remove(messageId);
             _threadCursors.Remove(messageId);
+            if (_threadRequests.ContainsKey(messageId)) { _threadRequests[messageId]++; }
             if (!removed) { return; }
+            _messageRevisions[channelId] = ++_nextMessageRevision;
         }
 
         Notify();
@@ -752,16 +751,13 @@ public sealed partial class SharkordSession : IAsyncDisposable
 
         lock (_gate)
         {
-            _messagesByChannel.Remove(channelId);
-            _messageRevisions.Remove(channelId);
-            _loadedChannels.Remove(channelId);
-            _cursors.Remove(channelId);
-            _hasNewer.Remove(channelId);
+            InvalidateChannelHistory(channelId);
         }
 
         if (SelectedChannelId == channelId)
         {
             SelectedChannelId = (TextChannels.FirstOrDefault() ?? DirectMessageChannels.FirstOrDefault())?.Id;
+            IsVoiceTextSelected = false;
         }
 
         Notify();
@@ -881,10 +877,15 @@ public sealed partial class SharkordSession : IAsyncDisposable
 
     // MARK: - channel selection + history
 
-    public async Task SelectChannelAsync(int channelId, CancellationToken cancellationToken = default)
+    public async Task SelectChannelAsync(int channelId, CancellationToken cancellationToken = default, bool includeVoiceText = false)
     {
-        SelectedChannelId = channelId;
-        if (Channel(channelId)?.IsVoice == true)
+        lock (_gate)
+        {
+            _navigationRequest++;
+            SelectedChannelId = channelId;
+            IsVoiceTextSelected = includeVoiceText && Channel(channelId)?.IsVoice == true;
+        }
+        if (Channel(channelId)?.IsVoice == true && !IsVoiceTextSelected)
         {
             Notify();
             return;
@@ -901,8 +902,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
 
         try
         {
-            await LoadAsync(channelId, null, cancellationToken).ConfigureAwait(false);
-            MarkAsRead(channelId);
+            if (await LoadAsync(channelId, null, cancellationToken).ConfigureAwait(false)) { MarkAsRead(channelId); }
         }
         catch (Exception exception)
         {
@@ -1023,7 +1023,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         await LoadAsync(channelId, cursor, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task LoadAsync(int channelId, MessagesCursor? cursor, CancellationToken cancellationToken, int? targetMessageId = null)
+    private async Task<bool> LoadAsync(int channelId, MessagesCursor? cursor, CancellationToken cancellationToken, int? targetMessageId = null)
     {
         var client = _client ?? throw new TrpcClientError("DISCONNECTED", "Not connected");
 
@@ -1059,7 +1059,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
 
         lock (_gate)
         {
-            if (generation != _historyGeneration || request != _historyRequests.GetValueOrDefault(channelId)) { return; }
+            if (generation != _historyGeneration || request != _historyRequests.GetValueOrDefault(channelId)) { return false; }
             if (cursor is null)
             {
                 if (page.HasNewer == true) { _hasNewer.Add(channelId); }
@@ -1087,6 +1087,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         }
 
         Notify();
+        return true;
     }
 
     // MARK: - message actions
@@ -1189,9 +1190,11 @@ public sealed partial class SharkordSession : IAsyncDisposable
         {
             try
             {
+                var input = new JsonObject { ["channelId"] = channelId };
+                if (parentMessageId is { } parentId) { input["parentMessageId"] = parentId; }
                 await client.MutationAsync(
                     "messages.signalTyping",
-                    new JsonObject { ["channelId"] = channelId, ["parentMessageId"] = parentMessageId }
+                    input
                 ).ConfigureAwait(false);
             }
             catch
@@ -1326,6 +1329,7 @@ public sealed partial class SharkordSession : IAsyncDisposable
         Settings = null;
         OwnUserId = 0;
         SelectedChannelId = null;
+        IsVoiceTextSelected = false;
         CurrentVoiceChannelId = null;
 
         lock (_gate)
