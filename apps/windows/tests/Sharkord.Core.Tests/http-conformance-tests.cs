@@ -79,6 +79,21 @@ public class HttpConformanceTests
     }
 
     [Theory]
+    [InlineData(" 海 100%.txt ", "%E6%B5%B7%20100%25.txt")]
+    [InlineData("photo #1.png", "photo%20%231.png")]
+    public async Task UploadPercentEncodesTheOriginalNameLikeTheWebClient(string name, string encoded)
+    {
+        using var http = new HttpClient(new RequestHandler(request =>
+        {
+            Assert.Equal(encoded, Assert.Single(request.Headers.GetValues("x-file-name")));
+            return Task.FromResult(JsonResponse("{\"id\":\"temporary-id\"}"));
+        }));
+        var client = new SharkordHttpClient(new Uri("https://example.test/"), http);
+
+        await client.UploadAsync([], name, "text/plain", "test-token");
+    }
+
+    [Theory]
     [InlineData("http://example.test:4991/", "ws://example.test:4991/?connectionParams=1")]
     [InlineData("https://example.test/", "wss://example.test/?connectionParams=1")]
     public void WebSocketUsesTheSameOriginAndRequestsConnectionParams(string origin, string expected)

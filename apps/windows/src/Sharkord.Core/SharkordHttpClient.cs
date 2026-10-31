@@ -105,7 +105,7 @@ public sealed class SharkordHttpClient
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(BaseUrl, "upload"));
             request.Headers.Add("x-token", token);
-            request.Headers.Add("x-file-name", fileName);
+            request.Headers.Add("x-file-name", Uri.EscapeDataString(fileName.Trim()));
             request.Headers.Add("x-file-type", mimeType);
             request.Content = new ByteArrayContent(data);
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
