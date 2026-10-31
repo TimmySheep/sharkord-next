@@ -10,6 +10,7 @@ struct SharkordMacApp: App {
     @StateObject private var notifications = DesktopNotificationController()
     @StateObject private var pushToTalk = PushToTalkController()
     @StateObject private var keyboardShortcuts = KeyboardShortcutsController()
+    @StateObject private var composerDrafts = ComposerDrafts()
 
     var body: some Scene {
         WindowGroup(id: "main") {
@@ -19,6 +20,10 @@ struct SharkordMacApp: App {
                 .environmentObject(notifications)
                 .environmentObject(pushToTalk)
                 .environmentObject(keyboardShortcuts)
+                .environmentObject(composerDrafts)
+                .onChange(of: "\(session.serverId):\(session.ownUserId)") {
+                    composerDrafts.clear()
+                }
                 .frame(minWidth: 900, minHeight: 600)
                 .preferredColorScheme(.dark)
         }

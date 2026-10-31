@@ -214,6 +214,7 @@ extension NSTextView {
 struct Composer: View {
     @EnvironmentObject private var session: SharkordSession
     @EnvironmentObject private var keyboardShortcuts: KeyboardShortcutsController
+    @EnvironmentObject private var drafts: ComposerDrafts
 
     let channel: SharkordChannel
     var parentMessageId: Int? = nil
@@ -223,6 +224,8 @@ struct Composer: View {
     @State private var text = ""
     @State private var attachments: [PendingAttachment] = []
     @State private var uploading = false
+    @State private var sending = false
+    @State private var textBeforeEditing: String?
     @State private var errorMessage: String?
     @State private var showsEmoji = false
     @State private var composerHeight: CGFloat = 42
@@ -236,23 +239,30 @@ struct Composer: View {
     }
 
     private var canSubmit: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
+        if editing != nil { return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
+    }
+
+    private var canCompose: Bool {
+        if let editing {
+            return editing.userId == session.ownUserId && editing.editable != false
+        }
+        return canSend
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if editing != nil {
-                banner("Editing message") {
+                banner(L10n.t("editingMessage", ns: "macos")) {
                     self.editing = nil
-                    text = ""
                 }
             } else if let replyTarget {
-                banner("Replying to \(session.user(for: replyTarget.userId ?? 0)?.name ?? "message")") {
+                banner(L10n.t("replyingTo", ns: "common", ["username": session.user(for: replyTarget.userId ?? 0)?.name ?? L10n.t("unknownUser", ns: "common")])) {
                     self.replyTarget = nil
                 }
             }
 
-            if !attachments.isEmpty {
+            if !attachments.isEmpty, editing == nil {
                 attachmentRow
             }
 
@@ -267,7 +277,7 @@ struct Composer: View {
             HStack(alignment: .bottom, spacing: 8) {
                 ZStack(alignment: .topLeading) {
                     if text.isEmpty {
-                        Text(L10n.t(canSend ? "messagePlaceholder" : "messageNotAllowed", ns: "macos"))
+                        Text(L10n.t(canCompose ? "messagePlaceholder" : "messageNotAllowed", ns: "macos"))
                             .font(.system(size: 13.5))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 14)
@@ -278,7 +288,7 @@ struct Composer: View {
                     ComposerTextEditor(
                         text: $text,
                         height: $composerHeight,
-                        isEnabled: canSend && !uploading,
+                        isEnabled: canCompose && !uploading && !sending,
                         minHeight: composerMinHeight,
                         maxHeight: composerMaxHeight,
                         sendShortcut: keyboardShortcuts.preferences.sendMessage,
@@ -290,9 +300,9 @@ struct Composer: View {
                     )
                 }
                 .frame(height: composerHeight)
-                .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 8))
+                .background(Theme.input, in: RoundedRectangle(cornerRadius: 8))
 
-                if canSend {
+                if canCompose {
                     Button {
                         showsEmoji.toggle()
                     } label: {
@@ -300,14 +310,18 @@ struct Composer: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .help("Emoji")
+                    .help(L10n.t("emojiTab", ns: "common"))
+                    .accessibilityLabel(L10n.t("emojiTab", ns: "common"))
+                    .disabled(sending)
 
                     Button(action: pickFiles) {
                         Image(systemName: "paperclip")
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .help("Attach files")
+                    .help(L10n.t("attachFiles", ns: "macos"))
+                    .accessibilityLabel(L10n.t("attachFiles", ns: "macos"))
+                    .disabled(editing != nil || uploading || sending)
 
                     Button(action: send) {
                         Image(systemName: "arrow.up.circle.fill")
@@ -315,8 +329,9 @@ struct Composer: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(canSubmit ? Theme.accent : .secondary)
-                    .disabled(!canSubmit || uploading)
-                    .help("Send")
+                    .disabled(!canSubmit || uploading || sending)
+                    .help(L10n.t(editing == nil ? "sendMessage" : "saveButton", ns: "macos"))
+                    .accessibilityLabel(L10n.t(editing == nil ? "sendMessage" : "saveButton", ns: "macos"))
                 }
             }
             .padding(.horizontal, 12)
@@ -326,14 +341,33 @@ struct Composer: View {
         .overlay(alignment: .bottomLeading) {
             if showsEmoji {
                 EmojiPicker { picked in
+                    guard !sending else { return }
                     text += picked
                     showsEmoji = false
                 }
                 .frame(width: 300, height: 320)
-                .background(Theme.elevated, in: RoundedRectangle(cornerRadius: 10))
+                .background(Theme.deep, in: RoundedRectangle(cornerRadius: 10))
                 .shadow(radius: 16)
                 .offset(y: -330)
                 .padding(.leading, 12)
+            }
+        }
+        .onAppear {
+            if let draft = drafts.draft(channelId: channel.id, parentMessageId: parentMessageId) {
+                text = draft.text
+                attachments = draft.attachments
+            }
+        }
+        .onDisappear(perform: saveDraft)
+        .onChange(of: text) { saveDraft() }
+        .onChange(of: attachments) { saveDraft() }
+        .onChange(of: editing?.id) { oldId, _ in
+            if let editing {
+                if oldId == nil { textBeforeEditing = text }
+                text = MessageHTML.toPlainText(editing.content ?? "")
+            } else if let previous = textBeforeEditing {
+                text = previous
+                textBeforeEditing = nil
             }
         }
     }
@@ -351,6 +385,9 @@ struct Composer: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
+            .help(L10n.t("cancel", ns: "common"))
+            .accessibilityLabel(L10n.t("cancel", ns: "common"))
+            .disabled(sending)
         }
         .padding(.horizontal, 12)
         .padding(.top, 6)
@@ -371,6 +408,7 @@ struct Composer: View {
                             Image(systemName: "xmark")
                         }
                         .buttonStyle(.plain)
+                        .disabled(sending)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -385,17 +423,28 @@ struct Composer: View {
     // MARK: - actions
 
     private func send() {
-        guard canSubmit else {
+        guard canCompose, canSubmit, !uploading, !sending else {
             return
         }
 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        sending = true
 
         Task {
+            defer { sending = false }
             do {
                 if let editing {
-                    try await session.editMessage(editing.id, text: trimmed)
+                    let originalText = MessageHTML.toPlainText(editing.content ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed != originalText {
+                        try await session.editMessage(editing.id, text: trimmed)
+                    }
                     self.editing = nil
+                    text = textBeforeEditing ?? ""
+                    textBeforeEditing = nil
+                    errorMessage = nil
+                    saveDraft()
+                    return
                 } else {
                     let entities = MessageHTML.withEntities(
                         MessageHTML.fromPlainText(trimmed),
@@ -424,6 +473,7 @@ struct Composer: View {
                 text = ""
                 attachments = []
                 errorMessage = nil
+                saveDraft()
             } catch {
                 errorMessage = SharkordSession.describe(error)
             }
@@ -431,9 +481,9 @@ struct Composer: View {
     }
 
     private func cancel() {
+        guard !sending else { return }
         editing = nil
         replyTarget = nil
-        text = ""
     }
 
     private func editLastOwnMessage() {
@@ -441,16 +491,21 @@ struct Composer: View {
             return
         }
 
-        let own = (session.messagesByChannel[channel.id] ?? [])
-            .last { $0.userId == session.ownUserId && $0.editable != false }
+        let messages: [SharkordMessage]
+        if let parentMessageId {
+            messages = session.threadMessages(for: parentMessageId)
+        } else {
+            messages = session.messagesByChannel[channel.id] ?? []
+        }
+        let own = messages.last { $0.userId == session.ownUserId && $0.editable != false }
 
         if let own {
             editing = own
-            text = MessageHTML.toPlainText(own.content ?? "")
         }
     }
 
     private func signalTyping() {
+        guard canSend, editing == nil else { return }
         session.signalTyping(channelId: channel.id, parentMessageId: parentMessageId)
     }
 
@@ -465,8 +520,9 @@ struct Composer: View {
     }
 
     private func upload(urls: [URL]) async {
+        guard canSend, editing == nil, !uploading, !sending else { return }
         guard session.hasPermission(.uploadFiles) else {
-            errorMessage = "You cannot upload files"
+            errorMessage = L10n.t("noUploadPermission", ns: "common")
 
             return
         }
@@ -494,6 +550,16 @@ struct Composer: View {
                 errorMessage = SharkordSession.describe(error)
             }
         }
+    }
+
+    private func saveDraft() {
+        guard session.ownUserId != 0 else { return }
+        drafts.save(
+            text: textBeforeEditing ?? text,
+            attachments: attachments,
+            channelId: channel.id,
+            parentMessageId: parentMessageId
+        )
     }
 }
 
