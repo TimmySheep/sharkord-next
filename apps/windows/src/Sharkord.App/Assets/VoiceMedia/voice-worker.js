@@ -10969,6 +10969,9 @@ var microphoneStream;
 var microphoneInputStream;
 var microphoneAudioContext;
 var microphoneNoiseNode;
+var microphoneGateNode;
+var microphoneGateEnabled = false;
+var microphoneGateThresholdDb = -48;
 var microphoneProducer;
 var microphoneTrack;
 var microphoneNoiseMix = 1;
@@ -11000,6 +11003,19 @@ var getNoiseMixParameter = (node) => {
   });
   return parameter;
 };
+var waitForDtlnReady = (node) => new Promise((resolve, reject) => {
+  const timer = setTimeout(() => reject(new Error("The DTLN noise suppression processor did not start in time.")), 1e4);
+  node.port.onmessage = (event) => {
+    if (typeof event.data === "string" && event.data.startsWith("ready:")) {
+      clearTimeout(timer);
+      resolve();
+    }
+  };
+  node.onprocessorerror = (error) => {
+    clearTimeout(timer);
+    reject(error);
+  };
+});
 var setGalleryVisible = (visible) => {
   document.body.classList.toggle("has-video", visible);
   postToNative({ type: "video", visible });
@@ -11165,6 +11181,8 @@ var updateLocalPreview = () => {
     return;
   preview.srcObject = cameraStream ?? null;
   preview.hidden = cameraStream === undefined;
+  // mirroring only affects the local view, the published track stays untouched.
+  preview.style.transform = window.coveMediaOptions?.mirrorOwnVideo ? "scaleX(-1)" : "";
   const tile = preview.closest(".video-tile");
   tile?.classList.toggle("hidden", cameraStream === undefined);
   setGalleryVisible(remoteVideoCount > 0 || cameraStream !== undefined);
@@ -11177,6 +11195,7 @@ var closeMedia = () => {
   microphoneProducer = undefined;
   microphoneTrack = undefined;
   microphoneNoiseNode = undefined;
+  microphoneGateNode = undefined;
   microphoneAudioContext?.close().catch(() => {});
   microphoneAudioContext = undefined;
   canSpeak = false;
@@ -11250,17 +11269,23 @@ var openMicrophone = async () => {
     return;
   const transport = sendTransport;
   const generation = mediaGeneration;
+  const gateEnabled = window.coveMediaOptions?.noiseGateEnabled ?? false;
+  const gateThresholdDb = Math.min(0, Math.max(-70, window.coveMediaOptions?.noiseGateThresholdDb ?? -48));
+  const useDtln = microphoneNoiseMode === "dtln";
   let inputStream;
   let outputStream;
   let audioContext;
   let producer;
+  let gateNode;
   try {
     inputStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         deviceId: window.coveMediaOptions?.microphoneId ? { exact: window.coveMediaOptions.microphoneId } : undefined,
         autoGainControl: window.coveMediaOptions?.autoGainControl ?? true,
         echoCancellation: window.coveMediaOptions?.echoCancellation ?? true,
-        noiseSuppression: microphoneNoiseMode === "standard"
+        noiseSuppression: microphoneNoiseMode === "standard",
+        // dtln models are trained on 16khz mono, ask the device for exactly that.
+        ...(useDtln ? { sampleRate: 16000, channelCount: 1 } : {})
       },
       video: false
     });
@@ -11270,21 +11295,39 @@ var openMicrophone = async () => {
     }
     let noiseNode;
     outputStream = inputStream;
-    if (microphoneNoiseMode === "rnnoise") {
-      audioContext = new AudioContext({ sampleRate: 48000 });
-      await audioContext.audioWorklet.addModule(new URL("./rnnoise-bundle.js", document.baseURI));
+    const needsWorklet = microphoneNoiseMode === "rnnoise" || useDtln || gateEnabled;
+    if (needsWorklet) {
+      audioContext = new AudioContext({ sampleRate: useDtln ? 16000 : 48000 });
       const source = audioContext.createMediaStreamSource(inputStream);
-      noiseNode = new AudioWorkletNode(audioContext, "RnnoiseProcessor", {
-        outputChannelCount: [1]
-      });
       const destination = audioContext.createMediaStreamDestination();
-      const mixParameter = getNoiseMixParameter(noiseNode);
-      if (!mixParameter) {
-        throw new Error("The noise suppression control is unavailable.");
+      let chain = source;
+      if (gateEnabled) {
+        await audioContext.audioWorklet.addModule(new URL("./noise-gate-processor.js", document.baseURI));
+        gateNode = new AudioWorkletNode(audioContext, "sharkord-noise-gate");
+        gateNode.port.postMessage({ type: "config", enabled: true, thresholdDb: gateThresholdDb, holdMs: 100 });
+        chain.connect(gateNode);
+        chain = gateNode;
       }
-      mixParameter.setValueAtTime(microphoneNoiseMix, audioContext.currentTime);
-      source.connect(noiseNode);
-      noiseNode.connect(destination);
+      if (microphoneNoiseMode === "rnnoise") {
+        await audioContext.audioWorklet.addModule(new URL("./rnnoise-bundle.js", document.baseURI));
+        noiseNode = new AudioWorkletNode(audioContext, "RnnoiseProcessor", {
+          outputChannelCount: [1]
+        });
+        const mixParameter = getNoiseMixParameter(noiseNode);
+        if (!mixParameter) {
+          throw new Error("The noise suppression control is unavailable.");
+        }
+        mixParameter.setValueAtTime(microphoneNoiseMix, audioContext.currentTime);
+        chain.connect(noiseNode);
+        chain = noiseNode;
+      } else if (useDtln) {
+        await audioContext.audioWorklet.addModule(new URL("./dtln-processor.js", document.baseURI));
+        noiseNode = new AudioWorkletNode(audioContext, "DtlnProcessor");
+        await waitForDtlnReady(noiseNode);
+        chain.connect(noiseNode);
+        chain = noiseNode;
+      }
+      chain.connect(destination);
       if (audioContext.state === "suspended") {
         await audioContext.resume();
       }
@@ -11311,6 +11354,9 @@ var openMicrophone = async () => {
     microphoneStream = outputStream;
     microphoneAudioContext = audioContext;
     microphoneNoiseNode = noiseNode;
+    microphoneGateNode = gateNode;
+    microphoneGateEnabled = gateEnabled;
+    microphoneGateThresholdDb = gateThresholdDb;
     microphoneProducer = producer;
     microphoneTrack = track;
     microphoneMuted = true;
@@ -11502,7 +11548,8 @@ var setScreenShareEnabled = async (enabled) => {
     stream = await navigator.mediaDevices.getDisplayMedia({
       video: {
         height: { ideal: window.coveMediaOptions?.screenHeight ?? 1080 },
-        frameRate: { ideal: window.coveMediaOptions?.screenFrameRate ?? 30, max: window.coveMediaOptions?.screenFrameRate ?? 30 }
+        frameRate: { ideal: window.coveMediaOptions?.screenFrameRate ?? 30, max: window.coveMediaOptions?.screenFrameRate ?? 30 },
+        cursor: window.coveMediaOptions?.screenCursor ?? "always"
       },
       audio: true
     });
@@ -11515,7 +11562,7 @@ var setScreenShareEnabled = async (enabled) => {
       throw new Error("No screen video track is available.");
     }
     videoTrack.contentHint = "detail";
-    videoProducer = await sendTransport.produce(videoProduceOptions(videoTrack, "screen", 2500000));
+    videoProducer = await sendTransport.produce(videoProduceOptions(videoTrack, "screen", (window.coveMediaOptions?.screenBitrate ?? 6000) * 1000));
     const audioTrack = stream.getAudioTracks()[0];
     if (audioTrack) {
       audioProducer = await sendTransport.produce({
@@ -11587,7 +11634,7 @@ var setMicrophoneMuted = async (muted) => {
   }
 };
 var setNoiseSuppressionMode = async (mode) => {
-  if (!["off", "standard", "rnnoise"].includes(mode)) {
+  if (!["off", "standard", "rnnoise", "dtln"].includes(mode)) {
     throw new Error("Unknown noise suppression mode.");
   }
   if (microphoneNoiseMode === mode)
@@ -11603,8 +11650,37 @@ var setNoiseSuppressionMode = async (mode) => {
     await microphoneAudioContext?.close();
     microphoneAudioContext = undefined;
     microphoneNoiseNode = undefined;
+    microphoneGateNode = undefined;
   }
   microphoneNoiseMode = mode;
+  if (!wasMuted)
+    await setMicrophoneMuted(false);
+};
+var setNoiseGate = async (enabled, thresholdDb) => {
+  const nextEnabled = enabled === true;
+  const nextThresholdDb = Math.min(0, Math.max(-70, thresholdDb ?? -48));
+  if (microphoneGateEnabled === nextEnabled && microphoneGateThresholdDb === nextThresholdDb)
+    return;
+  microphoneGateEnabled = nextEnabled;
+  microphoneGateThresholdDb = nextThresholdDb;
+  // a live gate node takes the new config directly, the chain shape does not change.
+  if (microphoneGateNode) {
+    microphoneGateNode.port.postMessage({ type: "config", enabled: nextEnabled, thresholdDb: nextThresholdDb, holdMs: 100 });
+    return;
+  }
+  // without a gate node only adding one needs a rebuild, so an open mic is reopened once.
+  if (!nextEnabled || !microphoneProducer)
+    return;
+  const wasMuted = microphoneMuted;
+  await callNative("voice.closeProducer", { kind: "audio" });
+  microphoneProducer.close();
+  microphoneProducer = undefined;
+  microphoneTrack = undefined;
+  microphoneStream?.getTracks().forEach((track) => track.stop());
+  microphoneInputStream?.getTracks().forEach((track) => track.stop());
+  await microphoneAudioContext?.close();
+  microphoneAudioContext = undefined;
+  microphoneNoiseNode = undefined;
   if (!wasMuted)
     await setMicrophoneMuted(false);
 };
@@ -11672,6 +11748,7 @@ window.coveVoice = {
   setRemoteAudioVolume,
   setNoiseSuppressionMix,
   setNoiseSuppressionMode,
+  setNoiseGate: (enabled, thresholdDb) => reportActionError(() => setNoiseGate(enabled, thresholdDb), "microphone"),
   setMicrophoneMuted: (muted) => reportActionError(() => setMicrophoneMuted(muted), "microphone"),
   setOutputMuted: (muted) => reportActionError(() => setOutputMuted(muted), "audio"),
   setWebcamEnabled: (enabled) => reportActionError(() => setWebcamEnabled(enabled), "camera"),
