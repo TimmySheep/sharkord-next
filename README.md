@@ -1,4 +1,19 @@
-# Cove
+<!--readme-header-->
+<p align="center">
+  <img src="apps/macos/Resources/Assets.xcassets/AppIcon.appiconset/cove-dark-512-2x.png" width="128" alt="Cove icon">
+</p>
+
+<h1 align="center">Cove</h1>
+
+<p align="center">
+  <b>兼容 Sharkord 的原生客户端：Android、iOS 与 Apple Watch</b><br>
+  <sub>Unofficial native client compatible with Sharkord</sub>
+</p>
+
+<p align="center"><img alt="platform" src="https://img.shields.io/badge/platform-Android%20%C2%B7%20iOS%20%C2%B7%20watchOS-3DDC84?logo=android&logoColor=white"><img alt="license" src="https://img.shields.io/github/license/TimmySheep/sharkord-next?label=license&color=green"><img alt="release" src="https://img.shields.io/github/v/release/TimmySheep/sharkord-next?label=release&color=blue"></p>
+
+---
+<!--/readme-header-->
 
 **Cove is an unofficial, open-source compatible client for [Sharkord](https://github.com/Sharkord/sharkord), not a standalone communication platform or an independent server project.**
 It connects to a Sharkord server: Sharkord provides the backend, accounts, channels and media infrastructure; Cove focuses on the native client experience.
